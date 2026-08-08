@@ -39,7 +39,7 @@ export default function Logo({ locale, compact = false }: LogoProps) {
         <span
           className={`${compact ? "text-[9px]" : "text-xs"} mt-1 hidden whitespace-nowrap font-semibold leading-tight text-[var(--muted)] sm:block`}
         >
-          Social Network Analysis
+          Social Network Analysis Hub of Knowledge
         </span>
       </span>
     </Link>

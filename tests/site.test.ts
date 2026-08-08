@@ -212,6 +212,7 @@ test("tracked text source contains no retired-site brand or host strings", () =>
 });
 
 test("the SNA logo is a flat seven-node, eight-edge bridge network", () => {
+  assert.match(read("components/Logo.tsx"), /Social Network Analysis Hub of Knowledge/);
   const logo = read("public/logos/sna-logo.svg");
   const circles = logo.match(/<circle\b[^>]*\/?\s*>/gi) ?? [];
   const lines = logo.match(/<line\b[^>]*\/?\s*>/gi) ?? [];
