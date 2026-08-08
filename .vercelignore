@@ -1,0 +1,19 @@
+.git
+.vercel
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+.playwright-cli
+output
+outputs
+tmp
+.env
+.env.*
+All API Keys*.docx
+*.pem
+*.tsbuildinfo
+*.log
