@@ -15,7 +15,7 @@ The project is intentionally static and compact:
 | Localization | `lib/i18n.ts` | Locale registry, locale metadata, dictionary type, and all interface copy |
 | Site identity | `lib/site.ts` | Canonical URL and absolute URL construction |
 | Search semantics | `lib/structured-data.ts`, `app/robots.ts`, `app/sitemap.ts` | JSON-LD, robots policy, and localized sitemap entries |
-| Static assets | `public` | Logo, favicon, and home hero image |
+| Static assets | `public` | Logo, favicon, home hero image, and public About-page identity assets |
 | Contract validation | `tests/site.test.ts` | Mechanical checks for routes, localization, branding, content boundaries, metadata, and redirects |
 
 There is no content database, scheduled publishing service, or mailing integration in the current architecture.
@@ -46,6 +46,18 @@ The SNA mark represents two network clusters connected through one bridge node. 
 | Soft violet | `#F5F3FF` | Mark background and visual continuity |
 
 The canonical logo is `public/logos/sna-logo.svg`. The favicon and generated Open Graph image use the same visual system.
+
+## About profile contract
+
+The localized About page presents Dr. Peter Hu Dongpin and the SNA-specific research and development ecosystem. Its structure is intentionally stable:
+
+1. A centered localized page heading.
+2. A profile card with the authorized public portrait at `public/images/about/dr-peter-hu-dongpin.png`, an initiator label, a concise biography, and four SNA focus areas.
+3. A related-company panel for PedaNova and cards for the SNA.js and 3D ENA network tools.
+4. Public R&D links to [hudongpin.com](https://www.hudongpin.com), [pedanova.tech](https://www.pedanova.tech), [SNA.js](https://github.com/HUDongpin/sna.js), and [3D ENA](https://www.3dena.com).
+5. About-specific profile metadata plus localized Person and Organization JSON-LD.
+
+Update the English, Traditional Chinese, and Simplified Chinese About dictionaries together. Keep biography statements limited to public, verifiable professional information. Do not add private contact details, affiliations, awards, or achievements without a current authoritative source.
 
 ## News and Academy content contract
 
@@ -92,6 +104,7 @@ The site test mechanically verifies:
 - removal of retired-site branding from tracked text source;
 - the logo's node, edge, bridge-node, and flat-SVG constraints;
 - the presence and dimensions of the 1536 by 864 PNG hero;
+- the localized Dr. Peter Hu profile, SNA tool links, profile metadata, structured data, and exact 640 by 640 portrait;
 - interface punctuation constraints;
 - absence of database, scheduled-publishing, and mailing dependencies; and
 - semantic metadata, alternate-language metadata, structured layout elements, and Open Graph assets.

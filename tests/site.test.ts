@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -142,6 +143,54 @@ test("News and Academy render explicit empty states without content-service impo
   }
 });
 
+test("the About page presents Dr. Peter Hu's localized SNA profile and verified public tools", () => {
+  const pageSource = read("app/[locale]/about/page.tsx");
+
+  assert.match(pageSource, /import Image from ["']next\/image["']/);
+  assert.match(pageSource, /src=["']\/images\/about\/dr-peter-hu-dongpin\.png["']/);
+  assert.match(pageSource, /src=["']\/logos\/pedanova-mark-transparent\.png["']/);
+  assert.ok(existsSync(fromRoot("public/logos/pedanova-mark-transparent.png")));
+  assert.match(pageSource, /<SectionHeader\b/);
+  assert.match(pageSource, /<JsonLd data=\{structuredData\}/);
+  assert.match(pageSource, /personJsonLd\(\{/);
+  assert.match(pageSource, /aboutOrganizationJsonLd\(\{/);
+  assert.match(pageSource, /type:\s*["']profile["']/);
+  assert.match(pageSource, /images:\s*\[/);
+  assert.match(pageSource, /absoluteUrl\(["']\/opengraph-image["']\)/);
+  assert.match(pageSource, /canonical:\s*url/);
+  assert.match(pageSource, /languages:\s*Object\.fromEntries/);
+  assert.match(pageSource, /\{copy\.principalLabel\}/);
+  assert.match(pageSource, /\{copy\.personTitle\}/);
+  assert.match(pageSource, /\{copy\.personText\}/);
+  assert.match(pageSource, /copy\.focusItems\.map/);
+  assert.match(pageSource, /copy\.products\.map/);
+  assert.match(pageSource, /profileLinks\.map/);
+  assert.match(pageSource, /target=["']_blank["']/);
+  assert.match(pageSource, /rel=["']noreferrer["']/);
+
+  const expectedUrls = [
+    "https://www.hudongpin.com",
+    "https://www.pedanova.tech",
+    "https://github.com/HUDongpin/sna.js",
+    "https://www.3dena.com",
+  ];
+  for (const url of expectedUrls) assert.ok(pageSource.includes(url), `${url} must be linked from About`);
+
+  const retiredTopicPattern = new RegExp(["ai", "ed"].join(""), "i");
+  for (const locale of locales) {
+    const about = getDictionary(locale).about;
+    assert.match(about.personText, /Dr\. Peter Hu Dongpin/);
+    assert.match(`${about.title} ${about.personText}`, /SNA\.HK/);
+    assert.equal(about.focusItems.length, 4, `${locale} must have four SNA focus items`);
+    assert.deepEqual(
+      about.products.map((product) => product.name),
+      ["SNA.js", "3D ENA"],
+      `${locale} must expose the two SNA tools`
+    );
+    assert.doesNotMatch(JSON.stringify(about), retiredTopicPattern);
+  }
+});
+
 test("the canonical production host is www.sna.hk", () => {
   const canonicalUrl = "https://www.sna.hk";
   assert.match(read("lib/site.ts"), new RegExp(canonicalUrl.replaceAll(".", "\\.")));
@@ -196,6 +245,20 @@ test("the home hero is a 1536 by 864 PNG", () => {
   assert.equal(png.subarray(12, 16).toString("ascii"), "IHDR");
   assert.equal(png.readUInt32BE(16), 1536);
   assert.equal(png.readUInt32BE(20), 864);
+});
+
+test("the Dr. Peter Hu portrait is the expected 640 by 640 PNG", () => {
+  const portraitPath = fromRoot("public/images/about/dr-peter-hu-dongpin.png");
+  assert.ok(existsSync(portraitPath));
+  const png = readFileSync(portraitPath);
+  assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(png.subarray(12, 16).toString("ascii"), "IHDR");
+  assert.equal(png.readUInt32BE(16), 640);
+  assert.equal(png.readUInt32BE(20), 640);
+  assert.equal(
+    createHash("sha256").update(png).digest("hex"),
+    "1b1fd7d8eef4d17cbf2d74610bf9d2e8f748e96b3db76a0f9ea7b75f2ec33071"
+  );
 });
 
 test("visible interface source uses neither em dash nor en dash characters", () => {
@@ -290,4 +353,11 @@ test("semantic layout metadata and Open Graph assets are present", () => {
   assert.match(read("components/Header.tsx"), /<nav\b[^>]*aria-label=/);
   assert.match(read("components/Footer.tsx"), /<footer\b/);
   assert.match(read("components/SectionHeader.tsx"), /<h1\b/);
+
+  const aboutPage = read("app/[locale]/about/page.tsx");
+  const structuredData = read("lib/structured-data.ts");
+  assert.match(aboutPage, /openGraph:\s*\{[\s\S]*type:\s*["']profile["']/);
+  assert.match(aboutPage, /personJsonLd/);
+  assert.match(structuredData, /export function personJsonLd/);
+  assert.match(structuredData, /export function aboutOrganizationJsonLd/);
 });

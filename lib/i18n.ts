@@ -59,13 +59,17 @@ export type Dictionary = {
   about: {
     eyebrow: string;
     title: string;
-    intro: string;
-    purposeTitle: string;
-    purposeText: string;
-    scopeTitle: string;
-    scopeText: string;
-    principlesTitle: string;
-    principles: Array<{ title: string; text: string }>;
+    principalLabel: string;
+    personTitle: string;
+    personText: string;
+    focusTitle: string;
+    focusItems: string[];
+    companyTitle: string;
+    companyText: string;
+    productsTitle: string;
+    products: Array<{ name: string; text: string }>;
+    linksTitle: string;
+    externalLink: string;
   };
   footer: {
     description: string;
@@ -225,34 +229,34 @@ const dictionaries: Record<Locale, Dictionary> = {
     },
     about: {
       eyebrow: "About",
-      title: "About SNA.hk",
-      intro:
-        "SNA.hk is a multilingual platform dedicated to clear, rigorous, and responsible social network analysis.",
-      purposeTitle: "Our purpose",
-      purposeText:
-        "We help researchers, educators, students, and practitioners understand how relational structures shape behavior, access, collaboration, and change.",
-      scopeTitle: "Our scope",
-      scopeText:
-        "The platform covers network theory, research design, data collection, visualization, statistical analysis, interpretation, and ethical practice across educational and social settings.",
-      principlesTitle: "What guides us",
-      principles: [
+      title: "The Initiator of SNA.HK and the Network Research Ecosystem",
+      principalLabel: "Initiator",
+      personTitle: "About Dr. Peter Hu Dongpin",
+      personText:
+        "Dr. Peter Hu Dongpin is the initiator of SNA.HK, an educational researcher, and an application developer. His work connects network analysis, learning analytics, and technology-enhanced learning to make relational structures visible and useful.",
+      focusTitle: "SNA research and development focus",
+      focusItems: [
+        "Social network analysis in education",
+        "Learning and collaboration networks",
+        "Epistemic network analysis and visualization",
+        "Responsible analysis of relational data",
+      ],
+      companyTitle: "Related company",
+      companyText:
+        "PedaNova Ed-Tech connects educational science with future-facing learning technology as part of Dr. Hu's broader R&D ecosystem. Within this ecosystem, SNA.js and 3D ENA are the tools focused on network analysis.",
+      productsTitle: "Network tools",
+      products: [
         {
-          title: "Clarity",
-          text: "Explain complex network ideas precisely and accessibly.",
+          name: "SNA.js",
+          text: "A browser and Node.js library that ports the R sna package to TypeScript and JavaScript, with executable tests for parity with R.",
         },
         {
-          title: "Evidence",
-          text: "Ground claims in sound methods and credible scholarship.",
-        },
-        {
-          title: "Context",
-          text: "Treat network structures as part of real social systems, not isolated diagrams.",
-        },
-        {
-          title: "Responsibility",
-          text: "Respect privacy, consent, fairness, and the limits of inference.",
+          name: "3D ENA",
+          text: "Three-dimensional epistemic network analysis and visualization for examining relationships among coded concepts.",
         },
       ],
+      linksTitle: "SNA R&D links",
+      externalLink: "Open website",
     },
     footer: {
       description:
@@ -382,34 +386,35 @@ const dictionaries: Record<Locale, Dictionary> = {
       emptyNote: "首批學習資源完成編輯審核後，將於此頁顯示。",
     },
     about: {
-      eyebrow: "關於我們",
-      title: "關於 SNA.hk",
-      intro: "SNA.hk 是專注於清晰、嚴謹與負責任社會網絡分析的多語言平台。",
-      purposeTitle: "我們的宗旨",
-      purposeText:
-        "我們協助研究者、教育工作者、學生與實務工作者理解關係結構如何塑造行為、資源取得、協作與改變。",
-      scopeTitle: "內容範圍",
-      scopeText:
-        "平台涵蓋網絡理論、研究設計、資料收集、視覺化、統計分析、結果詮釋，以及教育與社會情境中的倫理實務。",
-      principlesTitle: "我們的準則",
-      principles: [
+      eyebrow: "關於",
+      title: "SNA.HK 發起人與網絡研究生態",
+      principalLabel: "發起人",
+      personTitle: "關於 Dr. Peter Hu Dongpin",
+      personText:
+        "Dr. Peter Hu Dongpin 是 SNA.HK 的發起人、教育研究者與應用程式開發者。他的工作連結網絡分析、學習分析與科技增強學習，讓關係結構更清晰可見並可應用。",
+      focusTitle: "SNA 研發焦點",
+      focusItems: [
+        "教育情境中的社會網絡分析",
+        "學習與協作網絡",
+        "認知網絡分析與視覺化",
+        "負責任地分析關係資料",
+      ],
+      companyTitle: "相關公司",
+      companyText:
+        "PedaNova Ed-Tech 連結教育科學與前瞻學習科技，是 Dr. Hu 更廣泛研發生態的一部分。在此生態中，SNA.js 與 3D ENA 是專注於網絡分析的工具。",
+      productsTitle: "網絡工具",
+      products: [
         {
-          title: "清晰",
-          text: "準確而易懂地解釋複雜的網絡概念。",
+          name: "SNA.js",
+          text: "把 R sna 套件移植至 TypeScript 與 JavaScript 的瀏覽器及 Node.js 社會網絡分析函式庫，並以可執行測試驗證與 R 的一致性。",
         },
         {
-          title: "證據",
-          text: "以可靠方法與可信學術成果支持論述。",
-        },
-        {
-          title: "情境",
-          text: "把網絡結構視為真實社會系統的一部分，而非孤立圖像。",
-        },
-        {
-          title: "責任",
-          text: "尊重私隱、知情同意、公平原則及推論界限。",
+          name: "3D ENA",
+          text: "用於檢視編碼概念之間關係的三維認知網絡分析與視覺化工具。",
         },
       ],
+      linksTitle: "SNA 研發連結",
+      externalLink: "開啟網站",
     },
     footer: {
       description: "推動清晰、嚴謹與負責任社會網絡分析的多語言知識平台。",
@@ -538,34 +543,35 @@ const dictionaries: Record<Locale, Dictionary> = {
       emptyNote: "首批学习资源完成编辑审核后，将在此页显示。",
     },
     about: {
-      eyebrow: "关于我们",
-      title: "关于 SNA.hk",
-      intro: "SNA.hk 是专注于清晰、严谨与负责任社会网络分析的多语言平台。",
-      purposeTitle: "我们的宗旨",
-      purposeText:
-        "我们帮助研究者、教育工作者、学生与实践工作者理解关系结构如何塑造行为、资源获取、协作与改变。",
-      scopeTitle: "内容范围",
-      scopeText:
-        "平台涵盖网络理论、研究设计、数据收集、可视化、统计分析、结果解读，以及教育与社会情境中的伦理实践。",
-      principlesTitle: "我们的准则",
-      principles: [
+      eyebrow: "关于",
+      title: "SNA.HK 发起人与网络研究生态",
+      principalLabel: "发起人",
+      personTitle: "关于 Dr. Peter Hu Dongpin",
+      personText:
+        "Dr. Peter Hu Dongpin 是 SNA.HK 的发起人、教育研究者与应用程序开发者。他的工作连接网络分析、学习分析与技术增强学习，让关系结构更清晰可见并可应用。",
+      focusTitle: "SNA 研发重点",
+      focusItems: [
+        "教育情境中的社会网络分析",
+        "学习与协作网络",
+        "认知网络分析与可视化",
+        "负责任地分析关系数据",
+      ],
+      companyTitle: "相关公司",
+      companyText:
+        "PedaNova Ed-Tech 连接教育科学与前沿学习技术，是 Dr. Hu 更广泛研发体系的一部分。在此体系中，SNA.js 与 3D ENA 是专注于网络分析的工具。",
+      productsTitle: "网络工具",
+      products: [
         {
-          title: "清晰",
-          text: "准确且易懂地解释复杂的网络概念。",
+          name: "SNA.js",
+          text: "将 R sna 软件包移植到 TypeScript 与 JavaScript 的浏览器及 Node.js 社会网络分析库，并以可执行测试验证与 R 的一致性。",
         },
         {
-          title: "证据",
-          text: "以可靠方法与可信学术成果支持论述。",
-        },
-        {
-          title: "情境",
-          text: "把网络结构视为真实社会系统的一部分，而非孤立图像。",
-        },
-        {
-          title: "责任",
-          text: "尊重隐私、知情同意、公平原则及推断边界。",
+          name: "3D ENA",
+          text: "用于检视编码概念之间关系的三维认知网络分析与可视化工具。",
         },
       ],
+      linksTitle: "SNA 研发链接",
+      externalLink: "打开网站",
     },
     footer: {
       description: "推动清晰、严谨与负责任社会网络分析的多语言知识平台。",
