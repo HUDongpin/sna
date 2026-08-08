@@ -14,6 +14,12 @@ const nextConfig = {
 
     return [
       {
+        source: "/:path*",
+        has: [{ type: "host", value: "sna.hk" }],
+        destination: "https://www.sna.hk/:path*",
+        permanent: true,
+      },
+      {
         source: "/news",
         destination: "/en/news",
         permanent: false,

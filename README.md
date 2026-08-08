@@ -102,9 +102,11 @@ Before release, run:
 npm run release:verify
 ```
 
-## Deployment target
+## Deployment
 
-The intended hosting platform is Vercel and the intended production URL is [https://www.sna.hk](https://www.sna.hk). Set `NEXT_PUBLIC_SITE_URL=https://www.sna.hk` in the Vercel project so canonical URLs, sitemap entries, robots metadata, and structured data agree.
+The source repository is [HUDongpin/sna](https://github.com/HUDongpin/sna) and the production Vercel project is `peter-dongpin-hu-s-projects/sna`. The canonical production URL is [https://www.sna.hk](https://www.sna.hk). Set `NEXT_PUBLIC_SITE_URL=https://www.sna.hk` in the Vercel project so canonical URLs, sitemap entries, robots metadata, and structured data agree.
+
+The apex host `sna.hk` is attached for discoverability and permanently redirects to the canonical `www.sna.hk` host while preserving the requested path and query string.
 
 A release should only be described as complete after all of the following are independently verified:
 
@@ -114,4 +116,4 @@ A release should only be described as complete after all of the following are in
 4. `www.sna.hk` is attached to that Vercel project and resolves to the production deployment.
 5. The localized routes, logo, hero image, metadata, and redirects work on the live domain.
 
-Repository publication, Vercel deployment, and domain attachment are release operations outside this documentation. Their completion is not asserted here.
+Use current GitHub, Vercel, DNS, certificate, and route evidence when reporting a release. A historical README or local build is not sufficient production proof.

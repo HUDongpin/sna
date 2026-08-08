@@ -214,6 +214,12 @@ test("root and legacy route aliases redirect to the localized canonical routes",
   const configModule = await import(pathToFileURL(fromRoot("next.config.mjs")).href);
   const redirects = await configModule.default.redirects();
   assert.deepEqual(redirects, [
+    {
+      source: "/:path*",
+      has: [{ type: "host", value: "sna.hk" }],
+      destination: "https://www.sna.hk/:path*",
+      permanent: true,
+    },
     { source: "/news", destination: "/en/news", permanent: false },
     { source: "/news/:slug*", destination: "/en/news/:slug*", permanent: false },
     { source: "/academy", destination: "/en/academy", permanent: false },
