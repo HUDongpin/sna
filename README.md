@@ -11,11 +11,15 @@ The project is intentionally static and compact:
 | Application shell | `app/layout.tsx` | Global metadata, analytics, global styles, and shared page behavior |
 | Localized shell | `app/[locale]/layout.tsx` | Locale validation, alternate-language metadata, header, footer, and structured data |
 | Pages | `app/[locale]` | Home, Mission, News, Academy, and About routes |
-| Shared interface | `components` | Navigation, logo, calls to action, section headings, and empty states |
+| Shared interface | `components` | Navigation, logo, calls to action, section headings, News and Academy discovery controls, cards, pagination, and tutorial visuals |
 | Localization | `lib/i18n.ts` | Locale registry, locale metadata, dictionary type, and all interface copy |
+| Reviewed News corpus | `lib/news-reviewed-data.ts` | Static journal and conference records, three-language summaries, SNA methods, and evidence boundaries |
+| News discovery | `lib/news-filter.ts`, `lib/news-types.ts` | Search, filters, pagination, and typed article contracts |
+| Reviewed Academy corpus | `lib/academy-reviewed-data.ts` | Six static SNA tutorials with complete three-language content, method sources, and evidence and privacy boundaries |
+| Academy discovery | `lib/academy-filter.ts`, `lib/academy-types.ts` | Search, track and level filters, pagination, and typed tutorial contracts |
 | Site identity | `lib/site.ts` | Canonical URL and absolute URL construction |
 | Search semantics | `lib/structured-data.ts`, `app/robots.ts`, `app/sitemap.ts` | JSON-LD, robots policy, and localized sitemap entries |
-| Static assets | `public` | Logo, favicon, home hero image, and public About-page identity assets |
+| Static assets | `public` | Logo, favicon, home hero image, public About-page identity assets, and reviewed News media |
 | Contract validation | `tests/site.test.ts` | Mechanical checks for routes, localization, branding, content boundaries, metadata, and redirects |
 
 There is no content database, scheduled publishing service, or mailing integration in the current architecture.
@@ -59,16 +63,35 @@ The localized About page presents Dr. Peter Hu Dongpin and the SNA-specific rese
 
 Update the English, Traditional Chinese, and Simplified Chinese About dictionaries together. Keep biography statements limited to public, verifiable professional information. Do not add private contact details, affiliations, awards, or achievements without a current authoritative source.
 
-## News and Academy content contract
+## News content contract
 
-News and Academy are deliberate empty-state pages. Each page provides localized introductory copy and a clear coming-soon message, but neither page loads article records, course records, a database, nor a mailing workflow.
+News is a static, reviewed collection of journal and peer-reviewed conference articles that use social network analysis as a substantive data analysis approach. It uses a structured research-news discovery and article-summary pattern with an SNA-specific editorial lens.
 
-Until real content and its publishing model are approved:
+Every News record must:
 
-1. Keep `app/[locale]/news/page.tsx` and `app/[locale]/academy/page.tsx` as explicit `EmptyState` consumers.
-2. Keep their dynamic detail routes unavailable through `notFound()`.
-3. Do not add content-data, database, or newsletter imports to either page.
-4. Update the three dictionaries together if the empty-state wording changes.
+1. Identify relational data with meaningful nodes and ties.
+2. Describe the SNA method or model actually used in the source study.
+3. Link to an authoritative article, proceedings, or repository page over HTTPS and retain the DOI.
+4. Distinguish findings from causal claims and state the study's evidence boundary.
+5. Provide complete English, Traditional Chinese, and Simplified Chinese localizations with the same typed field structure.
+6. Use a 1536 by 960 PNG master image with two article-aligned paths: one under `public/images/news/covers` and one under `public/images/news/summary`. The two files for one article must contain the same bitmap, while different articles must use distinct masters.
+
+The News index is server-rendered from a static reviewed corpus. Search, article type, year filters, and six-item pagination use URL query parameters. Article detail pages expose localized metadata, an `Article` JSON-LD record whose source study is embedded as `ScholarlyArticle`, breadcrumb JSON-LD, the network design, reviewed summary, key takeaways, responsible limitations, source citation, and related articles. There is no content database, scheduled publisher, newsletter, or mailing workflow.
+
+## Academy content contract
+
+Academy is a static, reviewed learning pathway that adapts the News presentation grammar to instruction without treating tutorials as research papers. The first release contains exactly six tutorials, ordered from network specification and representation through centrality, cohesion, QAP, and ERGM analysis.
+
+Every Academy record must:
+
+1. Use a stable `academy-NNN` identifier, sequence, slug, track, level, duration, publication date, and review date.
+2. Declare `social-network-analysis` as its analysis approach and state nodes, ties, network type, direction, weights, boundary, and missing-data meaning where relevant.
+3. Provide exactly three learning objectives, four tutorial steps with checkpoints, three core ideas, a practice task, an interpretation section, three related concepts, and an explicit evidence and privacy boundary.
+4. Link to at least one authoritative methodological source over HTTPS.
+5. Provide complete English, Traditional Chinese, and Simplified Chinese localizations with the same typed field structure. Silent body-copy fallback is not permitted.
+6. Use the shared CSS network visual as a purposeful lesson preview. Academy does not inherit News' two-path same-bitmap storage contract.
+
+The Academy index follows the News discovery pattern with URL-based search, track and level filters, and six-item pagination. Lesson details expose localized metadata, `LearningResource` and breadcrumb JSON-LD, learning objectives, a network specification, step-by-step analysis, careful interpretation, responsible-use guidance, sequential navigation, sources, and related tutorials. There is no progress storage, account state, database, scheduled publisher, newsletter, audio, or mailing workflow.
 
 ## Local development
 
@@ -99,7 +122,12 @@ The site test mechanically verifies:
 
 - exactly three complete locale dictionaries with structural parity;
 - the five required localized page routes;
-- explicit empty states for News and Academy;
+- a seven-item, source-linked, three-language News corpus containing only SNA journal and conference research;
+- News search, article-type and year filtering, six-item pagination, detail routes, structured data, and sitemap entries;
+- exact News image dimensions, same-bitmap cover/summary pairs, and distinct masters across articles;
+- a six-item, source-linked, three-language Academy corpus in a deterministic SNA learning sequence;
+- Academy search, track and level filtering, pagination, detail routes, `LearningResource` structured data, and sitemap entries;
+- complete Academy nodes, ties, network-type, tutorial-step, interpretation, and evidence and privacy contracts;
 - the canonical `www.sna.hk` host and route aliases;
 - removal of retired-site branding from tracked text source;
 - the logo's node, edge, bridge-node, and flat-SVG constraints;

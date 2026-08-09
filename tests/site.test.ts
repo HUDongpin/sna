@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { getDictionary, localeMeta, locales } from "../lib/i18n";
+import { filterNewsArticles } from "../lib/news-filter";
+import { localizeNewsArticle, newsArticles, newsYears } from "../lib/news-reviewed-data";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -122,25 +124,185 @@ test("the localized Home, Mission, News, Academy, and About route files exist", 
   }
 });
 
-test("News and Academy render explicit empty states without content-service imports", () => {
-  for (const section of ["news", "academy"] as const) {
-    const pageSource = read(`app/[locale]/${section}/page.tsx`);
-    assert.match(pageSource, /import\s+EmptyState\s+from\s+["']@\/components\/EmptyState["']/);
-    assert.match(pageSource, /<EmptyState\b/);
-    assert.match(pageSource, /title=\{copy\.emptyTitle\}/);
-    assert.match(pageSource, /text=\{copy\.emptyText\}/);
-    assert.match(pageSource, /note=\{copy\.emptyNote\}/);
+test("Academy uses a reviewed tutorial corpus, discovery controls, and real detail routes", () => {
+  const pageSource = read("app/[locale]/academy/page.tsx");
+  assert.doesNotMatch(pageSource, /EmptyState/);
+  assert.match(pageSource, /academyLessons/);
+  assert.match(pageSource, /filterAcademyLessons/);
+  assert.match(pageSource, /<AcademyFilters\b/);
+  assert.match(pageSource, /<AcademyCard\b/);
+  assert.match(pageSource, /<AcademyPagination\b/);
+  assert.match(pageSource, /copy\.pathwaySteps\.map/);
 
-    const forbiddenPageImport = /(?:^|[\/@.-])(data|database|db|newsletter)(?:$|[\/@.-])/i;
-    assert.deepEqual(
-      importSpecifiers(pageSource).filter((specifier) => forbiddenPageImport.test(specifier)),
-      [],
-      `${section} must not import a data, database, or newsletter module`
-    );
+  const detailSource = read("app/[locale]/academy/[slug]/page.tsx");
+  assert.match(detailSource, /generateStaticParams/);
+  assert.match(detailSource, /export const dynamicParams = false/);
+  assert.match(detailSource, /getAcademyLesson\(slug\)/);
+  assert.match(detailSource, /if \(!record\) notFound\(\)/);
+  assert.match(detailSource, /academyLearningResourceJsonLd/);
+  assert.match(detailSource, /breadcrumbJsonLd/);
+  assert.match(detailSource, /lesson\.learningObjectives\.map/);
+  assert.match(detailSource, /lesson\.tutorialSteps\.map/);
+  assert.match(detailSource, /lesson\.responsibleUse/);
+  assert.match(detailSource, /getAcademySequenceNeighbors/);
 
-    const detailSource = read(`app/[locale]/${section}/[slug]/page.tsx`);
-    assert.match(detailSource, /notFound\(\)/, `${section} detail routes must remain unavailable while empty`);
+  const structuredDataSource = read("lib/structured-data.ts");
+  assert.match(structuredDataSource, /export function academyLearningResourceJsonLd/);
+  assert.match(structuredDataSource, /"@type": "LearningResource"/);
+});
+
+test("News uses a static reviewed corpus, research discovery controls, and real detail routes", () => {
+  const pageSource = read("app/[locale]/news/page.tsx");
+  assert.doesNotMatch(pageSource, /EmptyState/);
+  assert.match(pageSource, /newsArticles\.map/);
+  assert.match(pageSource, /filterNewsArticles/);
+  assert.match(pageSource, /<NewsFilters\b/);
+  assert.match(pageSource, /alt: featured\.imageAlt/);
+  assert.match(pageSource, /<NewsCard\b/);
+  assert.match(pageSource, /<NewsPagination\b/);
+  assert.match(pageSource, /copy\.inclusionItems\.map/);
+  assert.doesNotMatch(pageSource, /newsletter|mailing/i);
+
+  const detailSource = read("app/[locale]/news/[slug]/page.tsx");
+  assert.match(detailSource, /generateStaticParams/);
+  assert.match(detailSource, /export const dynamicParams = false/);
+  assert.match(detailSource, /getNewsArticle\(slug\)/);
+  assert.match(detailSource, /if \(!record\) notFound\(\)/);
+  assert.match(detailSource, /newsReviewArticleJsonLd/);
+  assert.match(detailSource, /breadcrumbJsonLd/);
+  assert.match(detailSource, /publishedTime: article\.reviewedAt/);
+  assert.match(detailSource, /article\.nodes/);
+  assert.match(detailSource, /article\.ties/);
+  assert.match(detailSource, /article\.methods/);
+  assert.match(detailSource, /article\.limitations/);
+  assert.match(detailSource, /article\.keyTakeaways\.map/);
+  assert.match(read("components/NewsCard.tsx"), /<h3\b/);
+  assert.doesNotMatch(read("components/NewsCard.tsx"), /<h2\b/);
+  assert.match(read("components/NewsFilters.tsx"), /aria-current/);
+
+  const structuredDataSource = read("lib/structured-data.ts");
+  assert.match(structuredDataSource, /"@type": "Article"/);
+  assert.match(structuredDataSource, /about: sourceArticle/);
+  assert.match(structuredDataSource, /datePublished: article\.reviewedAt/);
+});
+
+test("the reviewed News corpus contains seven complete SNA journal and conference articles", () => {
+  assert.equal(newsArticles.length, 7);
+  assert.deepEqual(newsArticles.map((article) => article.id), [
+    "sna-007",
+    "sna-006",
+    "sna-005",
+    "sna-004",
+    "sna-003",
+    "sna-002",
+    "sna-001",
+  ]);
+  assert.deepEqual(newsYears, [2026, 2024, 2023, 2022, 2020, 2017, 2016]);
+  assert.equal(newsArticles.find((article) => article.id === "sna-001")?.publishedAt, "2016-12-29");
+
+  const ids = new Set<string>();
+  const slugs = new Set<string>();
+  const sources = new Set<string>();
+  const citations = new Set<string>();
+  let previousDate = "9999-12-31";
+
+  for (const article of newsArticles) {
+    assert.ok(article.type === "journal" || article.type === "conference");
+    assert.match(article.id, /^sna-\d{3}$/);
+    assert.equal(article.sequence, Number.parseInt(article.id.slice(4), 10));
+    assert.match(article.slug, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    assert.match(article.sourceUrl, /^https:\/\//);
+    assert.match(article.doi, /^10\./);
+    assert.match(article.publishedAt, /^\d{4}-\d{2}(?:-\d{2})?$/);
+    assert.equal(article.year, Number.parseInt(article.publishedAt.slice(0, 4), 10));
+    assert.equal(article.reviewedAt, "2026-08-09");
+    assert.ok(article.authors.length >= 2);
+    assert.ok(article.venue.trim().length > 0);
+    assert.ok(article.citation.trim().length > 0);
+    assert.ok(article.publishedAt <= previousDate, "articles must be ordered newest to oldest");
+    previousDate = article.publishedAt;
+
+    assert.ok(!ids.has(article.id), `${article.id} must be unique`);
+    assert.ok(!slugs.has(article.slug), `${article.slug} must be unique`);
+    assert.ok(!sources.has(article.sourceUrl), `${article.sourceUrl} must be unique`);
+    assert.ok(!citations.has(article.citation), `${article.citation} must be unique`);
+    ids.add(article.id);
+    slugs.add(article.slug);
+    sources.add(article.sourceUrl);
+    citations.add(article.citation);
+
+    for (const locale of locales) {
+      const localized = localizeNewsArticle(article, locale);
+      assertCompleteText(article.localizations[locale], `${article.id}.${locale}`);
+      assert.equal(localized.tags.length, 3);
+      assert.equal(localized.overview.length, 2);
+      assert.equal(localized.keyTakeaways.length, 3);
+      const summaryMinimum = locale === "en" ? 80 : 40;
+      const methodMinimum = locale === "en" ? 80 : 40;
+      const limitationMinimum = locale === "en" ? 50 : 30;
+      const designMinimum = locale === "en" ? 20 : 10;
+      assert.ok(localized.summary.length >= summaryMinimum, `${article.id}.${locale} summary must be substantive`);
+      assert.ok(localized.howSnaWasUsed.length >= methodMinimum, `${article.id}.${locale} must explain the SNA approach`);
+      assert.ok(localized.nodes.length >= designMinimum);
+      assert.ok(localized.ties.length >= designMinimum);
+      assert.ok(localized.methods.length >= designMinimum);
+      assert.ok(localized.limitations.length >= limitationMinimum, `${article.id}.${locale} must state an evidence boundary`);
+    }
   }
+
+  assert.ok(newsArticles.some((article) => article.type === "journal"));
+  assert.ok(newsArticles.some((article) => article.type === "conference"));
+  assert.ok(newsArticles.some((article) => !article.openAccess), "the corpus must represent access status honestly");
+});
+
+test("News search, filtering, and six-item pagination preserve the reviewed corpus contract", () => {
+  const english = newsArticles.map((article) => localizeNewsArticle(article, "en"));
+  const firstPage = filterNewsArticles(english);
+  assert.equal(firstPage.items.length, 6);
+  assert.equal(firstPage.total, 7);
+  assert.equal(firstPage.page, 1);
+  assert.equal(firstPage.totalPages, 2);
+
+  const secondPage = filterNewsArticles(english, { page: "2" });
+  assert.equal(secondPage.items.length, 1);
+  assert.equal(secondPage.items[0].id, "sna-001");
+
+  const conference = filterNewsArticles(english, { type: "conference" });
+  assert.ok(conference.items.length > 0);
+  assert.ok(conference.items.every((article) => article.type === "conference"));
+
+  const search = filterNewsArticles(english, { q: "centrality" });
+  assert.ok(search.total > 0);
+  assert.ok(search.items.some((article) => article.methods.toLowerCase().includes("centrality")));
+
+  const filteredYear = filterNewsArticles(english, { year: "2024" });
+  assert.equal(filteredYear.total, 1);
+  assert.equal(filteredYear.items[0].id, "sna-006");
+});
+
+test("each News article has a distinct 1536 by 960 PNG and a byte-identical summary copy", () => {
+  const distinctCoverHashes = new Set<string>();
+
+  for (const article of newsArticles) {
+    const coverPath = fromRoot("public", article.coverImage.slice(1));
+    const summaryPath = fromRoot("public", article.summaryImage.slice(1));
+    assert.ok(existsSync(coverPath), `${article.coverImage} must exist`);
+    assert.ok(existsSync(summaryPath), `${article.summaryImage} must exist`);
+
+    const cover = readFileSync(coverPath);
+    const summary = readFileSync(summaryPath);
+    assert.deepEqual([...cover.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.equal(cover.subarray(12, 16).toString("ascii"), "IHDR");
+    assert.equal(cover.readUInt32BE(16), 1536);
+    assert.equal(cover.readUInt32BE(20), 960);
+
+    const coverHash = createHash("sha256").update(cover).digest("hex");
+    const summaryHash = createHash("sha256").update(summary).digest("hex");
+    assert.equal(summaryHash, coverHash, `${article.id} cover and summary image must be the same bitmap`);
+    distinctCoverHashes.add(coverHash);
+  }
+
+  assert.equal(distinctCoverHashes.size, newsArticles.length, "every article must have a distinct master image");
 });
 
 test("the About page presents Dr. Peter Hu's localized SNA profile and verified public tools", () => {
