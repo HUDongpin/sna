@@ -117,6 +117,125 @@ export const newsArticles: NewsArticleRecord[] = [
     },
   },
   {
+    id: "sna-008",
+    sequence: 8,
+    slug: "bridging-stem-faculty-silos",
+    type: "journal",
+    authors: [
+      "Lawrence Hobbie",
+      "Peter A. Novick",
+      "Jessica Santangelo",
+      "Amanda Turner",
+      "Eugenia Villa-Cuesta",
+      "Kate Winter",
+      "Alison Hyslop",
+    ],
+    venue: "Applied Network Science",
+    citation: "Applied Network Science, 10, Article 63",
+    doi: "10.1007/s41109-025-00750-7",
+    sourceUrl:
+      "https://link.springer.com/article/10.1007/s41109-025-00750-7",
+    sourceLabel: "Applied Network Science",
+    publishedAt: "2025-12-02",
+    year: 2025,
+    reviewedAt: "2026-08-12",
+    openAccess: true,
+    coverImage:
+      "/images/news/covers/sna-008-bridging-stem-faculty-silos.png",
+    summaryImage:
+      "/images/news/summary/sna-008-bridging-stem-faculty-silos-summary.png",
+    localizations: {
+      en: {
+        title:
+          "A social network analysis of the (STEM)2 Network model: bridging disciplinary and institutional silos",
+        imageAlt:
+          "Miniature campus islands surrounding seven translucent network time planes with teal, amber, and violet collaboration ties",
+        summary:
+          "A longitudinal whole-network study of 43 STEM faculty found that interactions expanded across nine institutions and three disciplines over seven survey waves, while members in formal leadership roles were especially likely to connect otherwise separated groups.",
+        overview: [
+          "The study followed an intentionally designed faculty network that brought together biology, chemistry, and mathematics educators from nine institutions. Forty-three members who met the participation boundary completed roster-based interaction surveys at seven events across three and a half years.",
+          "Average degree more than tripled from the network's beginning, and cross-institution connections increased as institution-based assortativity declined. Multiple measures pointed to less disciplinary and institutional substructure over time, while principal investigators and co-principal investigators were overrepresented among high-betweenness bridge positions.",
+        ],
+        howSnaWasUsed:
+          "The authors built seven cumulative, undirected whole-network snapshots from roster-based reports of personal interaction. They examined degree, density, path length, diameter, within-group and cross-group edges, the E-I index, modularity, Leiden communities, clustering, attribute and degree assortativity, betweenness, randomized reference networks, and role-group comparisons.",
+        nodes:
+          "Forty-three faculty members from nine institutions and three STEM disciplines who joined the bounded (STEM)2 Network and met the study's participation rule.",
+        ties:
+          "An undirected binary connection indicated that at least one member reported a personal interaction with the other member; once reported, the connection was retained in later snapshots.",
+        methods:
+          "Seven cumulative whole-network snapshots; connectedness and subgroup metrics; Leiden community detection; assortativity and betweenness; randomized reference networks; and corrected nonparametric role-group comparisons.",
+        keyTakeaways: [
+          "Average degree more than tripled, and new cohorts became more connected after joining the network.",
+          "Cross-institution ties increased while institution-based assortativity and modular separation declined over time.",
+          "Formal leaders had more connections and were disproportionately represented among high-betweenness bridges.",
+        ],
+        whyItMatters:
+          "The study shows how repeated whole-network measurement can test whether a faculty-development network is actually bridging organizational silos rather than assuming that attendance produces collaboration. Using several converging metrics makes the structural interpretation more transparent.",
+        limitations:
+          "This was an observational study of one voluntary, geographically concentrated network, not a randomized evaluation. A broad self-report item captured any personal interaction but not its strength, quality, or educational consequence, and carrying ties forward may stabilize later snapshots. The patterns support network-development claims, but they do not establish that the program caused faculty change, collaboration quality, or improved student outcomes.",
+        tags: ["Faculty networks", "Longitudinal SNA", "Organizational bridges"],
+      },
+      "zh-hant": {
+        title: "運用社會網絡分析研究 (STEM)2 網絡模式如何跨越學科與院校藩籬",
+        imageAlt:
+          "多個微縮校園環繞七個半透明網絡時間平面，並由青綠、琥珀及紫藍色協作連結相接",
+        summary:
+          "一項針對43名 STEM 教師的縱向完整網絡研究發現，在七輪調查期間，互動逐步跨越九所院校與三個學科，而擔任正式領導角色的成員尤其常連接原本分隔的群體。",
+        overview: [
+          "研究追蹤一個經刻意設計的教師網絡，匯聚來自九所院校的生物、化學及數學教育工作者。共有43名符合參與邊界的成員，在三年半內七次活動中完成名冊式互動問卷。",
+          "平均度數由網絡建立初期起增加超過三倍，跨院校連結增加，按院校計算的屬性同配性則下降。多項指標均顯示學科及院校子結構隨時間減弱，而首席研究員與共同首席研究員在高中介中心性的橋接位置中所佔比例特別高。",
+        ],
+        howSnaWasUsed:
+          "作者根據名冊式個人互動報告建立七個累積、無向的完整網絡快照，分析度數、密度、路徑長度、直徑、組內與跨組連結、E-I 指數、模組度、Leiden 社群、聚類、屬性與度數同配性、中介中心性、隨機參照網絡及不同角色組別。",
+        nodes:
+          "來自九所院校及三個 STEM 學科、加入有清楚邊界的 (STEM)2 網絡並符合研究參與規則的43名教師。",
+        ties:
+          "一條無向二元連結表示至少一名成員報告曾與另一名成員親自互動；連結一經報告，便保留在後續快照中。",
+        methods:
+          "七個累積完整網絡快照、連通性與子群指標、Leiden 社群偵測、同配性與中介中心性、隨機參照網絡，以及經校正的非參數角色組別比較。",
+        keyTakeaways: [
+          "平均度數增加超過三倍，新加入的梯次亦在加入後逐步建立更多連結。",
+          "跨院校連結增加，而按院校計算的同配性及模組分隔則隨時間下降。",
+          "正式領導者擁有更多連結，並在高中介中心性的橋接位置中佔較高比例。",
+        ],
+        whyItMatters:
+          "研究展示如何以重複完整網絡量度，檢驗教師發展網絡是否真正跨越組織藩籬，而不是假定參與活動自然會帶來協作。多項互相呼應的指標亦令結構詮釋更透明。",
+        limitations:
+          "這是一項針對單一自願參與、地理範圍集中的網絡之觀察研究，並非隨機評估。概括的自陳題目只記錄是否曾互動，未量度連結強度、質素或教育後果；把既有連結延續至後續快照亦可能令網絡顯得較穩定。結果支持網絡發展的描述，但不能證明計劃導致教師改變、提升協作品質或改善學生結果。",
+        tags: ["教師網絡", "縱向 SNA", "組織橋接"],
+      },
+      "zh-hans": {
+        title: "运用社会网络分析研究 (STEM)2 网络模式如何跨越学科与院校壁垒",
+        imageAlt:
+          "多个微缩校园环绕七个半透明网络时间平面，并由青绿、琥珀及紫蓝色协作连接相接",
+        summary:
+          "一项针对43名 STEM 教师的纵向完整网络研究发现，在七轮调查期间，互动逐步跨越九所院校与三个学科，而担任正式领导角色的成员尤其常连接原本分隔的群体。",
+        overview: [
+          "研究追踪一个经刻意设计的教师网络，汇聚来自九所院校的生物、化学及数学教育工作者。共有43名符合参与边界的成员，在三年半内七次活动中完成名册式互动问卷。",
+          "平均度数从网络建立初期起增加超过三倍，跨院校连接增加，按院校计算的属性同配性则下降。多项指标均显示学科及院校子结构随时间减弱，而首席研究员与共同首席研究员在高中介中心性的桥接位置中所占比例特别高。",
+        ],
+        howSnaWasUsed:
+          "作者根据名册式个人互动报告建立七个累积、无向的完整网络快照，分析度数、密度、路径长度、直径、组内与跨组连接、E-I 指数、模块度、Leiden 社群、聚类、属性与度数同配性、中介中心性、随机参照网络及不同角色组别。",
+        nodes:
+          "来自九所院校及三个 STEM 学科、加入有清楚边界的 (STEM)2 网络并符合研究参与规则的43名教师。",
+        ties:
+          "一条无向二元连接表示至少一名成员报告曾与另一名成员亲自互动；连接一经报告，便保留在后续快照中。",
+        methods:
+          "七个累积完整网络快照、连通性与子群指标、Leiden 社群检测、同配性与中介中心性、随机参照网络，以及经校正的非参数角色组别比较。",
+        keyTakeaways: [
+          "平均度数增加超过三倍，新加入的批次也在加入后逐步建立更多连接。",
+          "跨院校连接增加，而按院校计算的同配性及模块分隔则随时间下降。",
+          "正式领导者拥有更多连接，并在高中介中心性的桥接位置中占较高比例。",
+        ],
+        whyItMatters:
+          "研究展示如何通过重复完整网络测量，检验教师发展网络是否真正跨越组织壁垒，而不是假定参与活动自然会带来协作。多项相互呼应的指标也使结构解释更加透明。",
+        limitations:
+          "这是一项针对单一自愿参与、地理范围集中的网络之观察研究，并非随机评估。概括的自陈题目只记录是否曾互动，未测量连接强度、质量或教育后果；把既有连接延续至后续快照也可能使网络显得较稳定。结果支持网络发展的描述，但不能证明项目导致教师改变、提升协作质量或改善学生结果。",
+        tags: ["教师网络", "纵向 SNA", "组织桥接"],
+      },
+    },
+  },
+  {
     id: "sna-006",
     sequence: 6,
     slug: "social-presence-and-peer-interactions",

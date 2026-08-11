@@ -29,16 +29,30 @@ function assertCompleteText(value: unknown, location: string): void {
   }
 }
 
-test("the Academy corpus contains six ordered, complete, three-language SNA tutorials", () => {
-  assert.equal(academyLessons.length, 6);
-  assert.deepEqual(academyLessons.map((lesson) => lesson.id), [
+test("the Academy corpus preserves its baseline and supports ordered three-language growth", () => {
+  const baselineIds = [
     "academy-006",
     "academy-005",
     "academy-004",
     "academy-003",
     "academy-002",
     "academy-001",
-  ]);
+  ];
+  assert.ok(academyLessons.length >= baselineIds.length);
+  assert.ok(baselineIds.every((id) => academyLessons.some((lesson) => lesson.id === id)));
+  assert.deepEqual(
+    academyLessons.map((lesson) => lesson.sequence).sort((left, right) => left - right),
+    Array.from({ length: academyLessons.length }, (_, index) => index + 1),
+  );
+  assert.deepEqual(
+    academyLessons.map((lesson) => lesson.sequence),
+    [...academyLessons].map((lesson) => lesson.sequence).sort((left, right) => right - left),
+  );
+
+  const currentRelease = academyLessons.find((lesson) => lesson.id === "academy-007");
+  assert.ok(currentRelease);
+  assert.equal(currentRelease.track, "methods-visualization");
+  assert.equal(currentRelease.level, "applied");
 
   const ids = new Set<string>();
   const slugs = new Set<string>();
@@ -107,19 +121,27 @@ test("the Academy corpus contains six ordered, complete, three-language SNA tuto
           assert.ok(localized.practiceTask.includes(term));
         }
       }
+
+      if (lesson.id === "academy-007") {
+        const temporalTerms = {
+          en: ["missing data", "fixed node coordinates"],
+          "zh-hant": ["缺失資料", "固定節點座標"],
+          "zh-hans": ["缺失数据", "固定节点坐标"],
+        }[locale];
+
+        for (const term of temporalTerms) {
+          assert.ok(JSON.stringify(localized).includes(term));
+        }
+      }
     }
   }
 
-  assert.deepEqual(Object.fromEntries(trackCounts), {
-    "responsible-application": 2,
-    "network-theory": 2,
-    "methods-visualization": 2,
-  });
-  assert.deepEqual(Object.fromEntries(levelCounts), {
-    advanced: 2,
-    applied: 2,
-    foundation: 2,
-  });
+  for (const track of ACADEMY_TRACKS) {
+    assert.ok((trackCounts.get(track) ?? 0) >= 1, `${track} must remain represented`);
+  }
+  for (const level of ACADEMY_LEVELS) {
+    assert.ok((levelCounts.get(level) ?? 0) >= 1, `${level} must remain represented`);
+  }
 });
 
 test("Academy search, track and level filtering, and pagination preserve sequence", () => {
@@ -128,18 +150,18 @@ test("Academy search, track and level filtering, and pagination preserve sequenc
     .map((lesson) => localizeAcademyLesson(lesson, "en"));
 
   const firstPage = filterAcademyLessons(english, { pageSize: 3 });
-  assert.deepEqual(firstPage.items.map((lesson) => lesson.id), ["academy-001", "academy-002", "academy-003"]);
-  assert.equal(firstPage.totalPages, 2);
+  assert.deepEqual(firstPage.items, english.slice(0, 3));
+  assert.equal(firstPage.totalPages, Math.max(1, Math.ceil(english.length / 3)));
 
   const secondPage = filterAcademyLessons(english, { page: "2", pageSize: 3 });
-  assert.deepEqual(secondPage.items.map((lesson) => lesson.id), ["academy-004", "academy-005", "academy-006"]);
+  assert.deepEqual(secondPage.items, english.slice(3, 6));
 
   const theory = filterAcademyLessons(english, { track: "network-theory" });
-  assert.equal(theory.total, 2);
+  assert.equal(theory.total, english.filter((lesson) => lesson.track === "network-theory").length);
   assert.ok(theory.items.every((lesson) => lesson.track === "network-theory"));
 
   const advanced = filterAcademyLessons(english, { level: "advanced" });
-  assert.equal(advanced.total, 2);
+  assert.equal(advanced.total, english.filter((lesson) => lesson.level === "advanced").length);
   assert.ok(advanced.items.every((lesson) => lesson.level === "advanced"));
 
   const centrality = filterAcademyLessons(english, { q: "betweenness" });
@@ -158,11 +180,12 @@ test("Academy search, track and level filtering, and pagination preserve sequenc
     track: "not-a-track",
     level: "not-a-level",
   });
-  assert.equal(ignoredInvalidFilters.total, 6);
+  assert.equal(ignoredInvalidFilters.total, english.length);
 
   const excessivePage = filterAcademyLessons(english, { page: "999", pageSize: 2 });
-  assert.equal(excessivePage.page, 3);
-  assert.deepEqual(excessivePage.items.map((lesson) => lesson.id), ["academy-005", "academy-006"]);
+  const lastPage = Math.max(1, Math.ceil(english.length / 2));
+  assert.equal(excessivePage.page, lastPage);
+  assert.deepEqual(excessivePage.items, english.slice((lastPage - 1) * 2, lastPage * 2));
 
   const negativePage = filterAcademyLessons(english, { page: "-4", pageSize: 2 });
   assert.equal(negativePage.page, 1);

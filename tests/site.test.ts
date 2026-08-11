@@ -186,9 +186,8 @@ test("News uses a static reviewed corpus, research discovery controls, and real 
   assert.match(structuredDataSource, /datePublished: article\.reviewedAt/);
 });
 
-test("the reviewed News corpus contains seven complete SNA journal and conference articles", () => {
-  assert.equal(newsArticles.length, 7);
-  assert.deepEqual(newsArticles.map((article) => article.id), [
+test("the reviewed News corpus preserves its baseline and supports complete scholarly growth", () => {
+  const baselineIds = [
     "sna-007",
     "sna-006",
     "sna-005",
@@ -196,14 +195,32 @@ test("the reviewed News corpus contains seven complete SNA journal and conferenc
     "sna-003",
     "sna-002",
     "sna-001",
-  ]);
-  assert.deepEqual(newsYears, [2026, 2024, 2023, 2022, 2020, 2017, 2016]);
+  ];
+  assert.ok(newsArticles.length >= baselineIds.length);
+  assert.ok(baselineIds.every((id) => newsArticles.some((article) => article.id === id)));
+  assert.deepEqual(
+    newsArticles.map((article) => article.sequence).sort((left, right) => left - right),
+    Array.from({ length: newsArticles.length }, (_, index) => index + 1),
+  );
+  assert.deepEqual(
+    newsYears,
+    [...new Set(newsArticles.map((article) => article.year))].sort((left, right) => right - left),
+  );
   assert.equal(newsArticles.find((article) => article.id === "sna-001")?.publishedAt, "2016-12-29");
+
+  const currentRelease = newsArticles.find((article) => article.id === "sna-008");
+  assert.ok(currentRelease);
+  assert.equal(currentRelease.doi, "10.1007/s41109-025-00750-7");
+  assert.equal(currentRelease.publishedAt, "2025-12-02");
+  assert.equal(currentRelease.openAccess, true);
 
   const ids = new Set<string>();
   const slugs = new Set<string>();
   const sources = new Set<string>();
+  const dois = new Set<string>();
   const citations = new Set<string>();
+  const titles = new Set<string>();
+  const events = new Set<string>();
   let previousDate = "9999-12-31";
 
   for (const article of newsArticles) {
@@ -215,7 +232,7 @@ test("the reviewed News corpus contains seven complete SNA journal and conferenc
     assert.match(article.doi, /^10\./);
     assert.match(article.publishedAt, /^\d{4}-\d{2}(?:-\d{2})?$/);
     assert.equal(article.year, Number.parseInt(article.publishedAt.slice(0, 4), 10));
-    assert.equal(article.reviewedAt, "2026-08-09");
+    assert.match(article.reviewedAt, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(article.authors.length >= 2);
     assert.ok(article.venue.trim().length > 0);
     assert.ok(article.citation.trim().length > 0);
@@ -224,12 +241,26 @@ test("the reviewed News corpus contains seven complete SNA journal and conferenc
 
     assert.ok(!ids.has(article.id), `${article.id} must be unique`);
     assert.ok(!slugs.has(article.slug), `${article.slug} must be unique`);
-    assert.ok(!sources.has(article.sourceUrl), `${article.sourceUrl} must be unique`);
+    const normalizedSource = new URL(article.sourceUrl);
+    normalizedSource.hash = "";
+    normalizedSource.search = "";
+    const normalizedSourceKey = `${normalizedSource.hostname.replace(/^www\./, "").toLowerCase()}${normalizedSource.pathname.replace(/\/+$/, "").toLowerCase()}`;
+    const normalizedDoi = article.doi.trim().toLowerCase().replace(/^https?:\/\/(?:dx\.)?doi\.org\//, "");
+    const normalizedTitle = article.localizations.en.title.trim().toLowerCase();
+    const normalizedEvent = `${article.publishedAt}|${article.venue.trim().toLowerCase()}|${normalizedTitle}`;
+
+    assert.ok(!sources.has(normalizedSourceKey), `${article.sourceUrl} must be unique`);
+    assert.ok(!dois.has(normalizedDoi), `${article.doi} must be unique`);
     assert.ok(!citations.has(article.citation), `${article.citation} must be unique`);
+    assert.ok(!titles.has(normalizedTitle), `${article.localizations.en.title} must be unique`);
+    assert.ok(!events.has(normalizedEvent), `${normalizedEvent} must be unique`);
     ids.add(article.id);
     slugs.add(article.slug);
-    sources.add(article.sourceUrl);
+    sources.add(normalizedSourceKey);
+    dois.add(normalizedDoi);
     citations.add(article.citation);
+    titles.add(normalizedTitle);
+    events.add(normalizedEvent);
 
     for (const locale of locales) {
       const localized = localizeNewsArticle(article, locale);
@@ -258,14 +289,13 @@ test("the reviewed News corpus contains seven complete SNA journal and conferenc
 test("News search, filtering, and six-item pagination preserve the reviewed corpus contract", () => {
   const english = newsArticles.map((article) => localizeNewsArticle(article, "en"));
   const firstPage = filterNewsArticles(english);
-  assert.equal(firstPage.items.length, 6);
-  assert.equal(firstPage.total, 7);
+  assert.deepEqual(firstPage.items, english.slice(0, 6));
+  assert.equal(firstPage.total, english.length);
   assert.equal(firstPage.page, 1);
-  assert.equal(firstPage.totalPages, 2);
+  assert.equal(firstPage.totalPages, Math.max(1, Math.ceil(english.length / 6)));
 
   const secondPage = filterNewsArticles(english, { page: "2" });
-  assert.equal(secondPage.items.length, 1);
-  assert.equal(secondPage.items[0].id, "sna-001");
+  assert.deepEqual(secondPage.items, english.slice(6, 12));
 
   const conference = filterNewsArticles(english, { type: "conference" });
   assert.ok(conference.items.length > 0);

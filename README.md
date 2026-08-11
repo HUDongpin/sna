@@ -15,7 +15,7 @@ The project is intentionally static and compact:
 | Localization | `lib/i18n.ts` | Locale registry, locale metadata, dictionary type, and all interface copy |
 | Reviewed News corpus | `lib/news-reviewed-data.ts` | Static journal and conference records, three-language summaries, SNA methods, and evidence boundaries |
 | News discovery | `lib/news-filter.ts`, `lib/news-types.ts` | Search, filters, pagination, and typed article contracts |
-| Reviewed Academy corpus | `lib/academy-reviewed-data.ts` | Six static SNA tutorials with complete three-language content, method sources, and evidence and privacy boundaries |
+| Reviewed Academy corpus | `lib/academy-reviewed-data.ts` | A growing sequence of static SNA tutorials with complete three-language content, method sources, and evidence and privacy boundaries |
 | Academy discovery | `lib/academy-filter.ts`, `lib/academy-types.ts` | Search, track and level filters, pagination, and typed tutorial contracts |
 | Site identity | `lib/site.ts` | Canonical URL and absolute URL construction |
 | Search semantics | `lib/structured-data.ts`, `app/robots.ts`, `app/sitemap.ts` | JSON-LD, robots policy, and localized sitemap entries |
@@ -80,14 +80,14 @@ The News index is server-rendered from a static reviewed corpus. Search, article
 
 ## Academy content contract
 
-Academy is a static, reviewed learning pathway that adapts the News presentation grammar to instruction without treating tutorials as research papers. The first release contains exactly six tutorials, ordered from network specification and representation through centrality, cohesion, QAP, and ERGM analysis.
+Academy is a static, reviewed learning pathway that adapts the News presentation grammar to instruction without treating tutorials as research papers. Its preserved baseline progresses from network specification and representation through centrality, cohesion, QAP, and ERGM analysis, with later reviewed lessons extending the sequence into topics such as longitudinal network comparison.
 
 Every Academy record must:
 
 1. Use a stable `academy-NNN` identifier, sequence, slug, track, level, duration, publication date, and review date.
 2. Declare `social-network-analysis` as its analysis approach and state nodes, ties, network type, direction, weights, boundary, and missing-data meaning where relevant.
-3. Provide exactly three learning objectives, four tutorial steps with checkpoints, three core ideas, a practice task, an interpretation section, three related concepts, and an explicit evidence and privacy boundary.
-4. Link to at least one authoritative methodological source over HTTPS.
+3. Provide exactly three learning objectives, four tutorial steps with checkpoints, two interpretation sections, three core ideas, a practice task, three related concepts, and an explicit evidence and privacy boundary.
+4. Link to at least two authoritative methodological sources over HTTPS.
 5. Provide complete English, Traditional Chinese, and Simplified Chinese localizations with the same typed field structure. Silent body-copy fallback is not permitted.
 6. Use the shared CSS network visual as a purposeful lesson preview. Academy does not inherit News' two-path same-bitmap storage contract.
 
@@ -122,10 +122,10 @@ The site test mechanically verifies:
 
 - exactly three complete locale dictionaries with structural parity;
 - the five required localized page routes;
-- a seven-item, source-linked, three-language News corpus containing only SNA journal and conference research;
+- a growing, source-linked, three-language News corpus that preserves all baseline records and contains only SNA journal and conference research;
 - News search, article-type and year filtering, six-item pagination, detail routes, structured data, and sitemap entries;
 - exact News image dimensions, same-bitmap cover/summary pairs, and distinct masters across articles;
-- a six-item, source-linked, three-language Academy corpus in a deterministic SNA learning sequence;
+- a growing, source-linked, three-language Academy corpus that preserves all baseline lessons in a deterministic SNA learning sequence;
 - Academy search, track and level filtering, pagination, detail routes, `LearningResource` structured data, and sitemap entries;
 - complete Academy nodes, ties, network-type, tutorial-step, interpretation, and evidence and privacy contracts;
 - the canonical `www.sna.hk` host and route aliases;

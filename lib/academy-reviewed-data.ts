@@ -8,6 +8,221 @@ import {
 
 export const academyLessons: AcademyLessonRecord[] = [
   {
+    id: "academy-007",
+    sequence: 7,
+    slug: "compare-network-change-across-snapshots",
+    track: "methods-visualization",
+    level: "applied",
+    analysisApproach: "social-network-analysis",
+    publishedAt: "2026-08-12",
+    reviewedAt: "2026-08-12",
+    durationMinutes: 13,
+    sources: [
+      {
+        label: "Holme and Saramaki: Temporal networks",
+        url: "https://doi.org/10.1016/j.physrep.2012.03.001",
+      },
+      {
+        label: "Moody, McFarland, and Bender-deMoll: Dynamic network visualization",
+        url: "https://doi.org/10.1086/421509",
+      },
+    ],
+    localizations: {
+      en: {
+        title: "Compare Network Change Across Repeated Snapshots",
+        shortSummary:
+          "Align repeated network observations, distinguish real tie change from boundary and response changes, and compare structure across time without flattening the sequence into one graph.",
+        tags: ["temporal networks", "network change", "dynamic visualization"],
+        visualLabel: "Time",
+        learningObjectives: [
+          "Create comparable network snapshots with aligned nodes, tie definitions, and observation windows.",
+          "Measure tie persistence, entry, exit, and structural change without hiding missing data.",
+          "Visualize and interpret longitudinal patterns while preserving time order and uncertainty.",
+        ],
+        scenario:
+          "A professional learning program surveys the same 24 educators at four quarterly meetings about instructional-advice seeking. The boundary is the fixed enrollment roster from the first meeting; departures, new arrivals, and nonresponse are recorded explicitly rather than silently changing who counts as part of the network.",
+        nodes:
+          "The 24 educators on the program's fixed enrollment roster, with presence and response status recorded at every quarterly wave.",
+        ties:
+          "A directed binary tie records that educator A named educator B as someone from whom A sought instructional advice during that quarter.",
+        networkType:
+          "One-mode, directed, binary panel network with four equal observation windows, one fixed roster boundary, and wave-specific missingness indicators.",
+        tutorialSteps: [
+          {
+            title: "Align the measurement design",
+            action:
+              "Create a wave table with one row per quarter and document the roster, nomination prompt, recall period, data-collection date, and response status. Resolve identifier changes before building any graph, and keep a reason code for absence, departure, entry, or nonresponse.",
+            checkpoint:
+              "Every person has one stable identifier, every wave uses the same tie meaning, and missing data are distinguishable from an observed absence of a tie.",
+          },
+          {
+            title: "Build comparable snapshots",
+            action:
+              "Construct one adjacency matrix per wave using the same ordered node roster. Keep inactive or unobserved nodes flagged rather than deleting them, then calculate response coverage and the number of observable dyads before comparing network statistics.",
+            checkpoint:
+              "All matrices use the same node order and dimensions, and each reported statistic is paired with its wave-specific coverage and eligible-dyad count.",
+          },
+          {
+            title: "Separate tie turnover from structure",
+            action:
+              "For adjacent waves, count persistent, newly observed, and dissolved ties. Compare density, reciprocity, components, and node degree only after checking boundary and coverage stability. Use a similarity measure such as Jaccard overlap to summarize tie-set continuity.",
+            checkpoint:
+              "You can show which changes come from tie entry or exit and which could instead reflect roster movement, nonresponse, or a changed observation window.",
+          },
+          {
+            title: "Visualize time and test sensitivity",
+            action:
+              "Use fixed node coordinates across small multiples so movement on the page does not masquerade as relational change. Repeat comparisons after excluding poorly observed waves or restricting to consistently observed actors, and report patterns that do not survive these checks.",
+            checkpoint:
+              "The display preserves wave order and positional comparability, while the written conclusion states how missingness and sensitivity choices affect the pattern.",
+          },
+        ],
+        interpretation: [
+          "A higher density or degree at a later wave can indicate more reported advice ties, but it can also reflect better response coverage or a smaller set of eligible dyads. Interpret change only after placing the statistic beside the boundary, response rate, and observation window for each wave.",
+          "Stable aggregate statistics can hide substantial tie turnover, while visible layout movement can exaggerate change if coordinates are recomputed independently. Pair network-level measures with tie persistence and fixed-coordinate views before describing a network as stable, fragmented, or increasingly connected.",
+        ],
+        coreIdeas: [
+          "Time is part of the network data, so snapshot order and observation windows must be preserved.",
+          "Comparable boundaries and response coverage are prerequisites for credible change claims.",
+          "Tie turnover and aggregate structural change answer different longitudinal questions.",
+        ],
+        practiceTask:
+          "Given three quarterly edge lists for a six-person team, create aligned 6 by 6 matrices, classify every tie between adjacent waves as persistent, new, or dissolved, calculate Jaccard overlap, and draft one fixed-coordinate small-multiple sketch with a coverage note.",
+        responsibleUse:
+          "Repeated relational data can reveal sensitive participation histories and make people identifiable through unique trajectories. Collect only needed waves, protect the cross-wave identifier key, report nonresponse without blaming individuals, and do not treat an observed tie change as evidence of motivation, conflict, or program impact without an appropriate design and corroborating data.",
+        relatedConcepts: ["tie persistence", "Jaccard overlap", "fixed-coordinate layouts"],
+      },
+      "zh-hant": {
+        title: "比較重複網絡快照中的變化",
+        shortSummary:
+          "對齊重複網絡觀察，區分真正的連結變化與邊界或回應變化，並在不把時間序列壓成單一圖形的情況下比較結構。",
+        tags: ["時間網絡", "網絡變化", "動態視覺化"],
+        visualLabel: "時間",
+        learningObjectives: [
+          "以一致的節點、連結定義及觀察時段建立可比較的網絡快照。",
+          "量度連結持續、新增、消失及結構變化，同時如實呈現缺失資料。",
+          "在保留時間次序與不確定性的前提下視覺化及詮釋縱向模式。",
+        ],
+        scenario:
+          "一個專業學習計劃在四次季度會議中，向同一批24名教師調查教學建議尋求關係。邊界採用首次會議的固定登記名冊；離開者、新加入者及未回應情況均會明確記錄，而不會默默改變誰被計入網絡。",
+        nodes:
+          "計劃固定登記名冊上的24名教師，並在每個季度記錄其在場及回應狀態。",
+        ties:
+          "一條有向二元連結表示在該季度內，教師 A 提名教師 B 為其曾尋求教學建議的對象。",
+        networkType:
+          "單模式、有向、二元面板網絡，包含四個等長觀察時段、一個固定名冊邊界及各波次的缺失狀態指標。",
+        tutorialSteps: [
+          {
+            title: "對齊量度設計",
+            action:
+              "建立波次表，每季一列，記錄名冊、提名題目、回溯時段、收集日期及回應狀態。建立網絡前先解決識別碼變化，並以原因代碼區分缺席、離開、加入或未回應。",
+            checkpoint:
+              "每人只有一個穩定識別碼，每個波次的連結意義一致，而且缺失資料能與已觀察到沒有連結的情況分開。",
+          },
+          {
+            title: "建立可比較快照",
+            action:
+              "使用相同順序的節點名冊，為每個波次建立一個鄰接矩陣。對未活躍或未觀察節點加上標記，而不是刪除，再於比較網絡統計前計算回應覆蓋率及可觀察二元關係數目。",
+            checkpoint:
+              "所有矩陣使用相同節點順序與維度，每項統計亦同時附有該波次的覆蓋率及合資格二元關係數。",
+          },
+          {
+            title: "區分連結更替與結構",
+            action:
+              "在相鄰波次之間計算持續、新觀察到及消失的連結。確認邊界與覆蓋率穩定後，才比較密度、互惠性、連通分量及節點度數，並以 Jaccard 重疊等相似性指標概括連結集合的延續程度。",
+            checkpoint:
+              "你能指出哪些變化源於連結新增或消失，哪些則可能反映名冊移動、未回應或觀察時段改變。",
+          },
+          {
+            title: "呈現時間並檢查敏感度",
+            action:
+              "在小多圖中固定節點座標，避免畫面位置移動被誤解為關係變化。排除觀察質素較差的波次或只保留持續被觀察的行動者後重複比較，並報告不能通過這些檢查的模式。",
+            checkpoint:
+              "圖像保留波次次序及位置可比性，文字結論亦說明缺失資料與敏感度選擇如何影響模式。",
+          },
+        ],
+        interpretation: [
+          "後期波次較高的密度或度數可能代表更多被報告的建議連結，也可能源於回應覆蓋較完整或合資格二元關係較少。只有把統計量與各波次的邊界、回應率及觀察時段並列後，才能詮釋變化。",
+          "整體統計保持穩定時，仍可能存在大量連結更替；若每個波次獨立重新配置座標，畫面移動亦可能誇大變化。描述網絡穩定、分裂或更連通前，應同時檢視連結持續性及固定座標圖。",
+        ],
+        coreIdeas: [
+          "時間是網絡資料的一部分，因此必須保留快照次序及觀察時段。",
+          "可比較的邊界與回應覆蓋率，是可信變化主張的先決條件。",
+          "連結更替與整體結構變化回答不同的縱向問題。",
+        ],
+        practiceTask:
+          "利用一個六人團隊的三份季度邊列表，建立對齊的 6 乘 6 矩陣，把相鄰波次的每條連結分類為持續、新增或消失，計算 Jaccard 重疊，並繪製一份附有覆蓋說明的固定座標小多圖草圖。",
+        responsibleUse:
+          "重複關係資料可揭示敏感的參與歷史，也可能透過獨特軌跡識別個人。只收集必要波次、保護跨波次識別碼對照表、報告未回應時避免歸咎個人；若沒有合適設計及佐證資料，不應把觀察到的連結變化視為動機、衝突或計劃成效的證據。",
+        relatedConcepts: ["連結持續", "Jaccard 重疊", "固定座標佈局"],
+      },
+      "zh-hans": {
+        title: "比较重复网络快照中的变化",
+        shortSummary:
+          "对齐重复网络观察，区分真正的连接变化与边界或回应变化，并在不把时间序列压成单一图形的情况下比较结构。",
+        tags: ["时间网络", "网络变化", "动态可视化"],
+        visualLabel: "时间",
+        learningObjectives: [
+          "以一致的节点、连接定义及观察时段建立可比较的网络快照。",
+          "测量连接持续、新增、消失及结构变化，同时如实呈现缺失数据。",
+          "在保留时间次序与不确定性的前提下可视化及解释纵向模式。",
+        ],
+        scenario:
+          "一个专业学习项目在四次季度会议中，向同一批24名教师调查教学建议寻求关系。边界采用首次会议的固定登记名册；离开者、新加入者及未回应情况均会明确记录，而不会默默改变谁被计入网络。",
+        nodes:
+          "项目固定登记名册上的24名教师，并在每个季度记录其在场及回应状态。",
+        ties:
+          "一条有向二元连接表示在该季度内，教师 A 提名教师 B 为其曾寻求教学建议的对象。",
+        networkType:
+          "单模式、有向、二元面板网络，包含四个等长观察时段、一个固定名册边界及各波次的缺失状态指标。",
+        tutorialSteps: [
+          {
+            title: "对齐测量设计",
+            action:
+              "建立波次表，每季一行，记录名册、提名题目、回溯时段、收集日期及回应状态。建立网络前先解决标识符变化，并以原因代码区分缺席、离开、加入或未回应。",
+            checkpoint:
+              "每人只有一个稳定标识符，每个波次的连接意义一致，而且缺失数据能与已观察到没有连接的情况分开。",
+          },
+          {
+            title: "建立可比较快照",
+            action:
+              "使用相同顺序的节点名册，为每个波次建立一个邻接矩阵。对未活跃或未观察节点加上标记，而不是删除，再在比较网络统计前计算回应覆盖率及可观察二元关系数目。",
+            checkpoint:
+              "所有矩阵使用相同节点顺序与维度，每项统计也同时附有该波次的覆盖率及合资格二元关系数。",
+          },
+          {
+            title: "区分连接更替与结构",
+            action:
+              "在相邻波次之间计算持续、新观察到及消失的连接。确认边界与覆盖率稳定后，才比较密度、互惠性、连通分量及节点度数，并以 Jaccard 重叠等相似性指标概括连接集合的延续程度。",
+            checkpoint:
+              "你能指出哪些变化源于连接新增或消失，哪些则可能反映名册移动、未回应或观察时段改变。",
+          },
+          {
+            title: "呈现时间并检查敏感度",
+            action:
+              "在小多图中固定节点坐标，避免画面位置移动被误解为关系变化。排除观察质量较差的波次或只保留持续被观察的行动者后重复比较，并报告不能通过这些检查的模式。",
+            checkpoint:
+              "图像保留波次次序及位置可比性，文字结论也说明缺失数据与敏感度选择如何影响模式。",
+          },
+        ],
+        interpretation: [
+          "后期波次较高的密度或度数可能代表更多被报告的建议连接，也可能源于回应覆盖更完整或合资格二元关系较少。只有把统计量与各波次的边界、回应率及观察时段并列后，才能解释变化。",
+          "整体统计保持稳定时，仍可能存在大量连接更替；若每个波次独立重新配置坐标，画面移动也可能夸大变化。描述网络稳定、分裂或更连通前，应同时检查连接持续性及固定坐标图。",
+        ],
+        coreIdeas: [
+          "时间是网络数据的一部分，因此必须保留快照次序及观察时段。",
+          "可比较的边界与回应覆盖率，是可信变化主张的先决条件。",
+          "连接更替与整体结构变化回答不同的纵向问题。",
+        ],
+        practiceTask:
+          "利用一个六人团队的三份季度边列表，建立对齐的 6 乘 6 矩阵，把相邻波次的每条连接分类为持续、新增或消失，计算 Jaccard 重叠，并绘制一份附有覆盖说明的固定坐标小多图草图。",
+        responsibleUse:
+          "重复关系数据可揭示敏感的参与历史，也可能通过独特轨迹识别个人。只收集必要波次、保护跨波次标识符对照表、报告未回应时避免归咎个人；若没有合适设计及佐证数据，不应把观察到的连接变化视为动机、冲突或项目成效的证据。",
+        relatedConcepts: ["连接持续", "Jaccard 重叠", "固定坐标布局"],
+      },
+    },
+  },
+  {
     id: "academy-006",
     sequence: 6,
     slug: "model-tie-formation-with-ergms",

@@ -348,7 +348,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       eyebrow: "SNA Academy",
       title: "Learn SNA as a complete data analysis approach.",
       intro:
-        "Six reviewed tutorials move from relational questions and clean network data to descriptive measures, permutation tests, and responsible statistical modeling.",
+        "Reviewed tutorials build from relational questions and clean network data through descriptive measures, permutation tests, and responsible statistical modeling, then extend the workflow to longitudinal comparison.",
       pathwayEyebrow: "Learning pathway",
       pathwayTitle: "One connected workflow, not isolated metrics",
       pathwayText:
@@ -604,7 +604,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       eyebrow: "社會網絡分析學苑",
       title: "把 SNA 學成一套完整的資料分析方法。",
       intro:
-        "六個經審閱的教學由關係問題及乾淨網絡資料開始，逐步進入描述指標、置換檢驗及負責任統計建模。",
+        "經審閱的教學由關係問題及乾淨網絡資料開始，逐步進入描述指標、置換檢驗及負責任統計建模，再把分析流程延伸至縱向比較。",
       pathwayEyebrow: "學習路徑",
       pathwayTitle: "一套連貫流程，而不是零散指標",
       pathwayText:
@@ -859,7 +859,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       eyebrow: "社会网络分析学苑",
       title: "把 SNA 学成一套完整的数据分析方法。",
       intro:
-        "六个经审核的教程从关系问题及干净网络数据开始，逐步进入描述指标、置换检验及负责任统计建模。",
+        "经审核的教程从关系问题及干净网络数据开始，逐步进入描述指标、置换检验及负责任统计建模，再把分析流程延伸到纵向比较。",
       pathwayEyebrow: "学习路径",
       pathwayTitle: "一套连贯流程，而不是零散指标",
       pathwayText:
