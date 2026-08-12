@@ -117,6 +117,128 @@ export const newsArticles: NewsArticleRecord[] = [
     },
   },
   {
+    id: "sna-009",
+    sequence: 9,
+    slug: "reducing-school-social-isolation-networks",
+    type: "journal",
+    authors: [
+      "Sojung Kim",
+      "Sungbum Woo",
+      "Yul-mai Song",
+      "Kyungun Jhung",
+      "Jungwon Choi",
+      "Young Hee Yang",
+      "Young Sook Kwack",
+      "Yeni Kim",
+    ],
+    venue: "Child and Adolescent Psychiatry and Mental Health",
+    citation:
+      "Child and Adolescent Psychiatry and Mental Health, 20, Article 45",
+    doi: "10.1186/s13034-026-01032-5",
+    sourceUrl: "https://pmc.ncbi.nlm.nih.gov/articles/PMC13032307/",
+    sourceLabel: "PubMed Central",
+    publishedAt: "2026-02-21",
+    year: 2026,
+    reviewedAt: "2026-08-13",
+    openAccess: true,
+    coverImage:
+      "/images/news/covers/sna-009-reducing-school-social-isolation-networks.png",
+    summaryImage:
+      "/images/news/summary/sna-009-reducing-school-social-isolation-networks-summary.png",
+    localizations: {
+      en: {
+        title:
+          "Reducing social isolation in schools: a social network analysis of the HOPE bullying prevention program",
+        imageAlt:
+          "Top-down paper classroom showing sparse and more inclusive directed friendship networks before and after six unlabeled steps",
+        summary:
+          "A pre/post study of a six-session Korean elementary-school bullying-prevention program used directed friend nominations for 204 pupils in nine classrooms. In-degree increased among pupils with low baseline in-degree, especially girls, while out-degree did not change significantly.",
+        overview: [
+          "The HOPE program combined empathy, social-skills, classroom-climate, and active-bystander activities over six weeks. Of 275 pupils enrolled from schools that opted into the intervention, 204 pupils in grades 4 to 6 completed both the baseline and post-program measures across nine classrooms.",
+          "Pupils with below-average baseline in-degree received significantly more close-friend nominations after the program, with the increase concentrated among girls. The high-in-degree group did not change significantly, and neither baseline group showed a significant change in outgoing nominations.",
+        ],
+        howSnaWasUsed:
+          "The authors constructed directed peer networks from nominations of up to 10 close friends in the same grade and school. They calculated in-degree and out-degree, visualized nine classroom networks before and after the program, divided pupils by baseline in-degree, and used multilevel models with repeated observations nested within pupils to test time, gender, and their interaction.",
+        nodes:
+          "Two hundred four pupils in grades 4 to 6 who completed both measurement waves across nine South Korean elementary-school classrooms.",
+        ties:
+          "A directed nomination from one pupil to up to 10 same-grade school friends whom the pupil often met outside school, called frequently, or trusted with a secret.",
+        methods:
+          "Pre/post directed network visualization; in-degree and out-degree centrality; baseline low- and high-in-degree groups; and multilevel time, gender, and interaction models.",
+        keyTakeaways: [
+          "In-degree increased significantly for the 110 pupils with below-average baseline in-degree, but not for pupils who began above average.",
+          "The low-in-degree increase was larger for girls, while outgoing nominations did not change significantly in either baseline group.",
+          "Post-program networks appeared denser and more inclusive, but the design cannot isolate the program from maturation, school context, observation, or selective attrition.",
+        ],
+        whyItMatters:
+          "SNA can show whether a prevention program is associated with changes in who is socially recognized, not only changes in individual questionnaire scores. It also reveals that receiving more nominations and initiating more nominations are different relational outcomes.",
+        limitations:
+          "Schools opted into a quasi-experimental intervention, there was no parallel control group, and 25.8% of enrolled pupils lacked complete follow-up data. The sample covered one age range in South Korea, post-program psychosocial measures were unavailable, and capped self-reported nominations may omit relationships. Low in-degree is not itself proof of bullying victimization. The changes are preliminary associations and do not establish that HOPE caused greater integration or reduced bullying.",
+        tags: ["School peer networks", "Bullying prevention", "Social inclusion"],
+      },
+      "zh-hant": {
+        title:
+          "以社會網絡分析檢視 HOPE 校園欺凌預防計劃如何減少社交孤立",
+        imageAlt:
+          "俯視紙藝課室，呈現六個無文字步驟前後由疏落轉為較共融的有向友誼網絡",
+        summary:
+          "一項針對韓國小學六節校園欺凌預防計劃的前後測研究，利用九個課室204名學童的有向朋友提名建立網絡。基線入度較低學童的入度有所增加，女生增幅尤其明顯，但出度沒有顯著變化。",
+        overview: [
+          "HOPE 計劃在六星期內結合同理心、社交技巧、課堂氣氛及主動旁觀者活動。由自願參與介入的學校所招募之275名學童中，共有204名四至六年級學童在九個課室完成基線及計劃後兩輪量度。",
+          "基線入度低於平均的學童在計劃後獲得顯著較多密友提名，增幅主要集中於女生。基線入度較高組別沒有顯著變化，而兩個基線組別的主動提名數目均沒有顯著改變。",
+        ],
+        howSnaWasUsed:
+          "作者根據學童在同一年級及學校內最多提名10名密友的資料建立有向同儕網絡，計算入度與出度，呈現九個課室在計劃前後的網絡，把學童按基線入度分組，並以重複觀察巢套於個人的多層次模型檢驗時間、性別及兩者交互作用。",
+        nodes:
+          "南韓九個小學課室內完成兩輪量度的204名四至六年級學童。",
+        ties:
+          "一名學童指向同校同級最多10名朋友的有向提名，這些朋友是其常在校外見面、經常通話或願意分享秘密的對象。",
+        methods:
+          "前後測有向網絡視覺化、入度與出度中心性、基線低入度與高入度分組，以及時間、性別和交互作用的多層次模型。",
+        keyTakeaways: [
+          "110名基線入度低於平均的學童之入度顯著增加，但基線高於平均者沒有顯著改變。",
+          "低入度組的增幅在女生中較大，而兩個基線組別的主動向外提名均沒有顯著變化。",
+          "計劃後網絡看來更密集及更共融，但研究設計不能排除成長、學校情境、觀察效應或選擇性流失等解釋。",
+        ],
+        whyItMatters:
+          "SNA 不只檢視個人問卷分數，還能顯示預防計劃是否與社交認可對象的改變相關。研究亦說明，獲得更多提名與主動作出更多提名是兩種不同的關係結果。",
+        limitations:
+          "學校自行選擇參與這項準實驗介入，研究沒有平行對照組，而且25.8%的已登記學童沒有完整跟進資料。樣本只涵蓋南韓一個年齡範圍，亦欠缺計劃後心理社會量度；設有提名上限的自陳資料可能遺漏關係。低入度本身不等於遭受欺凌。這些變化只屬初步關聯，不能證明 HOPE 導致更高社交融入或減少欺凌。",
+        tags: ["校園同儕網絡", "欺凌預防", "社交共融"],
+      },
+      "zh-hans": {
+        title:
+          "以社会网络分析考察 HOPE 校园欺凌预防项目如何减少社交孤立",
+        imageAlt:
+          "俯视纸艺教室，呈现六个无文字步骤前后由稀疏转为更包容的有向友谊网络",
+        summary:
+          "一项针对韩国小学六节校园欺凌预防项目的前后测研究，利用九个教室204名学生的有向朋友提名建立网络。基线入度较低学生的入度有所增加，女生增幅尤其明显，但出度没有显著变化。",
+        overview: [
+          "HOPE 项目在六周内结合共情、社交技能、课堂氛围及主动旁观者活动。由自愿参与干预的学校招募的275名学生中，共有204名四至六年级学生在九个教室完成基线及项目后两轮测量。",
+          "基线入度低于平均的学生在项目后获得显著更多密友提名，增幅主要集中于女生。基线入度较高组别没有显著变化，而两个基线组别的主动提名数目均没有显著改变。",
+        ],
+        howSnaWasUsed:
+          "作者根据学生在同一年级及学校内最多提名10名密友的数据建立有向同伴网络，计算入度与出度，呈现九个教室在项目前后的网络，把学生按基线入度分组，并用重复观察嵌套于个人的多层次模型检验时间、性别及两者交互作用。",
+        nodes:
+          "韩国九个小学教室内完成两轮测量的204名四至六年级学生。",
+        ties:
+          "一名学生指向同校同年级最多10名朋友的有向提名，这些朋友是其常在校外见面、经常通话或愿意分享秘密的对象。",
+        methods:
+          "前后测有向网络可视化、入度与出度中心性、基线低入度与高入度分组，以及时间、性别和交互作用的多层次模型。",
+        keyTakeaways: [
+          "110名基线入度低于平均的学生之入度显著增加，但基线高于平均者没有显著改变。",
+          "低入度组的增幅在女生中更大，而两个基线组别的主动向外提名均没有显著变化。",
+          "项目后网络看来更密集且更包容，但研究设计不能排除成长、学校情境、观察效应或选择性流失等解释。",
+        ],
+        whyItMatters:
+          "SNA 不只考察个人问卷分数，还能显示预防项目是否与社交认可对象的改变相关。研究也说明，获得更多提名与主动做出更多提名是两种不同的关系结果。",
+        limitations:
+          "学校自行选择参与这项准实验干预，研究没有平行对照组，而且25.8%的已登记学生没有完整跟进数据。样本只涵盖韩国一个年龄范围，也缺少项目后心理社会测量；设有提名上限的自陈数据可能遗漏关系。低入度本身不等于遭受欺凌。这些变化只属于初步关联，不能证明 HOPE 导致更高社交融入或减少欺凌。",
+        tags: ["校园同伴网络", "欺凌预防", "社交包容"],
+      },
+    },
+  },
+  {
     id: "sna-008",
     sequence: 8,
     slug: "bridging-stem-faculty-silos",

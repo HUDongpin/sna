@@ -8,6 +8,221 @@ import {
 
 export const academyLessons: AcademyLessonRecord[] = [
   {
+    id: "academy-008",
+    sequence: 8,
+    slug: "analyze-brokerage-and-structural-holes",
+    track: "network-theory",
+    level: "advanced",
+    analysisApproach: "social-network-analysis",
+    publishedAt: "2026-08-13",
+    reviewedAt: "2026-08-13",
+    durationMinutes: 15,
+    sources: [
+      {
+        label: "Gould and Fernandez: Structures of mediation",
+        url: "https://doi.org/10.2307/270949",
+      },
+      {
+        label: "Burt: Structural holes and good ideas",
+        url: "https://doi.org/10.1086/421787",
+      },
+    ],
+    localizations: {
+      en: {
+        title: "Analyze Brokerage and Structural Holes",
+        shortSummary:
+          "Identify actors positioned between otherwise separated contacts or groups, compare brokerage measures, and interpret opportunity without turning network position into a claim about behavior or value.",
+        tags: ["brokerage", "structural holes", "network roles"],
+        visualLabel: "Bridge",
+        learningObjectives: [
+          "Distinguish brokerage opportunities from betweenness centrality and ordinary high degree.",
+          "Use structural-hole and group-aware measures that match a stated relational process.",
+          "Interpret broker positions with sensitivity checks, context, and a responsible evidence boundary.",
+        ],
+        scenario:
+          "A university maps instructional-advice seeking among 36 educators in science, language, and student-support departments. Leaders want to know which educators could connect knowledge across departments, while avoiding the assumption that a structural opportunity proves that a person actually mediates information.",
+        nodes:
+          "The 36 educators employed in the three participating departments on the census date; department membership is recorded as a node attribute.",
+        ties:
+          "A directed binary tie from educator A to educator B means A reported seeking instructional advice from B during the previous eight weeks.",
+        networkType:
+          "One-mode, directed, binary whole network with a fixed three-department boundary, one recall period, department attributes, and nonresponse recorded separately from no tie.",
+        tutorialSteps: [
+          {
+            title: "Define the brokerage opportunity",
+            action:
+              "State what must flow, who could mediate it, and whether direction matters. Enumerate directed two-paths from a source through a potential broker to a recipient, then flag cases where source and recipient lack the direct tie relevant to your theory.",
+            checkpoint:
+              "Every counted opportunity has an eligible source, broker, and recipient, and its direction and missing-data rule match the advice-seeking question.",
+          },
+          {
+            title: "Compare complementary measures",
+            action:
+              "Calculate degree and betweenness beside an ego-network measure such as constraint or effective size. Treat low constraint as access to nonredundant contacts, not as a synonym for all shortest-path brokerage, and inspect the actual local configurations behind each score.",
+            checkpoint:
+              "You can explain why a high-degree actor, a high-betweenness actor, and a low-constraint actor may be three different people in the same network.",
+          },
+          {
+            title: "Classify group-aware roles",
+            action:
+              "Use the pre-specified department attribute to classify mediation opportunities with a framework such as Gould-Fernandez brokerage. Separate within-group coordination from roles that receive from, send to, or connect across groups, and report the eligible opportunity count for each role.",
+            checkpoint:
+              "Every role label follows the source, broker, and recipient group memberships, and departments were defined before viewing brokerage results.",
+          },
+          {
+            title: "Check robustness and add context",
+            action:
+              "Repeat the analysis under plausible tie thresholds, missing-data treatments, and direction choices. Compare observed role counts with suitable reference networks, then use interviews or process records to learn whether structural opportunities were recognized, used, shared, or burdensome.",
+            checkpoint:
+              "The conclusion identifies which broker rankings survive sensitivity checks and keeps structural opportunity separate from demonstrated mediation, performance, or influence.",
+          },
+        ],
+        interpretation: [
+          "A broker score describes position under a particular boundary, tie definition, and group classification. High betweenness can reflect control over shortest paths, while low constraint emphasizes nonredundant ego contacts; neither alone shows that information moved through the actor.",
+          "Brokerage can provide access and coordination opportunities, but it can also create workload, dependence, conflict, or fragility. Group-aware roles are meaningful only when group categories are theoretically relevant and not constructed after seeing who appears central.",
+        ],
+        coreIdeas: [
+          "Brokerage is a relational opportunity between otherwise disconnected actors or groups, not a personal trait.",
+          "Betweenness, structural-hole measures, and group-aware brokerage operationalize different mechanisms.",
+          "A structural position becomes behavioral evidence only when supported by process data and an appropriate design.",
+        ],
+        practiceTask:
+          "For a directed advice network of eight educators in three departments, list every two-path through one focal educator, classify eligible Gould-Fernandez roles, compare the focal educator's degree, betweenness, and constraint, and write one sentence that separates brokerage opportunity from observed mediation.",
+        responsibleUse:
+          "Broker maps can expose sensitive dependencies and invite organizations to label, reward, monitor, or overload identifiable people. Minimize named reporting, protect nominations, include nonresponse and boundary uncertainty, and consult participants before intervention. Do not infer competence, loyalty, intent, information control, creativity, or causal impact from a brokerage score, and do not remove or add ties solely to optimize a metric without contextual evidence and safeguards.",
+        relatedConcepts: ["betweenness centrality", "network constraint", "Gould-Fernandez roles"],
+      },
+      "zh-hant": {
+        title: "分析網絡中介與結構洞",
+        shortSummary:
+          "識別位於原本分隔的聯絡人或群體之間的行動者，比較不同中介指標，並在不把網絡位置誤當成行為或價值證據的前提下作出詮釋。",
+        tags: ["網絡中介", "結構洞", "網絡角色"],
+        visualLabel: "橋接",
+        learningObjectives: [
+          "區分中介機會、中介中心性及一般高連結度。",
+          "按已陳述的關係過程選用結構洞及群體導向指標。",
+          "結合敏感度檢查、情境及負責任證據界線詮釋中介位置。",
+        ],
+        scenario:
+          "一所大學繪製科學、語文及學生支援三個部門共36名教育工作者的教學建議尋求網絡。領導者希望了解誰可能跨部門連接知識，同時避免把結構機會直接當成某人確實傳遞資訊的證明。",
+        nodes:
+          "在人口普查日期受僱於三個參與部門的36名教育工作者，部門歸屬記錄為節點屬性。",
+        ties:
+          "一條由教育工作者 A 指向 B 的有向二元連結，表示 A 報告在過去八星期曾向 B 尋求教學建議。",
+        networkType:
+          "單模式、有向、二元完整網絡，採用固定三部門邊界與單一回溯時段，包含部門屬性，並把未回應與沒有連結分開記錄。",
+        tutorialSteps: [
+          {
+            title: "界定中介機會",
+            action:
+              "說明需要流動的是甚麼、誰可能擔任中介，以及方向是否重要。列出由來源經潛在中介者至接收者的有向二步路徑，再標示來源與接收者之間缺少理論所指直接連結的情況。",
+            checkpoint:
+              "每個被計算的機會均有合資格的來源、中介者與接收者，其方向及缺失資料規則亦符合建議尋求問題。",
+          },
+          {
+            title: "比較互補指標",
+            action:
+              "把度數及中介中心性與限制或有效規模等自我中心網絡指標並列計算。低限制代表接觸較不重複的聯絡人，不等同所有最短路徑中介，並應檢視每個分數背後的實際局部配置。",
+            checkpoint:
+              "你能解釋為何同一網絡中的高連結度者、高中介中心性者及低限制者可能是三個不同的人。",
+          },
+          {
+            title: "分類群體導向角色",
+            action:
+              "使用預先指定的部門屬性，以 Gould-Fernandez 中介等框架分類調解機會。區分組內協調，以及由群體接收、向群體傳送或跨群體連接的角色，並報告每類角色的合資格機會數。",
+            checkpoint:
+              "每個角色標籤均依照來源、中介者及接收者的群體歸屬，而且部門分類在查看中介結果前已確定。",
+          },
+          {
+            title: "檢查穩健性並加入情境",
+            action:
+              "在合理的連結門檻、缺失資料處理及方向選擇下重複分析。把觀察角色數與合適參照網絡比較，再以訪談或過程紀錄了解結構機會是否被察覺、運用、分享或成為負擔。",
+            checkpoint:
+              "結論指出哪些中介者排序能通過敏感度檢查，並把結構機會與已證實的傳遞、表現或影響力分開。",
+          },
+        ],
+        interpretation: [
+          "中介分數描述特定邊界、連結定義及群體分類下的位置。高中介中心性可能代表控制最短路徑，低限制則強調自我中心網絡中不重複的聯絡人；兩者均不能單獨證明資訊確曾經該行動者流動。",
+          "中介位置可帶來資訊取得與協調機會，也可能造成工作負擔、依賴、衝突或脆弱性。只有當群體類別具理論意義，而且不是看到中心者後才建立時，群體導向角色才有清楚含義。",
+        ],
+        coreIdeas: [
+          "網絡中介是位於原本不相連的行動者或群體之間的關係機會，而不是個人特質。",
+          "中介中心性、結構洞指標及群體導向中介分別操作化不同機制。",
+          "只有獲得過程資料及合適研究設計支持時，結構位置才可成為行為證據。",
+        ],
+        practiceTask:
+          "利用三個部門八名教育工作者的有向建議網絡，列出所有通過一名焦點教育工作者的二步路徑，分類合資格的 Gould-Fernandez 角色，比較其度數、中介中心性與限制，並寫一句把中介機會和已觀察調解行為分開的結論。",
+        responsibleUse:
+          "中介圖可揭示敏感依賴關係，也可能令機構標籤、獎勵、監察或過度依賴可識別人士。應盡量減少具名報告、保護提名資料、呈現未回應與邊界不確定性，並在介入前諮詢參與者。不可從中介分數推斷能力、忠誠、意圖、資訊控制、創意或因果影響，也不可在缺乏情境證據及保障下只為改善指標而移除或新增連結。",
+        relatedConcepts: ["中介中心性", "網絡限制", "Gould-Fernandez 角色"],
+      },
+      "zh-hans": {
+        title: "分析网络中介与结构洞",
+        shortSummary:
+          "识别位于原本分隔的联系人或群体之间的行动者，比较不同中介指标，并在不把网络位置误当成行为或价值证据的前提下进行解释。",
+        tags: ["网络中介", "结构洞", "网络角色"],
+        visualLabel: "桥接",
+        learningObjectives: [
+          "区分中介机会、中介中心性及一般高连接度。",
+          "按已陈述的关系过程选用结构洞及群体导向指标。",
+          "结合敏感度检查、情境及负责任证据边界解释中介位置。",
+        ],
+        scenario:
+          "一所大学绘制科学、语言及学生支持三个部门共36名教育工作者的教学建议寻求网络。领导者希望了解谁可能跨部门连接知识，同时避免把结构机会直接当成某人确实传递信息的证明。",
+        nodes:
+          "在人口普查日期受雇于三个参与部门的36名教育工作者，部门归属记录为节点属性。",
+        ties:
+          "一条由教育工作者 A 指向 B 的有向二元连接，表示 A 报告在过去八周曾向 B 寻求教学建议。",
+        networkType:
+          "单模式、有向、二元完整网络，采用固定三部门边界与单一回溯时段，包含部门属性，并把未回应与没有连接分开记录。",
+        tutorialSteps: [
+          {
+            title: "界定中介机会",
+            action:
+              "说明需要流动的是什么、谁可能担任中介，以及方向是否重要。列出由来源经潜在中介者至接收者的有向两步路径，再标示来源与接收者之间缺少理论所指直接连接的情况。",
+            checkpoint:
+              "每个被计算的机会均有合资格的来源、中介者与接收者，其方向及缺失数据规则也符合建议寻求问题。",
+          },
+          {
+            title: "比较互补指标",
+            action:
+              "把度数及中介中心性与限制或有效规模等自我中心网络指标并列计算。低限制代表接触较不重复的联系人，不等同所有最短路径中介，并应检查每个分数背后的实际局部配置。",
+            checkpoint:
+              "你能解释为何同一网络中的高连接度者、高中介中心性者及低限制者可能是三个不同的人。",
+          },
+          {
+            title: "分类群体导向角色",
+            action:
+              "使用预先指定的部门属性，以 Gould-Fernandez 中介等框架分类调解机会。区分组内协调，以及由群体接收、向群体传送或跨群体连接的角色，并报告每类角色的合资格机会数。",
+            checkpoint:
+              "每个角色标签均依据来源、中介者及接收者的群体归属，而且部门分类在查看中介结果前已经确定。",
+          },
+          {
+            title: "检查稳健性并加入情境",
+            action:
+              "在合理的连接阈值、缺失数据处理及方向选择下重复分析。把观察角色数与合适参照网络比较，再用访谈或过程记录了解结构机会是否被察觉、运用、分享或成为负担。",
+            checkpoint:
+              "结论指出哪些中介者排序能通过敏感度检查，并把结构机会与已证实的传递、表现或影响力分开。",
+          },
+        ],
+        interpretation: [
+          "中介分数描述特定边界、连接定义及群体分类下的位置。高中介中心性可能代表控制最短路径，低限制则强调自我中心网络中不重复的联系人；两者均不能单独证明信息确曾经该行动者流动。",
+          "中介位置可带来信息获取与协调机会，也可能造成工作负担、依赖、冲突或脆弱性。只有当群体类别具有理论意义，而且不是看到中心者后才建立时，群体导向角色才有清楚含义。",
+        ],
+        coreIdeas: [
+          "网络中介是位于原本不相连的行动者或群体之间的关系机会，而不是个人特征。",
+          "中介中心性、结构洞指标及群体导向中介分别操作化不同机制。",
+          "只有获得过程数据及合适研究设计支持时，结构位置才可成为行为证据。",
+        ],
+        practiceTask:
+          "利用三个部门八名教育工作者的有向建议网络，列出所有通过一名焦点教育工作者的两步路径，分类合资格的 Gould-Fernandez 角色，比较其度数、中介中心性与限制，并写一句把中介机会和已观察调解行为分开的结论。",
+        responsibleUse:
+          "中介图可揭示敏感依赖关系，也可能使机构标签、奖励、监测或过度依赖可识别人士。应尽量减少具名报告、保护提名数据、呈现未回应与边界不确定性，并在干预前咨询参与者。不可从中介分数推断能力、忠诚、意图、信息控制、创意或因果影响，也不可在缺乏情境证据及保障下只为改善指标而移除或新增连接。",
+        relatedConcepts: ["中介中心性", "网络限制", "Gould-Fernandez 角色"],
+      },
+    },
+  },
+  {
     id: "academy-007",
     sequence: 7,
     slug: "compare-network-change-across-snapshots",

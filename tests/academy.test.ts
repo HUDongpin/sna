@@ -165,8 +165,27 @@ test("Academy search, track and level filtering, and pagination preserve sequenc
   assert.ok(advanced.items.every((lesson) => lesson.level === "advanced"));
 
   const centrality = filterAcademyLessons(english, { q: "betweenness" });
-  assert.equal(centrality.total, 1);
-  assert.equal(centrality.items[0].id, "academy-003");
+  assert.ok(centrality.total >= 1);
+  assert.ok(centrality.items.some((lesson) => lesson.id === "academy-003"));
+  assert.ok(
+    centrality.items.every((lesson) =>
+      JSON.stringify([
+        lesson.title,
+        lesson.shortSummary,
+        lesson.tags,
+        lesson.visualLabel,
+        lesson.nodes,
+        lesson.ties,
+        lesson.networkType,
+        lesson.learningObjectives,
+        lesson.tutorialSteps,
+        lesson.coreIdeas,
+        lesson.relatedConcepts,
+      ])
+        .toLowerCase()
+        .includes("betweenness"),
+    ),
+  );
 
   const combined = filterAcademyLessons(english, {
     q: "QAP",
@@ -199,8 +218,25 @@ test("Academy search, track and level filtering, and pagination preserve sequenc
     .sort((left, right) => left.sequence - right.sequence)
     .map((lesson) => localizeAcademyLesson(lesson, "zh-hant"));
   const chineseCentrality = filterAcademyLessons(traditionalChinese, { q: "中介中心性" });
-  assert.equal(chineseCentrality.total, 1);
-  assert.equal(chineseCentrality.items[0].id, "academy-003");
+  assert.ok(chineseCentrality.total >= 1);
+  assert.ok(chineseCentrality.items.some((lesson) => lesson.id === "academy-003"));
+  assert.ok(
+    chineseCentrality.items.every((lesson) =>
+      JSON.stringify([
+        lesson.title,
+        lesson.shortSummary,
+        lesson.tags,
+        lesson.visualLabel,
+        lesson.nodes,
+        lesson.ties,
+        lesson.networkType,
+        lesson.learningObjectives,
+        lesson.tutorialSteps,
+        lesson.coreIdeas,
+        lesson.relatedConcepts,
+      ]).includes("中介中心性"),
+    ),
+  );
 });
 
 test("Academy relations, sequential navigation, structured data, and sitemap are deterministic", () => {
