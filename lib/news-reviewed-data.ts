@@ -6,6 +6,128 @@ import type {
 
 export const newsArticles: NewsArticleRecord[] = [
   {
+    id: "sna-010",
+    sequence: 10,
+    slug: "assessing-medical-pbl-collaboration-networks",
+    type: "journal",
+    authors: [
+      "Ahmad Hathim Ahmad Azman",
+      "Nee Tiong",
+      "Mohammad Arif Kamarudin",
+      "Zamira Hasanah Zamzuri",
+    ],
+    venue: "BMC Medical Education",
+    citation: "BMC Medical Education, 26, Article 1056",
+    doi: "10.1186/s12909-026-09397-z",
+    sourceUrl:
+      "https://link.springer.com/article/10.1186/s12909-026-09397-z",
+    sourceLabel: "BMC Medical Education",
+    publishedAt: "2026-05-09",
+    year: 2026,
+    reviewedAt: "2026-08-16",
+    openAccess: true,
+    coverImage:
+      "/images/news/covers/sna-010-assessing-medical-pbl-collaboration-networks.png",
+    summaryImage:
+      "/images/news/summary/sna-010-assessing-medical-pbl-collaboration-networks-summary.png",
+    localizations: {
+      en: {
+        title:
+          "Social network analysis as a technology-enhanced assessment tool for collaborative skills in medical PBL",
+        imageAlt:
+          "Overhead editorial illustration of two medical problem-based learning tables, with sparse broker-linked arrows on the left and dense triangular peer connections on the right",
+        summary:
+          "A cross-sectional study of 166 medical students in 17 complete face-to-face problem-based learning groups used directed, weighted peer networks to compare first- and second-year collaboration and examine alignment with CGPA. Second-year groups were denser and more clustered with shorter paths, while only second-year in-degree showed a statistically significant association with achievement.",
+        overview: [
+          "The researchers surveyed first- and second-year medical students at Universiti Kebangsaan Malaysia near the end of their 2025 terms. Although 179 of 205 eligible Year 1 students and 160 of 182 Year 2 students responded, network analysis retained only seven complete Year 1 groups with 72 students and ten complete Year 2 groups with 94 students.",
+          "Year 2 groups had higher mean density and transitivity and shorter mean paths than Year 1 groups, while Year 1 groups showed higher reciprocity and greater reliance on brokers. Year 2 students had higher closeness and lower betweenness; only Year 2 in-degree distinguished the top three nominated students from peers on CGPA, and the cross-sectional comparison does not show that network position caused achievement.",
+        ],
+        howSnaWasUsed:
+          "Within each PBL group, students ranked up to three peers or a facilitator with whom they interacted frequently or meaningfully and rated peer collaboration on five items. The authors built directed, weighted networks from a 50:50 combination of normalized nomination rank and collaboration score, then compared group structure, node centrality, and CGPA patterns across cohorts.",
+        nodes:
+          "One hundred sixty-six medical students in 17 complete PBL groups, plus facilitators when at least one student nominated them as a collaborative contact.",
+        ties:
+          "A directed top-three nomination from one student to a peer or facilitator, weighted by an equal combination of normalized nomination rank and peer-rated collaboration quality.",
+        methods:
+          "Directed weighted group networks; density, average path length, transitivity, reciprocity, modularity, in-degree, harmonic closeness, and betweenness; Mann-Whitney U cohort and CGPA comparisons; and collaboration-scale reliability analysis.",
+        keyTakeaways: [
+          "Across 17 complete groups, Year 2 networks were denser, more transitive, and connected by shorter paths, whereas Year 1 networks were more reciprocal and broker-dependent.",
+          "Only Year 2 in-degree was significantly associated with CGPA: the top three nominated students in each group had a median CGPA of 3.38 versus 3.04 for peers, while closeness and betweenness differences were not significant.",
+          "Peer-network indicators may complement formative feedback, but they should not become punitive grades or labels of competence without longitudinal validation, sensitivity checks, and privacy safeguards.",
+        ],
+        whyItMatters:
+          "The study shows how SNA can distinguish peer recognition, accessibility, and brokerage within face-to-face medical learning groups instead of compressing collaboration into one score. It also demonstrates why network evidence should support careful formative inquiry rather than automatically classify students as effective, influential, or at risk.",
+        limitations:
+          "This was an exploratory cross-sectional comparison of different cohorts at one institution, so selection and reverse direction remain possible and no causal claim is warranted. The article's abstract and one network summary report 176 students, while its complete-group accounting reports 72 plus 94, or 166; this review uses the latter analyzed-case total and flags the discrepancy. Only complete groups were analyzed despite about 87% individual response, nominations were self-reported and capped at three, the 50:50 edge-weight formula lacked sensitivity analysis, observations were nested within groups, multiple comparisons were not family-wise corrected, and raw relational data could not be fully de-identified for public release.",
+        tags: [
+          "Medical education",
+          "Problem-based learning",
+          "Peer nomination networks",
+        ],
+      },
+      "zh-hant": {
+        title:
+          "以社會網絡分析作為醫學問題導向學習協作能力的科技增強評估工具",
+        imageAlt:
+          "俯視編輯插畫呈現兩張醫學問題導向學習桌，左側是由少數中介箭線連接的稀疏網絡，右側是密集的三角同儕連結",
+        summary:
+          "一項涵蓋17個完整面授問題導向學習小組共166名醫學生的橫斷面研究，以有向加權同儕網絡比較第一及第二學年的協作結構，並檢視網絡位置與累積平均績點的關聯。第二學年網絡密度與聚集程度較高、路徑較短，但只有第二學年的入度與學業成績呈統計顯著關聯。",
+        overview: [
+          "研究人員在2025年學期末調查馬來西亞國民大學第一及第二學年醫學生。第一學年205名合資格學生中有179人回應，第二學年182人中有160人回應；然而，網絡分析只保留資料完整的七個第一學年小組共72人，以及十個第二學年小組共94人。",
+          "第二學年小組的平均密度及傳遞性較高，平均路徑較短；第一學年則有較高互惠性，並較依賴中介者。第二學年學生的接近中心性較高、中介中心性較低；只有第二學年的入度能在累積平均績點上區分每組提名最高三人與其他同儕，而橫斷面比較不能證明網絡位置造成成績差異。",
+        ],
+        howSnaWasUsed:
+          "每名學生在所屬PBL小組內排序最多三名經常或有意義地互動的同儕或導師，並以五個項目評定同儕協作品質。作者把標準化提名排序與協作評分按50:50結合，建立有向加權網絡，再比較兩個學年的小組結構、節點中心性及累積平均績點模式。",
+        nodes:
+          "17個完整PBL小組中的166名醫學生，以及至少獲一名學生提名為協作對象的導師。",
+        ties:
+          "由一名學生指向同儕或導師的前三名有向提名，其權重由標準化提名排序與同儕評定協作品質等量組合。",
+        methods:
+          "有向加權小組網絡、密度、平均路徑長度、傳遞性、互惠性、模組度、入度、調和接近中心性及中介中心性、Mann-Whitney U兩組比較與績點比較，以及協作量表信度分析。",
+        keyTakeaways: [
+          "在17個完整小組中，第二學年網絡更密集、傳遞性較高、路徑較短；第一學年網絡則更互惠及更依賴中介者。",
+          "只有第二學年入度與累積平均績點呈顯著關聯，每組獲提名最高三人的績點中位數為3.38，其他同儕為3.04；接近及中介中心性的差異均不顯著。",
+          "同儕網絡指標可補充形成性回饋，但在缺乏縱向驗證、敏感度檢查及私隱保障時，不應用作懲罰性評分或能力標籤。",
+        ],
+        whyItMatters:
+          "研究展示SNA如何在面授醫學學習小組中分辨同儕認可、可接近性與中介位置，而不是把協作壓縮為單一分數。它也說明網絡證據應用來支持審慎的形成性探究，而非自動把學生分類為有效、有影響力或有風險。",
+        limitations:
+          "研究屬單一院校不同學年組別的探索性橫斷面比較，可能存在選擇效應與反向關係，不能作因果推論。論文摘要及一項網絡總結報告176人，但完整小組的個案統計為72加94，即166人；本審閱採用後者的實際分析個案總數，並明確標示此差異。個人回應率約87%，但只分析完整小組；提名屬自陳且上限為三人；50:50連結權重未作敏感度分析；觀察值嵌套於小組；多重比較沒有作家族錯誤率校正；關係資料也因小組規模而無法完全去識別後公開。",
+        tags: ["醫學教育", "問題導向學習", "同儕提名網絡"],
+      },
+      "zh-hans": {
+        title:
+          "以社会网络分析作为医学问题导向学习协作能力的技术增强评估工具",
+        imageAlt:
+          "俯视编辑插画呈现两张医学问题导向学习桌，左侧是由少数中介箭线连接的稀疏网络，右侧是密集的三角同伴连接",
+        summary:
+          "一项涵盖17个完整面授问题导向学习小组共166名医学生的横断面研究，以有向加权同伴网络比较第一和第二学年的协作结构，并考察网络位置与累计平均绩点的关联。第二学年网络密度与聚集程度更高、路径更短，但只有第二学年的入度与学业成绩呈统计显著关联。",
+        overview: [
+          "研究人员在2025年学期末调查马来西亚国民大学第一和第二学年医学生。第一学年205名符合条件的学生中有179人回应，第二学年182人中有160人回应；然而，网络分析只保留数据完整的七个第一学年小组共72人，以及十个第二学年小组共94人。",
+          "第二学年小组的平均密度及传递性更高，平均路径更短；第一学年则有更高互惠性，并更依赖中介者。第二学年学生的接近中心性更高、中介中心性更低；只有第二学年的入度能在累计平均绩点上区分每组提名最高三人与其他同伴，而横断面比较不能证明网络位置造成成绩差异。",
+        ],
+        howSnaWasUsed:
+          "每名学生在所属PBL小组内排序最多三名经常或有意义地互动的同伴或导师，并用五个项目评定同伴协作质量。作者把标准化提名排序与协作评分按50:50结合，建立有向加权网络，再比较两个学年的小组结构、节点中心性及累计平均绩点模式。",
+        nodes:
+          "17个完整PBL小组中的166名医学生，以及至少获得一名学生提名为协作对象的导师。",
+        ties:
+          "由一名学生指向同伴或导师的前三名有向提名，其权重由标准化提名排序与同伴评定协作质量等量组合。",
+        methods:
+          "有向加权小组网络、密度、平均路径长度、传递性、互惠性、模块度、入度、调和接近中心性及中介中心性、Mann-Whitney U组间比较与绩点比较，以及协作量表信度分析。",
+        keyTakeaways: [
+          "在17个完整小组中，第二学年网络更密集、传递性更高、路径更短；第一学年网络则更互惠及更依赖中介者。",
+          "只有第二学年入度与累计平均绩点呈显著关联，每组获提名最高三人的绩点中位数为3.38，其他同伴为3.04；接近及中介中心性的差异均不显著。",
+          "同伴网络指标可补充形成性反馈，但在缺乏纵向验证、敏感度检查及隐私保障时，不应用作惩罚性评分或能力标签。",
+        ],
+        whyItMatters:
+          "研究展示SNA如何在面授医学学习小组中区分同伴认可、可接近性与中介位置，而不是把协作压缩为单一分数。它也说明网络证据应用于支持审慎的形成性探究，而非自动把学生分类为有效、有影响力或有风险。",
+        limitations:
+          "研究属于单一院校不同学年组别的探索性横断面比较，可能存在选择效应与反向关系，不能作因果推断。论文摘要及一项网络汇总报告176人，但完整小组的个案统计为72加94，即166人；本评审采用后者的实际分析个案总数，并明确标示这一差异。个人回应率约87%，但只分析完整小组；提名属于自陈且上限为三人；50:50连接权重未作敏感度分析；观察值嵌套于小组；多重比较没有作家族错误率校正；关系数据也因小组规模而无法完全去标识后公开。",
+        tags: ["医学教育", "问题导向学习", "同伴提名网络"],
+      },
+    },
+  },
+  {
     id: "sna-007",
     sequence: 7,
     slug: "peer-networks-and-english-learning-motivation",

@@ -8,6 +8,225 @@ import {
 
 export const academyLessons: AcademyLessonRecord[] = [
   {
+    id: "academy-009",
+    sequence: 9,
+    slug: "assess-missing-network-data-and-boundary-sensitivity",
+    track: "responsible-application",
+    level: "applied",
+    analysisApproach: "social-network-analysis",
+    publishedAt: "2026-08-16",
+    reviewedAt: "2026-08-16",
+    durationMinutes: 14,
+    sources: [
+      {
+        label: "Kossinets: Effects of missing data in social networks",
+        url: "https://doi.org/10.1016/j.socnet.2005.07.002",
+      },
+      {
+        label: "Smith and Moody: Structural effects of network sampling coverage",
+        url: "https://doi.org/10.1016/j.socnet.2013.09.003",
+      },
+    ],
+    localizations: {
+      en: {
+        title: "Assess Missing Network Data and Boundary Sensitivity",
+        shortSummary:
+          "Diagnose how nonresponse, fixed-choice nominations, and boundary decisions alter a network, then report which structural conclusions remain stable across plausible alternatives.",
+        tags: ["missing network data", "boundary sensitivity", "robustness checks"],
+        visualLabel: "Coverage check",
+        learningObjectives: [
+          "Distinguish an observed absence of a tie from an unobserved actor, dyad, or interaction context.",
+          "Construct sensitivity scenarios that match plausible boundary and missing-data mechanisms.",
+          "Report robust and fragile network conclusions without filling gaps as if they were observed facts.",
+        ],
+        scenario:
+          "A district maps advice seeking among instructional staff in six schools before allocating coaching support. Eight invited educators did not respond, two schools supplied incomplete staff rosters, and the survey allowed at most five nominations. The team must learn which findings survive plausible missingness and boundary choices before acting.",
+        nodes:
+          "All instructional staff employed in the six participating schools on the census date, with roster inclusion, response status, school, and role documented for every eligible actor.",
+        ties:
+          "A directed advice-seeking nomination from educator A to educator B for help used during the previous eight weeks, capped at five outgoing nominations by the survey design.",
+        networkType:
+          "One-mode, directed, unweighted whole network with a six-school organizational boundary, one recall period, a fixed-choice cap, and missing actors and dyads retained as unknown rather than coded as no tie.",
+        tutorialSteps: [
+          {
+            title: "Audit coverage and missingness",
+            action:
+              "Join the invitation roster, response log, and edge list before calculating network measures. Mark eligible actors who are absent, distinguish item nonresponse from a reported zero, record the five-nomination cap, and summarize coverage by school and role rather than only for the network overall.",
+            checkpoint:
+              "Every eligible actor has a known roster and response status, and no unknown dyad has been silently converted into an observed absence of a tie.",
+          },
+          {
+            title: "Define boundary alternatives",
+            action:
+              "Write the primary six-school boundary and at least two defensible alternatives before viewing centrality results. For example, compare current employees with staff active during the full recall window, and compare the six participating schools with a restricted boundary that excludes schools whose rosters are incomplete.",
+            checkpoint:
+              "Each boundary has a substantive inclusion rule, a time reference, and a documented reason; none was chosen because it produces a preferred network picture.",
+          },
+          {
+            title: "Run mechanism-matched sensitivity checks",
+            action:
+              "Recalculate density, components, reciprocity, degree, betweenness, and community membership under the pre-specified boundaries. Then repeat the analysis after plausible actor and tie omissions that reflect observed nonresponse or fixed-choice censoring, keeping random and targeted omissions as separate scenarios.",
+            checkpoint:
+              "The comparison table shows how each conclusion changes by boundary and missingness mechanism, including rank stability and uncertainty rather than one replacement estimate.",
+          },
+          {
+            title: "Report what is robust and fragile",
+            action:
+              "Classify findings as stable, magnitude-sensitive, rank-sensitive, or unsupported across scenarios. Describe which missingness assumptions drive each result, show more than one network view when needed, and recommend additional data collection before any decision that depends on a fragile actor label or subgroup boundary.",
+            checkpoint:
+              "The final claim names its boundary and coverage, separates observed data from sensitivity scenarios, and does not treat imputed or simulated ties as facts about people.",
+          },
+        ],
+        interpretation: [
+          "A stable conclusion is one that keeps its substantive meaning across defensible boundaries and plausible missingness mechanisms. Similar-looking overall density can coexist with unstable components, centrality rankings, or community assignments, so robustness must be checked for the exact claim being made.",
+          "Nonresponse is rarely neutral. Missing peripheral actors can inflate apparent cohesion, while missing central actors can fragment paths and reorder betweenness. A fixed-choice cap may censor highly active respondents differently from others, so random deletion alone is not an adequate sensitivity model.",
+        ],
+        coreIdeas: [
+          "Unknown relational data are not the same as a measured absence of a tie.",
+          "Boundary and missingness mechanisms can affect different network measures in different ways.",
+          "Sensitivity analysis supports bounded conclusions; it does not reconstruct the one true unseen network.",
+        ],
+        practiceTask:
+          "Using a 12-actor directed advice network, mark two nonrespondents and one actor excluded by an alternative time boundary. Compare density, largest-component size, and the top three betweenness rankings for the primary network, the restricted boundary, one random-omission scenario, and one targeted-omission scenario, then write a two-sentence robustness conclusion.",
+        responsibleUse:
+          "Missingness checks can reveal who declined, who was omitted from a roster, or which small group appears isolated. Restrict row-level access, publish aggregate coverage where possible, and involve participants before recollection or intervention. Never invent ties to make a network complete, label a nonrespondent as isolated, or allocate support, sanctions, or resources from a centrality rank that changes under plausible boundary or missing-data scenarios. Sensitivity results describe uncertainty in the observed design and do not establish causal influence or personal value.",
+        relatedConcepts: [
+          "network nonresponse",
+          "boundary specification",
+          "measurement error",
+        ],
+      },
+      "zh-hant": {
+        title: "評估網絡缺失資料與邊界敏感度",
+        shortSummary:
+          "診斷未回應、固定提名上限及邊界決定如何改變網絡，再報告哪些結構結論能在合理替代方案中保持穩定。",
+        tags: ["網絡缺失資料", "邊界敏感度", "穩健性檢查"],
+        visualLabel: "覆蓋檢查",
+        learningObjectives: [
+          "區分已觀察的無連結與未被觀察的行動者、二元關係或互動情境。",
+          "按照合理的邊界及缺失資料機制建立敏感度情境。",
+          "報告穩健及脆弱的網絡結論，而不把資料缺口填補成已觀察事實。",
+        ],
+        scenario:
+          "一個學區在分配教學輔導支援前，繪製六所學校教學人員的建議尋求網絡。八名獲邀教育工作者未有回應，兩所學校只提供不完整員工名冊，問卷最多可提名五人。團隊在採取行動前，必須了解哪些發現能在合理的缺失資料及邊界選擇下成立。",
+        nodes:
+          "人口普查日期在六所參與學校任職的所有教學人員，並為每名合資格行動者記錄名冊收錄、回應狀態、學校及職務。",
+        ties:
+          "由教育工作者 A 指向 B 的有向建議尋求提名，表示 A 在過去八星期曾使用 B 的協助；問卷設計把每人的出向提名上限設為五個。",
+        networkType:
+          "單模式、有向、無權重完整網絡，採用六所學校的組織邊界及單一回溯期，設有固定提名上限，並把缺失行動者與二元關係保留為未知，而非編碼成沒有連結。",
+        tutorialSteps: [
+          {
+            title: "審計覆蓋與缺失情況",
+            action:
+              "在計算網絡指標前，先連結邀請名冊、回應紀錄與邊列表。標示缺席的合資格行動者，區分項目未回應與已報告零值，記錄五人提名上限，並按學校及職務概述覆蓋率，而非只報告整體網絡比例。",
+            checkpoint:
+              "每名合資格行動者均有明確名冊及回應狀態，沒有任何未知二元關係被暗中轉換成已觀察的無連結。",
+          },
+          {
+            title: "界定替代邊界",
+            action:
+              "在查看中心性結果前，寫出主要六校邊界及至少兩個可辯護替代方案。例如把現職人員與整個回溯期均在職的人員作比較，再把六所參與學校與排除名冊不完整學校的受限邊界作比較。",
+            checkpoint:
+              "每個邊界都有實質收錄規則、時間參照及書面理由，沒有邊界因能產生偏好的網絡圖像而被選用。",
+          },
+          {
+            title: "執行符合機制的敏感度檢查",
+            action:
+              "在預先指定的邊界下重新計算密度、連通分量、互惠性、度數、中介中心性及社群歸屬。其後按已觀察未回應或固定提名截尾的合理行動者及連結遺漏重複分析，並把隨機遺漏與針對性遺漏分開處理。",
+            checkpoint:
+              "比較表呈現每項結論如何隨邊界及缺失機制改變，包括排序穩定性及不確定性，而不是只提供一個替代估計。",
+          },
+          {
+            title: "報告穩健與脆弱之處",
+            action:
+              "把發現分類為穩定、幅度敏感、排序敏感或不獲支持。說明哪些缺失假設推動每項結果，需要時展示多於一個網絡視圖；若決定依賴脆弱的行動者標籤或子群邊界，應先建議補充資料收集。",
+            checkpoint:
+              "最終主張列明邊界及覆蓋率，區分觀察資料與敏感度情境，並且不把插補或模擬連結當成人際事實。",
+          },
+        ],
+        interpretation: [
+          "穩定結論是指其實質含義能在可辯護邊界及合理缺失機制下保持一致。看似相近的整體密度可以同時伴隨不穩定的連通分量、中心性排序或社群歸屬，因此穩健性必須針對實際主張逐項檢查。",
+          "未回應很少是中性的。遺漏周邊行動者可令凝聚程度看似偏高，遺漏中心行動者則可切斷路徑並改變中介中心性排序。固定提名上限也可能對高活躍回應者造成不同截尾，因此只模擬隨機刪除並不足夠。",
+        ],
+        coreIdeas: [
+          "未知關係資料不等同已量度的無連結。",
+          "邊界與缺失機制可以用不同方式影響不同網絡指標。",
+          "敏感度分析支持有界線的結論，並不重建唯一真實但未被觀察的網絡。",
+        ],
+        practiceTask:
+          "利用一個12名行動者的有向建議網絡，標示兩名未回應者及一名因替代時間邊界而被排除的行動者。比較主要網絡、受限邊界、一個隨機遺漏情境及一個針對性遺漏情境的密度、最大連通分量規模與最高三名中介中心性排序，再寫出兩句穩健性結論。",
+        responsibleUse:
+          "缺失資料檢查可能揭示誰拒絕參與、誰被名冊遺漏，或哪個小群體看似孤立。應限制列層級資料存取，盡可能只發布匯總覆蓋率，並在重新收集或介入前讓參與者參與決定。不可虛構連結以使網絡完整、把未回應者標籤為孤立，也不可依據會隨合理邊界或缺失資料情境改變的中心性排序分配支援、制裁或資源。敏感度結果描述觀察設計的不確定性，不能證明因果影響或個人價值。",
+        relatedConcepts: ["網絡未回應", "邊界界定", "量度誤差"],
+      },
+      "zh-hans": {
+        title: "评估网络缺失数据与边界敏感度",
+        shortSummary:
+          "诊断未回应、固定提名上限及边界决定如何改变网络，再报告哪些结构结论能在合理替代方案中保持稳定。",
+        tags: ["网络缺失数据", "边界敏感度", "稳健性检查"],
+        visualLabel: "覆盖检查",
+        learningObjectives: [
+          "区分已观察的无连接与未被观察的行动者、二元关系或互动情境。",
+          "按照合理的边界及缺失数据机制建立敏感度情境。",
+          "报告稳健及脆弱的网络结论，而不把数据缺口填补成已观察事实。",
+        ],
+        scenario:
+          "一个学区在分配教学辅导支持前，绘制六所学校教学人员的建议寻求网络。八名获邀教育工作者没有回应，两所学校只提供不完整员工名册，问卷最多可提名五人。团队在采取行动前，必须了解哪些发现能在合理的缺失数据及边界选择下成立。",
+        nodes:
+          "普查日期在六所参与学校任职的所有教学人员，并为每名符合条件的行动者记录名册收录、回应状态、学校及职务。",
+        ties:
+          "由教育工作者 A 指向 B 的有向建议寻求提名，表示 A 在过去八周曾使用 B 的帮助；问卷设计把每人的出向提名上限设为五个。",
+        networkType:
+          "单模式、有向、无权重完整网络，采用六所学校的组织边界及单一回溯期，设有固定提名上限，并把缺失行动者与二元关系保留为未知，而不是编码成没有连接。",
+        tutorialSteps: [
+          {
+            title: "审计覆盖与缺失情况",
+            action:
+              "在计算网络指标前，先连接邀请名册、回应记录与边列表。标示缺席的符合条件行动者，区分项目未回应与已报告零值，记录五人提名上限，并按学校及职务概述覆盖率，而不是只报告整体网络比例。",
+            checkpoint:
+              "每名符合条件的行动者均有明确名册及回应状态，没有任何未知二元关系被暗中转换成已观察的无连接。",
+          },
+          {
+            title: "界定替代边界",
+            action:
+              "在查看中心性结果前，写出主要六校边界及至少两个可辩护替代方案。例如把现职人员与整个回溯期均在职的人员作比较，再把六所参与学校与排除名册不完整学校的受限边界作比较。",
+            checkpoint:
+              "每个边界都有实质收录规则、时间参照及书面理由，没有边界因能产生偏好的网络图像而被选用。",
+          },
+          {
+            title: "执行符合机制的敏感度检查",
+            action:
+              "在预先指定的边界下重新计算密度、连通分量、互惠性、度数、中介中心性及社群归属。其后按已观察未回应或固定提名截尾的合理行动者及连接遗漏重复分析，并把随机遗漏与针对性遗漏分开处理。",
+            checkpoint:
+              "比较表呈现每项结论如何随边界及缺失机制改变，包括排序稳定性及不确定性，而不是只提供一个替代估计。",
+          },
+          {
+            title: "报告稳健与脆弱之处",
+            action:
+              "把发现分类为稳定、幅度敏感、排序敏感或不获支持。说明哪些缺失假设推动每项结果，需要时展示多于一个网络视图；若决定依赖脆弱的行动者标签或子群边界，应先建议补充数据收集。",
+            checkpoint:
+              "最终主张列明边界及覆盖率，区分观察数据与敏感度情境，并且不把插补或模拟连接当成人际事实。",
+          },
+        ],
+        interpretation: [
+          "稳定结论是指其实质含义能在可辩护边界及合理缺失机制下保持一致。看似相近的整体密度可以同时伴随不稳定的连通分量、中心性排序或社群归属，因此稳健性必须针对实际主张逐项检查。",
+          "未回应很少是中性的。遗漏周边行动者可使凝聚程度看似偏高，遗漏中心行动者则可切断路径并改变中介中心性排序。固定提名上限也可能对高活跃回应者造成不同截尾，因此只模拟随机删除并不足够。",
+        ],
+        coreIdeas: [
+          "未知关系数据不等同已测量的无连接。",
+          "边界与缺失机制可以用不同方式影响不同网络指标。",
+          "敏感度分析支持有边界的结论，并不重建唯一真实但未被观察的网络。",
+        ],
+        practiceTask:
+          "利用一个12名行动者的有向建议网络，标示两名未回应者及一名因替代时间边界而被排除的行动者。比较主要网络、受限边界、一个随机遗漏情境及一个针对性遗漏情境的密度、最大连通分量规模与最高三名中介中心性排序，再写出两句稳健性结论。",
+        responsibleUse:
+          "缺失数据检查可能揭示谁拒绝参与、谁被名册遗漏，或哪个小群体看似孤立。应限制行层级数据访问，尽可能只发布汇总覆盖率，并在重新收集或干预前让参与者参与决定。不可虚构连接以使网络完整、把未回应者标记为孤立，也不可依据会随合理边界或缺失数据情境改变的中心性排序分配支持、制裁或资源。敏感度结果描述观察设计的不确定性，不能证明因果影响或个人价值。",
+        relatedConcepts: ["网络未回应", "边界界定", "测量误差"],
+      },
+    },
+  },
+  {
     id: "academy-008",
     sequence: 8,
     slug: "analyze-brokerage-and-structural-holes",
