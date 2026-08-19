@@ -8,6 +8,229 @@ import {
 
 export const academyLessons: AcademyLessonRecord[] = [
   {
+    id: "academy-010",
+    sequence: 10,
+    slug: "compare-density-reciprocity-and-transitivity",
+    track: "network-theory",
+    level: "foundation",
+    analysisApproach: "social-network-analysis",
+    publishedAt: "2026-08-19",
+    reviewedAt: "2026-08-19",
+    durationMinutes: 13,
+    sources: [
+      {
+        label: "Wasserman and Faust: Social Network Analysis",
+        url: "https://doi.org/10.1017/CBO9780511815478",
+      },
+      {
+        label: "Holland and Leinhardt: Transitivity in structural models",
+        url: "https://doi.org/10.1177/104649647100200201",
+      },
+      {
+        label: "Opsahl and Panzarasa: Clustering in weighted networks",
+        url: "https://doi.org/10.1016/j.socnet.2009.02.002",
+      },
+    ],
+    localizations: {
+      en: {
+        title: "Compare Density, Reciprocity, and Transitivity",
+        shortSummary:
+          "Turn a bounded directed network into three whole-network measures, state each denominator and convention, and interpret connection, mutual exchange, and triadic closure as distinct structural patterns.",
+        tags: ["network density", "reciprocity", "transitivity"],
+        visualLabel: "Whole-network structure",
+        learningObjectives: [
+          "Calculate density from observed and possible ties without dropping eligible isolates.",
+          "Distinguish mutual dyads from transitive triads and state the convention used for each measure.",
+          "Compare whole-network measures without treating cohesion as learning quality, trust, or causal influence.",
+        ],
+        scenario:
+          "An instructor reviews peer replies among 18 students during a six-week online seminar. The roster includes students who never posted, instructor messages are excluded, and a tie records at least one direct student reply. The team wants to describe whether interaction is widespread, mutual, and locally closed before changing the discussion design.",
+        nodes:
+          "All 18 students enrolled on the seminar census date, including eligible students with no recorded outgoing or incoming reply during the six-week observation window.",
+        ties:
+          "A directed tie from student A to student B when A posted at least one direct reply to B during the six-week unit; repeated replies are collapsed to one binary tie and self-replies are removed.",
+        networkType:
+          "One-mode, directed, unweighted whole network with a fixed course-roster boundary, one six-week observation window, no self-ties, instructors excluded, and missing platform records documented separately from observed zero ties.",
+        tutorialSteps: [
+          {
+            title: "Freeze the network specification",
+            action:
+              "Start from the node roster and edge list prepared in the earlier Academy lessons. Add every eligible student to the node table, remove self-replies and instructor activity, collapse repeated student-to-student replies to binary ties, and record the observation window and any missing export dates before calculating a measure.",
+            checkpoint:
+              "The adjacency matrix contains all 18 eligible students, its diagonal is zero, and a zero cell means an observed absence under the stated rule rather than an unknown record.",
+          },
+          {
+            title: "Calculate directed density",
+            action:
+              "Count the observed directed ties m and divide by n(n-1), the number of possible directed non-self ties. With 18 students the denominator is 18 times 17, or 306. Report the observed tie count beside the proportion so readers can audit the numerator and understand the boundary.",
+            checkpoint:
+              "Density is between 0 and 1, uses 306 possible ties, retains isolates in n, and is not divided by the smaller undirected denominator n(n-1)/2.",
+          },
+          {
+            title: "Separate reciprocity from transitivity",
+            action:
+              "For reciprocity, count mutual dyads and divide by all dyads with at least one observed tie, explicitly naming this dyad-based convention. For transitivity, count directed two-paths A to B to C that are closed by A to C and divide by all eligible directed two-paths with three distinct students.",
+            checkpoint:
+              "The worksheet shows the raw mutual-dyad and closed-two-path counts, and the same ordered pair or triad rules are used in every comparison network.",
+          },
+          {
+            title: "Interpret and stress-test the three measures",
+            action:
+              "Describe density as tie prevalence, reciprocity as mutual exchange under the chosen convention, and transitivity as local closure. Recalculate after a defensible alternative such as requiring two replies per tie or excluding an incomplete export week, then explain which conclusions persist and which depend on measurement choices.",
+            checkpoint:
+              "The final interpretation names the boundary, time window, tie threshold, and formula conventions, reports sensitivity results, and makes no claim that a larger value caused better learning.",
+          },
+        ],
+        interpretation: [
+          "The three measures answer different questions. A sparse directed network can still contain a high share of mutual dyads or closed two-paths, while a dense network can distribute many ties without making every exchange mutual. Never substitute one measure for an undefined idea of overall cohesion.",
+          "Values depend on who was eligible, which interactions counted, how repeated replies were collapsed, and the exact reciprocity and transitivity definitions. Comparisons are most credible when networks share the same boundary and observation opportunity or when differences are explicitly adjusted and stress-tested.",
+        ],
+        coreIdeas: [
+          "Density compares observed ties with all ties possible under a stated boundary.",
+          "Reciprocity concerns mutual dyads; transitivity concerns closure of directed two-paths.",
+          "Whole-network measures describe structure and require separate evidence for learning, trust, or causation.",
+        ],
+        practiceTask:
+          "Create an eight-student directed reply network with two isolates, 12 observed ties, three mutual dyads, and at least four directed two-paths. Calculate directed density, dyad-based reciprocity, and directed transitivity from raw counts, then repeat after requiring two replies per tie and write a three-sentence sensitivity interpretation.",
+        responsibleUse:
+          "Whole-network summaries can conceal who lacked access, who chose not to post, and whether the platform failed to record participation. Protect the underlying interaction data, report small-group results only when re-identification risk is controlled, and invite contextual interpretation before redesigning activities. Do not label a class collaborative, a student disengaged, or an intervention effective from density, reciprocity, or transitivity alone. These measures describe the observed bounded network; they do not establish communication quality, learning, intent, trust, or causal effects.",
+        relatedConcepts: [
+          "adjacency matrix",
+          "directed dyad census",
+          "triadic closure",
+        ],
+      },
+      "zh-hant": {
+        title: "比較密度、互惠性與傳遞性",
+        shortSummary:
+          "把有明確邊界的有向網絡轉化為三個整體網絡指標，說明各自的分母與定義慣例，並把連結普及、互相交流與三元閉合詮釋為不同結構模式。",
+        tags: ["網絡密度", "互惠性", "傳遞性"],
+        visualLabel: "整體網絡結構",
+        learningObjectives: [
+          "在不刪除合資格孤立節點的情況下，利用觀察連結與可能連結計算密度。",
+          "區分互惠二元組與傳遞三元組，並說明每項指標所採用的定義慣例。",
+          "比較整體網絡指標，而不把凝聚程度當成學習品質、信任或因果影響。",
+        ],
+        scenario:
+          "一名導師檢視18名學生在六星期線上研討課中的同儕回覆。名冊包括從未發文的學生，導師訊息不納入分析，每條連結表示至少一次直接學生回覆。團隊在改變討論設計前，希望描述互動是否廣泛、相互及在局部形成閉合。",
+        nodes:
+          "人口普查日期在研討課註冊的全部18名學生，包括六星期觀察期內沒有任何出向或入向回覆紀錄的合資格學生。",
+        ties:
+          "若學生A在六星期單元內至少一次直接回覆學生B，便建立由A指向B的連結；重複回覆合併為一條二元連結，自我回覆則刪除。",
+        networkType:
+          "單模式、有向、無權重完整網絡，採用固定課程名冊邊界及一個六星期觀察窗，不設自我連結，排除導師，並把缺失平台紀錄與已觀察的零連結分開記錄。",
+        tutorialSteps: [
+          {
+            title: "固定網絡規格",
+            action:
+              "由較早學苑教學準備的節點名冊及邊列表開始，把每名合資格學生加入節點表，刪除自我回覆及導師活動，把重複的學生對學生回覆合併為二元連結，並在計算任何指標前記錄觀察窗及缺失匯出日期。",
+            checkpoint:
+              "鄰接矩陣包括全部18名合資格學生，對角線為零，而且零值單元格代表按既定規則觀察到沒有連結，而非未知紀錄。",
+          },
+          {
+            title: "計算有向密度",
+            action:
+              "計算已觀察有向連結數m，再除以n(n-1)，即所有可能的有向非自我連結數。18名學生的分母是18乘17，即306。報告比例時同時列出已觀察連結數，讓讀者可核查分子並理解邊界。",
+            checkpoint:
+              "密度介乎0與1之間，以306條可能連結為分母，在n中保留孤立節點，並且沒有誤用較小的無向分母n(n-1)/2。",
+          },
+          {
+            title: "分開互惠性與傳遞性",
+            action:
+              "計算互惠性時，先數互惠二元組，再除以至少有一條觀察連結的所有二元組，並明確稱為以二元組為基礎的定義。計算傳遞性時，數出由A指向B再指向C、並由A指向C閉合的有向二步路徑，再除以三名不同學生組成的全部合資格有向二步路徑。",
+            checkpoint:
+              "工作表列出原始互惠二元組及閉合二步路徑數，而且每個比較網絡均採用相同的有序配對與三元組規則。",
+          },
+          {
+            title: "詮釋並壓力測試三項指標",
+            action:
+              "把密度描述為連結普及程度，把互惠性描述為既定慣例下的相互交流，把傳遞性描述為局部閉合。採用可辯護替代規則重新計算，例如每條連結須有兩次回覆，或排除匯出不完整的一星期，再說明哪些結論維持及哪些取決於量度選擇。",
+            checkpoint:
+              "最終詮釋列明邊界、時間窗、連結門檻及公式慣例，報告敏感度結果，並且沒有聲稱較大數值造成較佳學習。",
+          },
+        ],
+        interpretation: [
+          "三項指標回答不同問題。稀疏有向網絡仍可有高比例互惠二元組或閉合二步路徑；密集網絡也可以分布很多連結而不令每次交流相互。不可把其中一項指標代替未有清楚定義的整體凝聚概念。",
+          "數值取決於誰符合資格、哪些互動被計算、重複回覆如何合併，以及互惠性與傳遞性的確切定義。當比較網絡採用相同邊界與觀察機會，或差異已清楚調整及壓力測試時，結論才較可信。",
+        ],
+        coreIdeas: [
+          "密度比較已觀察連結與既定邊界下所有可能連結。",
+          "互惠性關乎相互二元組，傳遞性關乎有向二步路徑的閉合。",
+          "整體網絡指標描述結構，學習、信任或因果關係需要另行取證。",
+        ],
+        practiceTask:
+          "建立一個八名學生的有向回覆網絡，其中有兩個孤立節點、12條已觀察連結、三個互惠二元組及至少四條有向二步路徑。利用原始計數計算有向密度、以二元組為基礎的互惠性及有向傳遞性，再以每條連結須有兩次回覆的規則重算，並寫出三句敏感度詮釋。",
+        responsibleUse:
+          "整體網絡摘要可以遮蔽誰缺乏參與機會、誰選擇不發文，以及平台有否遺漏參與紀錄。應保障底層互動資料，只在再識別風險受控時報告小組結果，並在重新設計活動前邀請情境詮釋。不可單憑密度、互惠性或傳遞性把課堂標籤為協作、把學生標籤為不投入，或宣稱介入有效。這些指標描述觀察到的有界線網絡，不能證明溝通品質、學習、意圖、信任或因果效果。",
+        relatedConcepts: ["鄰接矩陣", "有向二元組普查", "三元閉合"],
+      },
+      "zh-hans": {
+        title: "比较密度、互惠性与传递性",
+        shortSummary:
+          "把有明确边界的有向网络转化为三个整体网络指标，说明各自的分母与定义惯例，并把连接普及、相互交流与三元闭合解释为不同结构模式。",
+        tags: ["网络密度", "互惠性", "传递性"],
+        visualLabel: "整体网络结构",
+        learningObjectives: [
+          "在不删除符合条件孤立节点的情况下，利用观察连接与可能连接计算密度。",
+          "区分互惠二元组与传递三元组，并说明每项指标所采用的定义惯例。",
+          "比较整体网络指标，而不把凝聚程度当成学习质量、信任或因果影响。",
+        ],
+        scenario:
+          "一名教师检查18名学生在六周在线研讨课中的同伴回复。名册包括从未发帖的学生，教师消息不纳入分析，每条连接表示至少一次直接学生回复。团队在改变讨论设计前，希望描述互动是否广泛、相互并在局部形成闭合。",
+        nodes:
+          "普查日期在研讨课注册的全部18名学生，包括六周观察期内没有任何出向或入向回复记录的符合条件学生。",
+        ties:
+          "如果学生A在六周单元内至少一次直接回复学生B，便建立由A指向B的连接；重复回复合并为一条二元连接，自我回复则删除。",
+        networkType:
+          "单模式、有向、无权重完整网络，采用固定课程名册边界及一个六周观察窗，不设自我连接，排除教师，并把缺失平台记录与已观察的零连接分别记录。",
+        tutorialSteps: [
+          {
+            title: "固定网络规格",
+            action:
+              "从较早学苑教程准备的节点名册及边列表开始，把每名符合条件学生加入节点表，删除自我回复及教师活动，把重复的学生对学生回复合并为二元连接，并在计算任何指标前记录观察窗及缺失导出日期。",
+            checkpoint:
+              "邻接矩阵包括全部18名符合条件学生，对角线为零，而且零值单元格代表按既定规则观察到没有连接，而不是未知记录。",
+          },
+          {
+            title: "计算有向密度",
+            action:
+              "计算已观察有向连接数m，再除以n(n-1)，即所有可能的有向非自我连接数。18名学生的分母是18乘17，即306。报告比例时同时列出已观察连接数，让读者可核查分子并理解边界。",
+            checkpoint:
+              "密度介于0与1之间，以306条可能连接为分母，在n中保留孤立节点，并且没有误用较小的无向分母n(n-1)/2。",
+          },
+          {
+            title: "分开互惠性与传递性",
+            action:
+              "计算互惠性时，先数互惠二元组，再除以至少有一条观察连接的所有二元组，并明确称为以二元组为基础的定义。计算传递性时，数出由A指向B再指向C、并由A指向C闭合的有向两步路径，再除以三名不同学生组成的全部符合条件有向两步路径。",
+            checkpoint:
+              "工作表列出原始互惠二元组及闭合两步路径数，而且每个比较网络均采用相同的有序配对与三元组规则。",
+          },
+          {
+            title: "解释并压力测试三项指标",
+            action:
+              "把密度描述为连接普及程度，把互惠性描述为既定惯例下的相互交流，把传递性描述为局部闭合。采用可辩护替代规则重新计算，例如每条连接须有两次回复，或排除导出不完整的一周，再说明哪些结论保持及哪些取决于测量选择。",
+            checkpoint:
+              "最终解释列明边界、时间窗、连接门槛及公式惯例，报告敏感度结果，并且没有声称较大数值造成更好学习。",
+          },
+        ],
+        interpretation: [
+          "三项指标回答不同问题。稀疏有向网络仍可有高比例互惠二元组或闭合两步路径；密集网络也可以分布很多连接而不使每次交流相互。不可把其中一项指标替代未有清楚定义的整体凝聚概念。",
+          "数值取决于谁符合条件、哪些互动被计算、重复回复如何合并，以及互惠性与传递性的确切定义。当比较网络采用相同边界与观察机会，或差异已清楚调整及压力测试时，结论才更可信。",
+        ],
+        coreIdeas: [
+          "密度比较已观察连接与既定边界下所有可能连接。",
+          "互惠性涉及相互二元组，传递性涉及有向两步路径的闭合。",
+          "整体网络指标描述结构，学习、信任或因果关系需要另行取证。",
+        ],
+        practiceTask:
+          "建立一个八名学生的有向回复网络，其中有两个孤立节点、12条已观察连接、三个互惠二元组及至少四条有向两步路径。利用原始计数计算有向密度、以二元组为基础的互惠性及有向传递性，再以每条连接须有两次回复的规则重算，并写出三句敏感度解释。",
+        responsibleUse:
+          "整体网络摘要可以遮蔽谁缺乏参与机会、谁选择不发帖，以及平台是否遗漏参与记录。应保护底层互动数据，只在重新识别风险受控时报告小组结果，并在重新设计活动前邀请情境解释。不可只凭密度、互惠性或传递性把课堂标记为协作、把学生标记为不投入，或声称干预有效。这些指标描述观察到的有边界网络，不能证明沟通质量、学习、意图、信任或因果效果。",
+        relatedConcepts: ["邻接矩阵", "有向二元组普查", "三元闭合"],
+      },
+    },
+  },
+  {
     id: "academy-009",
     sequence: 9,
     slug: "assess-missing-network-data-and-boundary-sensitivity",

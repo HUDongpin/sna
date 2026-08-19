@@ -6,6 +6,122 @@ import type {
 
 export const newsArticles: NewsArticleRecord[] = [
   {
+    id: "sna-011",
+    sequence: 11,
+    slug: "rich-clubs-online-discussion-networks",
+    type: "journal",
+    authors: ["Priya Sharma", "Minkyung Lee"],
+    venue: "Journal of Computing in Higher Education",
+    citation:
+      "Journal of Computing in Higher Education (2026), advance online publication",
+    doi: "10.1007/s12528-026-09503-6",
+    sourceUrl:
+      "https://link.springer.com/article/10.1007/s12528-026-09503-6",
+    sourceLabel: "Journal of Computing in Higher Education",
+    publishedAt: "2026-07-16",
+    year: 2026,
+    reviewedAt: "2026-08-19",
+    openAccess: true,
+    coverImage:
+      "/images/news/covers/sna-011-rich-clubs-online-discussion-networks.png",
+    summaryImage:
+      "/images/news/summary/sna-011-rich-clubs-online-discussion-networks-summary.png",
+    localizations: {
+      en: {
+        title:
+          "Rich clubs and engagement in online discussions: Implications for participatory learning design",
+        imageAlt:
+          "Overhead paper-collage illustration of five online discussion panels, each with a tight amber reply core and teal or violet peripheral nodes, with thick amber comparison arrows spanning panels",
+        summary:
+          "A study of about 3,000 posts from five asynchronous undergraduate communication courses built separate directed, weighted student interaction networks and calculated normalized rich-club coefficients. Highly active students formed closely connected cores, but coded discourse showed only modest differences in cognitive quality between rich-club and other active participants.",
+        overview: [
+          "The researchers examined three sections of a 200-level communication course and two sections of a 100-level course. Each course enrolled about 24 to 50 students, used graded structured discussion boards, and left the discussions to students rather than instructor participation. Posts, replies, and mentions across the semester supplied approximately 3,000 records for five separate course networks.",
+          "All five networks contained highly active students who were tightly connected with one another, although normalized rich-club coefficients varied and exceeded 1 most clearly in courses 5 and 8. Discourse coding of 626 posts from courses 5 and 6 found largely similar proportions of deep and surface contributions for rich-club and other active students, so structural concentration did not demonstrate superior cognitive quality or better learning outcomes.",
+        ],
+        howSnaWasUsed:
+          "Students were represented as nodes in separate course networks. Directed replies and mentions between students became weighted ties, with instructor activity excluded. The authors used degree and weighted degree, centrality, modularity-based sociograms, and a normalized rich-club coefficient comparing observed high-degree connectivity with degree-sequence null networks, then paired the network results with coded discourse analysis.",
+        nodes:
+          "Students enrolled in each of five asynchronous undergraduate communication courses, analyzed as five separate networks of approximately 24 to 50 actors.",
+        ties:
+          "A directed reply or mention from one student to another during the course discussion boards, weighted by the frequency of recorded interaction across the semester.",
+        methods:
+          "Separate directed weighted adjacency matrices; degree, weighted degree, centrality, modularity visualization, and normalized rich-club coefficients in Gephi and R; plus Henri-based cognitive and interactive discourse coding with Cohen's kappa of 0.79 on the reliability subset.",
+        keyTakeaways: [
+          "Each course showed a highly active, densely interconnected core, and the identified rich-club members also ranked within the top 10% of weighted degree in their course.",
+          "Normalized coefficients differed across courses: course 5 had a coefficient of 1.3 while course 6 had 0.61, showing why a visible active core should not be treated as identical evidence of above-null rich-club organization.",
+          "Rich-club and other active students produced broadly similar proportions of thoughtful discourse, so concentrated interaction may signal an access bottleneck without proving better reasoning, achievement, or learning.",
+        ],
+        whyItMatters:
+          "The study adds a whole-network diagnostic for asking whether highly active students preferentially interact with one another instead of only counting posts or ranking individuals. Combining the rich-club coefficient with discourse coding also shows that interaction volume and cognitive quality are different constructs that need separate evidence.",
+        limitations:
+          "The analysis covered five small communication courses over one semester within one institutional setting, and course design, facilitation, grading, and platform rules limit generalization. Networks were aggregated rather than modeled longitudinally, so the study could not establish when clubs formed, whether they persisted, or whether early posting caused membership. Degree thresholds were selected from each observed distribution, normalized coefficients varied across courses, discourse comparisons focused on selected high- and low-coefficient courses and excluded very low-activity students, and grades or other learning outcomes were not tested. Replies and mentions do not capture reading or unposted learning, the underlying student data are not public, and no causal claim about network position, discourse quality, or instructional design is supported.",
+        tags: [
+          "Online discussion networks",
+          "Rich-club coefficient",
+          "Learning design",
+        ],
+      },
+      "zh-hant": {
+        title: "線上討論中的富俱樂部與參與：對參與式學習設計的啟示",
+        imageAlt:
+          "俯視紙藝拼貼插畫呈現五個線上討論面板，每個面板都有緊密的琥珀色回覆核心及藍綠或紫色外圍節點，粗琥珀色比較箭線跨越面板",
+        summary:
+          "研究利用五門非同步本科傳意課程約3,000則貼文，分別建立有向加權學生互動網絡並計算標準化富俱樂部係數。高活躍學生形成緊密連結的核心，但話語編碼顯示，富俱樂部成員與其他活躍參與者的認知品質差異有限。",
+        overview: [
+          "研究涵蓋一門二百程度傳意課程的三個班別，以及一門一百程度課程的兩個班別。每班約有24至50名學生，使用計分及具結構的討論區，導師不參與討論，讓學生彼此互動。整個學期的貼文、回覆與提及提供約3,000筆紀錄，構成五個獨立課程網絡。",
+          "五個網絡均出現彼此緊密連結的高活躍學生，但標準化富俱樂部係數在課程之間有差異，當中課程5及8最清楚高於1。研究另編碼課程5及6共626則貼文，發現富俱樂部與其他活躍學生的深層及表層內容比例大致相近，因此結構集中不等同較高認知品質或較佳學習成果。",
+        ],
+        howSnaWasUsed:
+          "研究把各課程學生視為節點，將學生之間的有向回覆與提及轉為加權連結，並排除導師活動。作者利用度數、加權度數、中心性、按模組度着色的社會網絡圖，以及把觀察所得高程度節點連結與保持度數序列的虛無網絡比較之標準化富俱樂部係數，再把網絡結果與話語編碼分析結合。",
+        nodes:
+          "五門非同步本科傳意課程的修讀學生，按課程分成五個獨立網絡，每個網絡約有24至50名行動者。",
+        ties:
+          "一名學生在課程討論區向另一名學生作出的有向回覆或提及，並按整個學期記錄到的互動次數加權。",
+        methods:
+          "五個獨立有向加權鄰接矩陣、度數、加權度數、中心性、模組度視覺化，以及在Gephi與R中計算的標準化富俱樂部係數；另採用Henri框架進行認知及互動話語編碼，信度子集的Cohen's kappa為0.79。",
+        keyTakeaways: [
+          "每門課程均呈現高活躍而緊密互連的核心，獲識別的富俱樂部成員也位列所屬課程加權度數最高10%。",
+          "標準化係數在課程之間不同：課程5為1.3，課程6為0.61，說明可見的活躍核心不能自動視為相同程度的超越虛無模型富俱樂部組織證據。",
+          "富俱樂部與其他活躍學生所產生的深思內容比例大致相近，因此集中互動可提示資源取得樽頸，但不能證明較佳推理、成績或學習。",
+        ],
+        whyItMatters:
+          "研究提供一項整體網絡診斷，讓分析者追問高活躍學生是否偏向彼此互動，而不只是計算貼文或排列個人名次。把富俱樂部係數與話語編碼並用，也顯示互動量與認知品質是需要分開取證的不同概念。",
+        limitations:
+          "分析只涵蓋單一院校情境中五門小型傳意課程及一個學期，課程設計、引導方式、評分與平台規則均限制推廣。網絡按整個學期匯總，未作縱向建模，因此不能判定核心何時形成、是否持續，或提早發文是否造成成員身分。度數門檻由各觀察分布選定，標準化係數在課程之間有差異；話語比較集中於選定的高及低係數課程，並排除極低活躍學生；研究也沒有檢驗成績或其他學習成果。回覆與提及不能捕捉閱讀或未發文的學習，底層學生資料不公開，研究不支持網絡位置、話語品質或教學設計之間的因果主張。",
+        tags: ["線上討論網絡", "富俱樂部係數", "學習設計"],
+      },
+      "zh-hans": {
+        title: "在线讨论中的富俱乐部与参与：对参与式学习设计的启示",
+        imageAlt:
+          "俯视纸艺拼贴插画呈现五个在线讨论面板，每个面板都有紧密的琥珀色回复核心及蓝绿色或紫色外围节点，粗琥珀色比较箭线跨越面板",
+        summary:
+          "研究利用五门异步本科传播课程约3,000则帖子，分别建立有向加权学生互动网络并计算标准化富俱乐部系数。高活跃学生形成紧密连接的核心，但话语编码显示，富俱乐部成员与其他活跃参与者的认知质量差异有限。",
+        overview: [
+          "研究涵盖一门二百级传播课程的三个班级，以及一门一百级课程的两个班级。每班约有24至50名学生，使用计分且有结构的讨论区，教师不参与讨论，让学生彼此互动。整个学期的帖子、回复与提及提供约3,000条记录，构成五个独立课程网络。",
+          "五个网络均出现彼此紧密连接的高活跃学生，但标准化富俱乐部系数在课程之间存在差异，其中课程5和8最清楚高于1。研究还编码课程5和6共626则帖子，发现富俱乐部与其他活跃学生的深层及表层内容比例大致相近，因此结构集中不等同更高认知质量或更好学习成果。",
+        ],
+        howSnaWasUsed:
+          "研究把各课程学生视为节点，将学生之间的有向回复与提及转为加权连接，并排除教师活动。作者利用度数、加权度数、中心性、按模块度着色的社会网络图，以及把观察到的高度数节点连接与保持度数序列的零模型网络比较之标准化富俱乐部系数，再把网络结果与话语编码分析结合。",
+        nodes:
+          "五门异步本科传播课程的修读学生，按课程分成五个独立网络，每个网络约有24至50名行动者。",
+        ties:
+          "一名学生在课程讨论区向另一名学生发出的有向回复或提及，并按整个学期记录到的互动次数加权。",
+        methods:
+          "五个独立有向加权邻接矩阵、度数、加权度数、中心性、模块度可视化，以及在Gephi与R中计算的标准化富俱乐部系数；另采用Henri框架进行认知及互动话语编码，信度子集的Cohen's kappa为0.79。",
+        keyTakeaways: [
+          "每门课程均呈现高活跃且紧密互连的核心，获识别的富俱乐部成员也位列所属课程加权度数最高10%。",
+          "标准化系数在课程之间不同：课程5为1.3，课程6为0.61，说明可见的活跃核心不能自动视为相同程度的超越零模型富俱乐部组织证据。",
+          "富俱乐部与其他活跃学生所产生的深思内容比例大致相近，因此集中互动可提示资源获取瓶颈，但不能证明更好推理、成绩或学习。",
+        ],
+        whyItMatters:
+          "研究提供一项整体网络诊断，让分析者追问高活跃学生是否偏向彼此互动，而不只是计算帖子或排列个人名次。把富俱乐部系数与话语编码结合，也显示互动量与认知质量是需要分别取证的不同概念。",
+        limitations:
+          "分析只涵盖单一院校情境中五门小型传播课程及一个学期，课程设计、引导方式、评分与平台规则均限制推广。网络按整个学期汇总，未作纵向建模，因此不能判断核心何时形成、是否持续，或提前发帖是否造成成员身份。度数门槛由各观察分布选定，标准化系数在课程之间存在差异；话语比较集中于选定的高及低系数课程，并排除极低活跃学生；研究也没有检验成绩或其他学习成果。回复与提及不能捕捉阅读或未发帖的学习，底层学生数据不公开，研究不支持网络位置、话语质量或教学设计之间的因果主张。",
+        tags: ["在线讨论网络", "富俱乐部系数", "学习设计"],
+      },
+    },
+  },
+  {
     id: "sna-010",
     sequence: 10,
     slug: "assessing-medical-pbl-collaboration-networks",
