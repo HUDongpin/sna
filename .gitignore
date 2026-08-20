@@ -22,6 +22,9 @@
 All API Keys*.docx
 *.pem
 
+# private respondent-level research data; keep aggregate analyses publishable
+/New Programming Resilience/01_Programming_Resilience_811.xlsx
+
 # vercel
 .vercel
 
