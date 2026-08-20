@@ -1,0 +1,851 @@
+{
+  "schemaVersion": "1.0",
+  "analysisProfile": "npn-ebicglasso-v1",
+  "dataSource": "aggregate-demo",
+  "generatedAt": "2026-08-20T07:40:22Z",
+  "source": {
+    "fileName": "Programming Resilience aggregate reference",
+    "sheet": "Data worksheet",
+    "originalRows": 811,
+    "analyzedRows": 811,
+    "droppedRows": 0,
+    "groupColumn": "Gender",
+    "groupCounts": [
+      {
+        "group": "F",
+        "n": 403
+      },
+      {
+        "group": "M",
+        "n": 408
+      }
+    ],
+    "itemColumns": ["Cmt1", "Cmt2", "Cmt3", "Cmt4", "Cnf1", "Cnf2", "Cnf3", "Cnf4", "Cop1", "Cop2", "Cop3", "Cop4", "Cmp1", "Cmp2", "Cmp3", "Cmp4"]
+  },
+  "settings": {
+    "estimator": "EBICglasso Gaussian graphical model",
+    "correlationMethod": "Nonparanormal transformation followed by Pearson correlation",
+    "gamma": 0.5,
+    "missingData": "Listwise deletion across selected network items",
+    "communityRule": "Item-name prefix before the trailing number",
+    "layout": "spring",
+    "seed": 2026,
+    "bootstrapReplicates": 1000,
+    "nctPermutations": 1000,
+    "networkType": "Undirected weighted partial-correlation network"
+  },
+  "models": {
+    "network": {
+      "id": "qgraph-npn-ebicglasso-v1",
+      "method": "huge.npn plus qgraph::EBICglasso"
+    },
+    "predictability": {
+      "id": "mgm-ebic-r2-v1",
+      "method": "mgm::mgm with EBIC selection and nodewise R-squared"
+    }
+  },
+  "runtime": {
+    "rVersion": "R version 4.4.2 (2024-10-31)",
+    "packages": {
+      "jsonlite": "2.0.0",
+      "readxl": "1.4.5",
+      "qgraph": "1.9.8",
+      "huge": "1.5",
+      "mgm": "1.2.15",
+      "bootnet": "1.8",
+      "networktools": "1.6.0",
+      "NetworkComparisonTest": "2.2.3"
+    }
+  },
+  "overview": {
+    "analyzedRows": 811,
+    "nodeCount": 16,
+    "edgeCount": 46,
+    "possibleEdges": 120,
+    "density": 0.383333,
+    "positiveEdges": 46,
+    "negativeEdges": 0,
+    "meanAbsoluteEdgeWeight": 0.140866,
+    "meanPredictability": 0.422312,
+    "strongestEdge": {
+      "source": "Cmt1",
+      "target": "Cmt2",
+      "weight": 0.378515
+    }
+  },
+  "nodes": [
+    {
+      "id": "Cmt1",
+      "label": "Cmt1",
+      "community": "Cmt",
+      "x": 0.425774,
+      "y": 0.08,
+      "strength": 0.953176,
+      "expectedInfluence": 0.953176,
+      "betweenness": 14,
+      "closeness": 0.003735,
+      "bridgeStrength": 0.070648,
+      "bridgeExpectedInfluence": 0.070648,
+      "bridgeBetweenness": 13,
+      "bridgeCloseness": 0.046717,
+      "predictability": 0.514
+    },
+    {
+      "id": "Cmt2",
+      "label": "Cmt2",
+      "community": "Cmt",
+      "x": 0.247844,
+      "y": 0.169131,
+      "strength": 0.749321,
+      "expectedInfluence": 0.749321,
+      "betweenness": 0,
+      "closeness": 0.003305,
+      "bridgeStrength": 0.060325,
+      "bridgeExpectedInfluence": 0.060325,
+      "bridgeBetweenness": 0,
+      "bridgeCloseness": 0.041744,
+      "predictability": 0.441
+    },
+    {
+      "id": "Cmt3",
+      "label": "Cmt3",
+      "community": "Cmt",
+      "x": 0.627128,
+      "y": 0.122793,
+      "strength": 0.838296,
+      "expectedInfluence": 0.838296,
+      "betweenness": 1,
+      "closeness": 0.003635,
+      "bridgeStrength": 0.163568,
+      "bridgeExpectedInfluence": 0.163568,
+      "bridgeBetweenness": 1,
+      "bridgeCloseness": 0.045965,
+      "predictability": 0.416
+    },
+    {
+      "id": "Cmt4",
+      "label": "Cmt4",
+      "community": "Cmt",
+      "x": 0.469276,
+      "y": 0.322622,
+      "strength": 0.710497,
+      "expectedInfluence": 0.710497,
+      "betweenness": 17,
+      "closeness": 0.003803,
+      "bridgeStrength": 0.215666,
+      "bridgeExpectedInfluence": 0.215666,
+      "bridgeBetweenness": 17,
+      "bridgeCloseness": 0.04898,
+      "predictability": 0.37
+    },
+    {
+      "id": "Cnf1",
+      "label": "Cnf1",
+      "community": "Cnf",
+      "x": 0.342574,
+      "y": 0.849252,
+      "strength": 0.898211,
+      "expectedInfluence": 0.898211,
+      "betweenness": 25,
+      "closeness": 0.004045,
+      "bridgeStrength": 0.120107,
+      "bridgeExpectedInfluence": 0.120107,
+      "bridgeBetweenness": 24,
+      "bridgeCloseness": 0.050971,
+      "predictability": 0.461
+    },
+    {
+      "id": "Cnf2",
+      "label": "Cnf2",
+      "community": "Cnf",
+      "x": 0.715797,
+      "y": 0.807808,
+      "strength": 0.973341,
+      "expectedInfluence": 0.973341,
+      "betweenness": 5,
+      "closeness": 0.003877,
+      "bridgeStrength": 0.285382,
+      "bridgeExpectedInfluence": 0.285382,
+      "bridgeBetweenness": 5,
+      "bridgeCloseness": 0.049082,
+      "predictability": 0.476
+    },
+    {
+      "id": "Cnf3",
+      "label": "Cnf3",
+      "community": "Cnf",
+      "x": 0.53791,
+      "y": 0.92,
+      "strength": 0.67994,
+      "expectedInfluence": 0.67994,
+      "betweenness": 0,
+      "closeness": 0.003472,
+      "bridgeStrength": 0.011819,
+      "bridgeExpectedInfluence": 0.011819,
+      "bridgeBetweenness": 0,
+      "bridgeCloseness": 0.043917,
+      "predictability": 0.405
+    },
+    {
+      "id": "Cnf4",
+      "label": "Cnf4",
+      "community": "Cnf",
+      "x": 0.513026,
+      "y": 0.67638,
+      "strength": 0.739088,
+      "expectedInfluence": 0.739088,
+      "betweenness": 34,
+      "closeness": 0.004162,
+      "bridgeStrength": 0.238376,
+      "bridgeExpectedInfluence": 0.238376,
+      "bridgeBetweenness": 34,
+      "bridgeCloseness": 0.053947,
+      "predictability": 0.376
+    },
+    {
+      "id": "Cop1",
+      "label": "Cop1",
+      "community": "Cop",
+      "x": 0.15295,
+      "y": 0.718816,
+      "strength": 0.827861,
+      "expectedInfluence": 0.827861,
+      "betweenness": 26,
+      "closeness": 0.004122,
+      "bridgeStrength": 0.12232,
+      "bridgeExpectedInfluence": 0.12232,
+      "bridgeBetweenness": 26,
+      "bridgeCloseness": 0.052388,
+      "predictability": 0.446
+    },
+    {
+      "id": "Cop2",
+      "label": "Cop2",
+      "community": "Cop",
+      "x": 0.08,
+      "y": 0.541154,
+      "strength": 0.911844,
+      "expectedInfluence": 0.911844,
+      "betweenness": 0,
+      "closeness": 0.004053,
+      "bridgeStrength": 0.177398,
+      "bridgeExpectedInfluence": 0.177398,
+      "bridgeBetweenness": 0,
+      "bridgeCloseness": 0.051276,
+      "predictability": 0.434
+    },
+    {
+      "id": "Cop3",
+      "label": "Cop3",
+      "community": "Cop",
+      "x": 0.11126,
+      "y": 0.350133,
+      "strength": 0.655932,
+      "expectedInfluence": 0.655932,
+      "betweenness": 0,
+      "closeness": 0.003607,
+      "bridgeStrength": 0.00243,
+      "bridgeExpectedInfluence": 0.00243,
+      "bridgeBetweenness": 0,
+      "bridgeCloseness": 0.045666,
+      "predictability": 0.374
+    },
+    {
+      "id": "Cop4",
+      "label": "Cop4",
+      "community": "Cop",
+      "x": 0.340834,
+      "y": 0.521707,
+      "strength": 0.870568,
+      "expectedInfluence": 0.870568,
+      "betweenness": 25,
+      "closeness": 0.004003,
+      "bridgeStrength": 0.365619,
+      "bridgeExpectedInfluence": 0.365619,
+      "bridgeBetweenness": 25,
+      "bridgeCloseness": 0.051752,
+      "predictability": 0.417
+    },
+    {
+      "id": "Cmp1",
+      "label": "Cmp1",
+      "community": "Cmp",
+      "x": 0.92,
+      "y": 0.447777,
+      "strength": 0.866763,
+      "expectedInfluence": 0.866763,
+      "betweenness": 13,
+      "closeness": 0.003833,
+      "bridgeStrength": 0.074234,
+      "bridgeExpectedInfluence": 0.074234,
+      "bridgeBetweenness": 12,
+      "bridgeCloseness": 0.048155,
+      "predictability": 0.471
+    },
+    {
+      "id": "Cmp2",
+      "label": "Cmp2",
+      "community": "Cmp",
+      "x": 0.842648,
+      "y": 0.640092,
+      "strength": 0.926235,
+      "expectedInfluence": 0.926235,
+      "betweenness": 24,
+      "closeness": 0.003969,
+      "bridgeStrength": 0.241909,
+      "bridgeExpectedInfluence": 0.241909,
+      "bridgeBetweenness": 24,
+      "bridgeCloseness": 0.050649,
+      "predictability": 0.475
+    },
+    {
+      "id": "Cmp3",
+      "label": "Cmp3",
+      "community": "Cmp",
+      "x": 0.697049,
+      "y": 0.449295,
+      "strength": 0.653852,
+      "expectedInfluence": 0.653852,
+      "betweenness": 0,
+      "closeness": 0.00344,
+      "bridgeStrength": 0.056849,
+      "bridgeExpectedInfluence": 0.056849,
+      "bridgeBetweenness": 0,
+      "bridgeCloseness": 0.043782,
+      "predictability": 0.356
+    },
+    {
+      "id": "Cmp4",
+      "label": "Cmp4",
+      "community": "Cmp",
+      "x": 0.820525,
+      "y": 0.236224,
+      "strength": 0.704714,
+      "expectedInfluence": 0.704714,
+      "betweenness": 15,
+      "closeness": 0.003707,
+      "bridgeStrength": 0.230523,
+      "bridgeExpectedInfluence": 0.230523,
+      "bridgeBetweenness": 15,
+      "bridgeCloseness": 0.048097,
+      "predictability": 0.325
+    }
+  ],
+  "edges": [
+    {
+      "source": "Cmt1",
+      "target": "Cmt2",
+      "weight": 0.378515,
+      "absoluteWeight": 0.378515,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmp1",
+      "target": "Cmp2",
+      "weight": 0.326027,
+      "absoluteWeight": 0.326027,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cnf1",
+      "target": "Cnf3",
+      "weight": 0.306649,
+      "absoluteWeight": 0.306649,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmt1",
+      "target": "Cmt3",
+      "weight": 0.29745,
+      "absoluteWeight": 0.29745,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cop1",
+      "target": "Cop2",
+      "weight": 0.297042,
+      "absoluteWeight": 0.297042,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cnf2",
+      "target": "Cnf3",
+      "weight": 0.262698,
+      "absoluteWeight": 0.262698,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cop2",
+      "target": "Cop3",
+      "weight": 0.25199,
+      "absoluteWeight": 0.25199,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cnf1",
+      "target": "Cnf2",
+      "weight": 0.247388,
+      "absoluteWeight": 0.247388,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmp1",
+      "target": "Cmp3",
+      "weight": 0.245745,
+      "absoluteWeight": 0.245745,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cop1",
+      "target": "Cop3",
+      "weight": 0.245238,
+      "absoluteWeight": 0.245238,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmp2",
+      "target": "Cmp3",
+      "weight": 0.228061,
+      "absoluteWeight": 0.228061,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cnf1",
+      "target": "Cnf4",
+      "weight": 0.224066,
+      "absoluteWeight": 0.224066,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmp1",
+      "target": "Cmp4",
+      "weight": 0.220756,
+      "absoluteWeight": 0.220756,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmt1",
+      "target": "Cmt4",
+      "weight": 0.206562,
+      "absoluteWeight": 0.206562,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmt2",
+      "target": "Cmt3",
+      "weight": 0.199745,
+      "absoluteWeight": 0.199745,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cop4",
+      "target": "Cmp2",
+      "weight": 0.195544,
+      "absoluteWeight": 0.195544,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cop2",
+      "target": "Cop4",
+      "weight": 0.185414,
+      "absoluteWeight": 0.185414,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cnf2",
+      "target": "Cnf4",
+      "weight": 0.177872,
+      "absoluteWeight": 0.177872,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmt3",
+      "target": "Cmt4",
+      "weight": 0.177532,
+      "absoluteWeight": 0.177532,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cop1",
+      "target": "Cop4",
+      "weight": 0.163261,
+      "absoluteWeight": 0.163261,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cop3",
+      "target": "Cop4",
+      "weight": 0.156274,
+      "absoluteWeight": 0.156274,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmp2",
+      "target": "Cmp4",
+      "weight": 0.130238,
+      "absoluteWeight": 0.130238,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmp3",
+      "target": "Cmp4",
+      "weight": 0.123197,
+      "absoluteWeight": 0.123197,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmt4",
+      "target": "Cnf1",
+      "weight": 0.113179,
+      "absoluteWeight": 0.113179,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt2",
+      "target": "Cmt4",
+      "weight": 0.110736,
+      "absoluteWeight": 0.110736,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cmt4",
+      "target": "Cnf2",
+      "weight": 0.102487,
+      "absoluteWeight": 0.102487,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf4",
+      "target": "Cop1",
+      "weight": 0.099011,
+      "absoluteWeight": 0.099011,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf3",
+      "target": "Cnf4",
+      "weight": 0.098774,
+      "absoluteWeight": 0.098774,
+      "sign": "positive",
+      "relationship": "within-community"
+    },
+    {
+      "source": "Cnf4",
+      "target": "Cop2",
+      "weight": 0.090198,
+      "absoluteWeight": 0.090198,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt3",
+      "target": "Cnf2",
+      "weight": 0.079342,
+      "absoluteWeight": 0.079342,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cop4",
+      "target": "Cmp1",
+      "weight": 0.074234,
+      "absoluteWeight": 0.074234,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt1",
+      "target": "Cmp4",
+      "weight": 0.070648,
+      "absoluteWeight": 0.070648,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt3",
+      "target": "Cmp4",
+      "weight": 0.065477,
+      "absoluteWeight": 0.065477,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt2",
+      "target": "Cmp4",
+      "weight": 0.060325,
+      "absoluteWeight": 0.060325,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cop4",
+      "target": "Cmp3",
+      "weight": 0.049107,
+      "absoluteWeight": 0.049107,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf4",
+      "target": "Cop4",
+      "weight": 0.046735,
+      "absoluteWeight": 0.046735,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cop2",
+      "target": "Cmp2",
+      "weight": 0.039827,
+      "absoluteWeight": 0.039827,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf2",
+      "target": "Cop2",
+      "weight": 0.039631,
+      "absoluteWeight": 0.039631,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf2",
+      "target": "Cmp4",
+      "weight": 0.034074,
+      "absoluteWeight": 0.034074,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf2",
+      "target": "Cop1",
+      "weight": 0.02331,
+      "absoluteWeight": 0.02331,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt3",
+      "target": "Cnf3",
+      "weight": 0.011819,
+      "absoluteWeight": 0.011819,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cop2",
+      "target": "Cmp3",
+      "weight": 0.007742,
+      "absoluteWeight": 0.007742,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt3",
+      "target": "Cnf1",
+      "weight": 0.006928,
+      "absoluteWeight": 0.006928,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf2",
+      "target": "Cmp2",
+      "weight": 0.006539,
+      "absoluteWeight": 0.006539,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cnf4",
+      "target": "Cop3",
+      "weight": 0.00243,
+      "absoluteWeight": 0.00243,
+      "sign": "positive",
+      "relationship": "between-community"
+    },
+    {
+      "source": "Cmt3",
+      "target": "Cnf4",
+      "weight": 3e-06,
+      "absoluteWeight": 3e-06,
+      "sign": "positive",
+      "relationship": "between-community"
+    }
+  ],
+  "subgroupComparison": {
+    "available": true,
+    "method": "NetworkComparisonTest::NCT permutation test",
+    "packageVersion": "2.2.3",
+    "groupColumn": "Gender",
+    "groupA": "F",
+    "groupB": "M",
+    "nA": 403,
+    "nB": 408,
+    "permutations": 1000,
+    "globalStrengthA": 6.399691,
+    "globalStrengthB": 6.382282,
+    "globalStrengthDifference": 0.017409,
+    "globalStrengthPValue": 0.945055,
+    "networkStructureDifference": 0.109589,
+    "networkStructurePValue": 0.818182,
+    "strongestEdgeDifferences": [
+      {
+        "source": "Cnf2",
+        "target": "Cnf4",
+        "absoluteDifference": 0.109589,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cmp3",
+        "target": "Cmp4",
+        "absoluteDifference": 0.100863,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cnf2",
+        "target": "Cop2",
+        "absoluteDifference": 0.089705,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cmt1",
+        "target": "Cmt3",
+        "absoluteDifference": 0.088249,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cmt3",
+        "target": "Cmp4",
+        "absoluteDifference": 0.081151,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cmp2",
+        "target": "Cmp4",
+        "absoluteDifference": 0.075731,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cmt1",
+        "target": "Cmp4",
+        "absoluteDifference": 0.075139,
+        "pValueHolm": 1
+      },
+      {
+        "source": "Cmt4",
+        "target": "Cnf2",
+        "absoluteDifference": 0.072862,
+        "pValueHolm": 1
+      }
+    ]
+  },
+  "stability": {
+    "available": true,
+    "method": "Case-dropping bootstrap",
+    "bootstraps": 1000,
+    "cores": 1,
+    "correlationThreshold": 0.7,
+    "acceptableThreshold": 0.25,
+    "desirableThreshold": 0.5,
+    "metrics": [
+      {
+        "id": "strength",
+        "metric": "Strength",
+        "coefficient": 0.67201,
+        "interpretation": "Desirable"
+      },
+      {
+        "id": "bridgeStrength",
+        "metric": "Bridge strength",
+        "coefficient": 0.749692,
+        "interpretation": "Desirable"
+      },
+      {
+        "id": "bridgeCloseness",
+        "metric": "Bridge closeness",
+        "coefficient": 0.205919,
+        "interpretation": "Do not interpret"
+      },
+      {
+        "id": "bridgeBetweenness",
+        "metric": "Bridge betweenness",
+        "coefficient": 0,
+        "interpretation": "Do not interpret"
+      }
+    ]
+  },
+  "warnings": [
+    "A dense regularized network was selected (lambda < 0.1 * lambda.max). Recent work indicates a possible drop in specificity. Interpret the presence of the smallest edges with care. Setting threshold = TRUE will enforce higher specificity, at the cost of sensitivity."
+  ],
+  "interpretation": {
+    "generator": "Deterministic evidence-bound rules implemented in R",
+    "thirdPartyAiUsed": false,
+    "insights": [
+      {
+        "id": "network-structure",
+        "title": "Network structure",
+        "text": "The estimated network contains 46 of 120 possible edges (density 0.383).",
+        "evidence": "Overview: edge count and density"
+      },
+      {
+        "id": "central-node",
+        "title": "Highest node strength",
+        "text": "Cnf2 has the highest strength in this estimated network (0.973).",
+        "evidence": "Centrality Analysis: strength"
+      },
+      {
+        "id": "predictability",
+        "title": "Highest predictability",
+        "text": "Cmt1 has the highest node predictability R-squared (0.514).",
+        "evidence": "Predictability Analysis: mgm R-squared"
+      },
+      {
+        "id": "bridge-node",
+        "title": "Bridge node",
+        "text": "Cop4 has the highest bridge strength, and the bridge-strength stability threshold permits cautious interpretation.",
+        "evidence": "Bridge Node Analysis and Stability Analysis"
+      },
+      {
+        "id": "subgroup-comparison",
+        "title": "Subgroup comparison",
+        "text": "The permutation test does not detect a subgroup difference in network structure at alpha .05 (p = 0.818). This is not evidence that the networks are identical.",
+        "evidence": "Subgroup Comparison: permutation test"
+      }
+    ],
+    "cautions": ["Edges are regularized partial correlations and do not establish causal direction.", "Centrality and bridge rankings should be interpreted only when their stability is adequate.", "Subgroup permutation tests depend on the selected model, grouping variable, and resampling count.", "Review the workbook schema, missing-data exclusions, and method settings before publication.", "Runtime warning: A dense regularized network was selected (lambda < 0.1 * lambda.max). Recent work indicates a possible drop in specificity. Interpret the presence of the smallest edges with care. Setting threshold = TRUE will enforce higher specificity, at the cost of sensitivity."]
+  },
+  "privacy": {
+    "rawRowsIncluded": false,
+    "uploadedWorkbookRetainedByEngine": false,
+    "thirdPartyAiUsed": false
+  }
+}

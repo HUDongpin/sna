@@ -45,6 +45,11 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: "/open-sna",
+        destination: "/en/open-sna",
+        permanent: false,
+      },
+      {
         source: "/about",
         destination: "/en/about",
         permanent: false,

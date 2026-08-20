@@ -7,6 +7,7 @@ export default function Footer({ locale, dictionary }: { locale: Locale; diction
   const navItems = [
     { href: `/${locale}`, label: dictionary.nav.home },
     { href: `/${locale}/mission`, label: dictionary.nav.mission },
+    { href: `/${locale}/open-sna`, label: dictionary.nav.openSna },
     { href: `/${locale}/news`, label: dictionary.nav.news },
     { href: `/${locale}/academy`, label: dictionary.nav.academy },
     { href: `/${locale}/about`, label: dictionary.nav.about },

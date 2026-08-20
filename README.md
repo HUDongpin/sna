@@ -4,25 +4,27 @@ SNA.HK is a multilingual knowledge website for clear, rigorous, and responsible 
 
 ## Architecture
 
-The project is intentionally static and compact:
+The project is static-first and compact. Open SNA adds an explicitly bounded analysis boundary while the reviewed content areas remain static:
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
 | Application shell | `app/layout.tsx` | Global metadata, analytics, global styles, and shared page behavior |
 | Localized shell | `app/[locale]/layout.tsx` | Locale validation, alternate-language metadata, header, footer, and structured data |
-| Pages | `app/[locale]` | Home, Mission, News, Academy, and About routes |
+| Pages | `app/[locale]` | Home, Mission, Open SNA, News, Academy, and About routes |
 | Shared interface | `components` | Navigation, logo, calls to action, section headings, News and Academy discovery controls, cards, pagination, and tutorial visuals |
 | Localization | `lib/i18n.ts` | Locale registry, locale metadata, dictionary type, and all interface copy |
 | Reviewed News corpus | `lib/news-reviewed-data.ts` | Static journal and conference records, three-language summaries, SNA methods, and evidence boundaries |
 | News discovery | `lib/news-filter.ts`, `lib/news-types.ts` | Search, filters, pagination, and typed article contracts |
 | Reviewed Academy corpus | `lib/academy-reviewed-data.ts` | A growing sequence of static SNA tutorials with complete three-language content, method sources, and evidence and privacy boundaries |
 | Academy discovery | `lib/academy-filter.ts`, `lib/academy-types.ts` | Search, track and level filters, pagination, and typed tutorial contracts |
+| Open SNA workbench | `app/[locale]/open-sna`, `components/open-sna`, `lib/open-sna.ts` | English analysis interface, accessible visualizations, aggregate result contract, and downloads |
+| Open SNA R boundary | `analysis/open-sna`, `app/api/open-sna/analyze` | Reproducible R runner, bounded local adapter, and fail-closed production service integration |
 | Site identity | `lib/site.ts` | Canonical URL and absolute URL construction |
 | Search semantics | `lib/structured-data.ts`, `app/robots.ts`, `app/sitemap.ts` | JSON-LD, robots policy, and localized sitemap entries |
 | Static assets | `public` | Logo, favicon, home hero image, public About-page identity assets, and reviewed News media |
 | Contract validation | `tests/site.test.ts` | Mechanical checks for routes, localization, branding, content boundaries, metadata, and redirects |
 
-There is no content database, scheduled publishing service, or mailing integration in the current architecture.
+There is no content database, scheduled publishing service, or mailing integration in the current architecture. The Open SNA production upload path requires an independently deployed R service; without it, the upload action fails closed while the bundled aggregate reference remains available.
 
 ## Locales
 
@@ -36,7 +38,15 @@ The site supports exactly three URL locales:
 
 Every locale uses the same typed dictionary shape. When interface copy changes, update all three dictionaries in `lib/i18n.ts`; the test suite checks key, array, and nested-object parity and rejects empty values.
 
-The root route redirects to `/en`. Nonlocalized aliases such as `/news`, `/academy`, `/mission`, and `/about` also redirect to their English routes. Historical `research-news` paths redirect to the canonical `news` route.
+The root route redirects to `/en`. Nonlocalized aliases such as `/news`, `/academy`, `/mission`, `/open-sna`, and `/about` also redirect to their English routes. Historical `research-news` paths redirect to the canonical `news` route.
+
+## Open SNA analysis contract
+
+Open SNA is an English research workbench available within all three localized shells. Its canonical and sitemap entry is `/en/open-sna` because the workbench itself is not presented as a three-language translation. It exposes eight connected result areas: Data Overview, Network Visualization, Centrality Analysis, Bridge Node Analysis, Predictability Analysis, Subgroup Comparison (NCT), Stability Analysis, and AI Interpretation. For uploaded analyses, the final area uses GPT-5.6 Luna through OpenRouter when `OPENROUTER_API_KEY` is configured; only a bounded aggregate-statistics payload is sent, with zero-data-retention and no-data-collection routing required. If LUNA is unavailable, the result remains usable and clearly falls back to the deterministic, evidence-bound R summary.
+
+All network-based panels use the named `npn-ebicglasso-v1` profile. Predictability uses a separately identified MGM model with the same input and preprocessing provenance. NCT uses 1,000 independent-group permutations with Holm-adjusted edge tests, and the recommended stability result uses 1,000 case-dropping bootstrap samples. CS coefficients below 0.25 are marked "Do not interpret."
+
+The public Programming Resilience example contains aggregate results only. The original workbook, respondent rows, and ID values are not public assets. See `analysis/open-sna/README.md` for the method, workbook schema, runtime, local command, privacy boundary, and production-worker requirements.
 
 ## Logo
 
@@ -95,7 +105,7 @@ The Academy index follows the News discovery pattern with URL-based search, trac
 
 ## Local development
 
-Prerequisites are a current Node.js LTS release and npm.
+Prerequisites are a current Node.js LTS release and npm. Viewing the aggregate Open SNA reference requires only the web application. Running local workbook analysis also requires the exact verified R runtime documented in `analysis/open-sna/README.md`; a production container and transitive dependency lock remain a separate deployment gate.
 
 ```bash
 npm install
@@ -112,6 +122,7 @@ npm run typecheck
 npm run build
 npm run release:hygiene
 npm run release:verify
+npm run open-sna:r-preflight
 ```
 
 `npm run release:verify` runs the contract tests, production build, TypeScript check, and repository hygiene check in sequence.
@@ -121,7 +132,8 @@ npm run release:verify
 The site test mechanically verifies:
 
 - exactly three complete locale dictionaries with structural parity;
-- the five required localized page routes;
+- the six required localized page routes;
+- the Open SNA navigation order, eight analysis areas, aggregate result contract, R method profile, and bounded upload adapter;
 - a growing, source-linked, three-language News corpus that preserves all baseline records and contains only SNA journal and conference research;
 - News search, article-type and year filtering, six-item pagination, detail routes, structured data, and sitemap entries;
 - exact News image dimensions, same-bitmap cover/summary pairs, and distinct masters across articles;
@@ -146,6 +158,8 @@ npm run release:verify
 ## Deployment
 
 The source repository is [HUDongpin/sna](https://github.com/HUDongpin/sna) and the production Vercel project is `peter-dongpin-hu-s-projects/sna`. The canonical production URL is [https://www.sna.hk](https://www.sna.hk). Set `NEXT_PUBLIC_SITE_URL=https://www.sna.hk` in the Vercel project so canonical URLs, sitemap entries, robots metadata, and structured data agree.
+
+Vercel can serve the Open SNA interface and its precomputed aggregate reference, but it does not supply the R runtime in this repository. Set `OPEN_SNA_R_API_URL` only after a version-locked, privacy-reviewed R worker is deployed and verified. Set the server-only `OPENROUTER_API_KEY` for GPT-5.6 Luna interpretation; never expose it through a `NEXT_PUBLIC_` variable. When the R service variable is absent, production workbook analysis returns a clear `503 R_ENGINE_NOT_CONFIGURED` response and never substitutes the reference result.
 
 The apex host `sna.hk` is attached for discoverability and permanently redirects to the canonical `www.sna.hk` host while preserving the requested path and query string.
 

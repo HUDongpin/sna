@@ -7,6 +7,7 @@ import { absoluteUrl } from "@/lib/site";
 const paths = [
   { path: "", changeFrequency: "monthly", priority: 1 },
   { path: "/mission", changeFrequency: "yearly", priority: 0.7 },
+  { path: "/open-sna", changeFrequency: "monthly", priority: 0.9 },
   { path: "/news", changeFrequency: "weekly", priority: 0.7 },
   { path: "/academy", changeFrequency: "weekly", priority: 0.8 },
   { path: "/about", changeFrequency: "yearly", priority: 0.7 },
@@ -14,9 +15,10 @@ const paths = [
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
-  return locales.flatMap((locale) =>
-    [
-      ...paths.map(({ path, changeFrequency, priority }) => ({
+  return locales.flatMap((locale) => {
+    const localizedPaths = locale === "en" ? paths : paths.filter(({ path }) => path !== "/open-sna");
+    return [
+      ...localizedPaths.map(({ path, changeFrequency, priority }) => ({
         url: absoluteUrl(`/${locale}${path}`),
         lastModified: now,
         changeFrequency,
@@ -34,6 +36,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
         changeFrequency: "monthly" as const,
         priority: 0.8,
       })),
-    ]
-  );
+    ];
+  });
 }

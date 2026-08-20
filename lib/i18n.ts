@@ -6,6 +6,7 @@ export type Dictionary = {
   nav: {
     home: string;
     mission: string;
+    openSna: string;
     news: string;
     academy: string;
     about: string;
@@ -208,6 +209,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     nav: {
       home: "Home",
       mission: "Mission",
+      openSna: "Open SNA",
       news: "News",
       academy: "Academy",
       about: "About",
@@ -466,6 +468,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     nav: {
       home: "首頁",
       mission: "使命",
+      openSna: "Open SNA",
       news: "最新消息",
       academy: "學苑",
       about: "關於我們",
@@ -721,6 +724,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     nav: {
       home: "首页",
       mission: "使命",
+      openSna: "Open SNA",
       news: "最新消息",
       academy: "学苑",
       about: "关于我们",

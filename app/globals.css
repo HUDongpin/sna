@@ -12,10 +12,27 @@
   --ink: #101828;
   --muted: #667085;
   --line: #d9e1ea;
+  --line-strong: #b9c6d5;
   --indigo: #403a8f;
   --indigo-strong: #302b78;
   --teal: #18a99a;
+  --teal-ink: #0f766e;
+  --teal-solid: #18a99a;
   --amber: #f4a340;
+  --amber-ink: #9a5b00;
+  --violet: #7c3aed;
+  --danger: #c9364f;
+  --on-cmt-node: #ffffff;
+  --on-cmp-node: #ffffff;
+  --teal-tint: rgba(24, 169, 154, 0.1);
+  --teal-tint-strong: rgba(24, 169, 154, 0.15);
+  --teal-line: rgba(24, 169, 154, 0.35);
+  --amber-tint: rgba(244, 163, 64, 0.12);
+  --amber-tint-strong: rgba(244, 163, 64, 0.18);
+  --amber-line: rgba(244, 163, 64, 0.45);
+  --danger-tint: rgba(201, 54, 79, 0.1);
+  --danger-tint-strong: rgba(201, 54, 79, 0.12);
+  --danger-line: rgba(201, 54, 79, 0.4);
   --shadow: 0 18px 52px rgba(16, 24, 40, 0.09);
   --shadow-soft: 0 28px 80px rgba(64, 58, 143, 0.14);
 }
@@ -30,10 +47,27 @@
     --ink: #f2f4f7;
     --muted: #b4bdca;
     --line: #343d4d;
+    --line-strong: #526075;
     --indigo: #aca7ff;
     --indigo-strong: #c7c4ff;
     --teal: #55d7c8;
+    --teal-ink: #72e0d4;
+    --teal-solid: #55d7c8;
     --amber: #ffc46b;
+    --amber-ink: #ffc46b;
+    --violet: #c4b5fd;
+    --danger: #ff8297;
+    --on-cmt-node: #101828;
+    --on-cmp-node: #101828;
+    --teal-tint: rgba(85, 215, 200, 0.1);
+    --teal-tint-strong: rgba(85, 215, 200, 0.15);
+    --teal-line: rgba(85, 215, 200, 0.35);
+    --amber-tint: rgba(255, 196, 107, 0.12);
+    --amber-tint-strong: rgba(255, 196, 107, 0.18);
+    --amber-line: rgba(255, 196, 107, 0.45);
+    --danger-tint: rgba(255, 130, 151, 0.1);
+    --danger-tint-strong: rgba(255, 130, 151, 0.12);
+    --danger-line: rgba(255, 130, 151, 0.4);
     --shadow: 0 18px 52px rgba(2, 6, 23, 0.34);
     --shadow-soft: 0 28px 80px rgba(2, 6, 23, 0.44);
   }
@@ -62,8 +96,26 @@ a {
 }
 
 button,
-select {
+input,
+select,
+summary {
   font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+select,
+summary,
+label[for] {
+  touch-action: manipulation;
+}
+
+a:active,
+button:active:not(:disabled),
+summary:active,
+label[for]:active {
+  filter: brightness(0.96);
 }
 
 ::selection {
@@ -130,6 +182,78 @@ select {
   animation: hero-enter 760ms 100ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.open-sna-panel-enter {
+  animation: open-sna-panel-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.open-sna-spinner {
+  animation: open-sna-spin 720ms linear infinite;
+}
+
+.open-sna-status-progress {
+  transform-origin: left;
+  animation: open-sna-status-progress 1.35s ease-in-out infinite;
+}
+
+.open-sna-range {
+  min-height: 2.75rem;
+  appearance: none;
+  background: transparent;
+}
+
+.open-sna-range::-webkit-slider-runnable-track {
+  height: 0.38rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--indigo), var(--teal-solid));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 75%, transparent);
+}
+
+.open-sna-range::-webkit-slider-thumb {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: -0.44rem;
+  appearance: none;
+  border: 3px solid var(--surface);
+  border-radius: 999px;
+  background: var(--indigo);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 3px 9px rgba(16, 24, 40, 0.18);
+}
+
+.open-sna-range::-moz-range-track {
+  height: 0.38rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--indigo), var(--teal-solid));
+}
+
+.open-sna-range::-moz-range-thumb {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 3px solid var(--surface);
+  border-radius: 999px;
+  background: var(--indigo);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 3px 9px rgba(16, 24, 40, 0.18);
+}
+
+.open-sna-graph-viewport,
+.open-sna-graph-edge,
+.open-sna-graph-node,
+.open-sna-node-halo {
+  transition: transform 220ms ease, opacity 180ms ease, stroke 180ms ease, fill 180ms ease, r 180ms ease;
+}
+
+.open-sna-graph-node:focus {
+  outline: none;
+}
+
+.open-sna-graph-node:focus-visible .open-sna-node-halo {
+  stroke: var(--amber);
+  stroke-width: 6px;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
 @keyframes hero-enter {
   from {
     opacity: 0;
@@ -138,6 +262,35 @@ select {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes open-sna-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes open-sna-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes open-sna-status-progress {
+  0% {
+    transform: translateX(-100%) scaleX(0.35);
+  }
+  55% {
+    transform: translateX(15%) scaleX(0.55);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.35);
   }
 }
 
@@ -159,5 +312,34 @@ select {
 @media (prefers-reduced-transparency: reduce) {
   :root {
     --surface-glass: var(--surface);
+  }
+}
+
+@keyframes page-scroll-progress-clockwise {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.page-scroll-progress-arc {
+  animation-name: page-scroll-progress-clockwise;
+  animation-duration: auto;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-timeline: scroll(root block);
+}
+
+@supports not (animation-timeline: scroll()) {
+  .page-scroll-progress-arc {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-scroll-progress-arc {
+    animation-duration: auto !important;
   }
 }

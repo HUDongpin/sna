@@ -109,10 +109,11 @@ test("the locale contract contains exactly three complete dictionaries with matc
   }
 });
 
-test("the localized Home, Mission, News, Academy, and About route files exist", () => {
+test("the localized Home, Mission, Open SNA, News, Academy, and About route files exist", () => {
   const routeFiles = [
     "app/[locale]/page.tsx",
     "app/[locale]/mission/page.tsx",
+    "app/[locale]/open-sna/page.tsx",
     "app/[locale]/news/page.tsx",
     "app/[locale]/academy/page.tsx",
     "app/[locale]/about/page.tsx",
@@ -388,7 +389,10 @@ test("the canonical production host is www.sna.hk", () => {
   assert.match(read("lib/site.ts"), new RegExp(canonicalUrl.replaceAll(".", "\\.")));
   assert.match(read("app/layout.tsx"), /metadataBase:\s*new URL\("https:\/\/www\.sna\.hk"\)/);
   assert.match(read("next.config.mjs"), /process\.env\.NEXT_PUBLIC_SITE_URL\s*\?\?\s*"https:\/\/www\.sna\.hk"/);
-  assert.equal(read(".env.example").trim(), `NEXT_PUBLIC_SITE_URL=${canonicalUrl}`);
+  const environment = read(".env.example").split(/\r?\n/);
+  assert.equal(environment[0], `NEXT_PUBLIC_SITE_URL=${canonicalUrl}`);
+  assert.ok(environment.includes("OPEN_SNA_R_API_URL="));
+  assert.ok(environment.includes("OPEN_SNA_R_API_TOKEN="));
 });
 
 test("tracked text source contains no retired-site brand or host strings", () => {
@@ -481,6 +485,7 @@ test("root and legacy route aliases redirect to the localized canonical routes",
     { source: "/academy", destination: "/en/academy", permanent: false },
     { source: "/academy/:slug*", destination: "/en/academy/:slug*", permanent: false },
     { source: "/mission", destination: "/en/mission", permanent: false },
+    { source: "/open-sna", destination: "/en/open-sna", permanent: false },
     { source: "/about", destination: "/en/about", permanent: false },
     { source: "/research-news", destination: "/en/news", permanent: true },
     { source: "/research-news/:slug*", destination: "/en/news/:slug*", permanent: true },

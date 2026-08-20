@@ -9,6 +9,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "open-sna:r-preflight": "Rscript --vanilla analysis/open-sna/preflight.R",
     "release:hygiene": "node scripts/check-release.mjs",
     "release:verify": "npm run test && npm run build && npm run typecheck && npm run release:hygiene"
   },
