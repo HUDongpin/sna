@@ -1,5 +1,13 @@
 #!/usr/bin/env Rscript
 
+local_r_library <- Sys.getenv(
+  "OPEN_SNA_R_LIBS_USER",
+  unset = file.path(getwd(), "tmp", "r-library")
+)
+if (dir.exists(local_r_library)) {
+  .libPaths(unique(c(normalizePath(local_r_library), .libPaths())))
+}
+
 required_versions <- c(
   jsonlite = "2.0.0",
   readxl = "1.4.5",

@@ -13,6 +13,7 @@ export const maxDuration = 300;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_MULTIPART_BYTES = MAX_UPLOAD_BYTES + 256 * 1024;
 const MAX_RESULT_BYTES = 2 * 1024 * 1024;
+const MAX_R_STDERR_BYTES = 64 * 1024;
 const ANALYSIS_TIMEOUT_MS = 255_000;
 const ALLOWED_BOOTSTRAPS = new Set(["100", "500", "1000"]);
 const REQUIRED_NCT_PERMUTATIONS = "1000";
@@ -46,7 +47,13 @@ async function readBoundedResult(outputPath: string) {
   return readFile(outputPath, "utf8");
 }
 
-type RProcessResult = { exitCode: number; timedOut: boolean };
+type RProcessResult = { exitCode: number; timedOut: boolean; stderr: string };
+type RFailureCode = "R_RUNTIME_NOT_READY" | "WORKBOOK_INVALID" | "R_ANALYSIS_FAILED";
+
+function parseRFailureCode(stderr: string): RFailureCode {
+  const match = stderr.match(/^OPEN_SNA_ERROR_CODE=(R_RUNTIME_NOT_READY|WORKBOOK_INVALID|R_ANALYSIS_FAILED)$/m);
+  return match?.[1] as RFailureCode | undefined || "R_ANALYSIS_FAILED";
+}
 
 function runRAnalysis(options: {
   inputPath: string;
@@ -101,13 +108,19 @@ function runRAnalysis(options: {
         ...process.env,
         LANG: "C.UTF-8",
         LC_ALL: "C.UTF-8",
-        R_LIBS_USER: process.env.OPEN_SNA_R_LIBS_USER || process.env.R_LIBS_USER,
+        R_LIBS_USER:
+          process.env.OPEN_SNA_R_LIBS_USER ||
+          process.env.R_LIBS_USER ||
+          path.join(process.cwd(), "tmp", "r-library"),
       },
     });
     let stderrBytes = 0;
+    const stderrChunks: Buffer[] = [];
     child.stderr.on("data", (chunk: Buffer) => {
+      const remainingBytes = MAX_R_STDERR_BYTES - stderrBytes;
+      if (remainingBytes > 0) stderrChunks.push(chunk.subarray(0, remainingBytes));
       stderrBytes += chunk.byteLength;
-      if (stderrBytes > 64 * 1024) child.kill("SIGTERM");
+      if (stderrBytes > MAX_R_STDERR_BYTES) child.kill("SIGTERM");
     });
 
     let timedOut = false;
@@ -124,7 +137,11 @@ function runRAnalysis(options: {
     });
     child.once("close", (code) => {
       clearTimeout(timeout);
-      resolve({ exitCode: code ?? 1, timedOut });
+      resolve({
+        exitCode: code ?? 1,
+        timedOut,
+        stderr: Buffer.concat(stderrChunks).toString("utf8"),
+      });
     });
   });
 }
@@ -249,9 +266,29 @@ export async function POST(request: Request) {
       return noStoreJson({ error: "The R analysis exceeded the local five-minute execution limit." }, 504);
     }
     if (processResult.exitCode !== 0) {
+      const failureCode = parseRFailureCode(processResult.stderr);
+      if (failureCode === "R_RUNTIME_NOT_READY") {
+        return noStoreJson(
+          {
+            error: "The local R analysis runtime is not ready. Run the Open SNA R preflight and restore the pinned dependencies before trying again.",
+            code: failureCode,
+          },
+          503
+        );
+      }
+      if (failureCode === "R_ANALYSIS_FAILED") {
+        return noStoreJson(
+          {
+            error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
+            code: failureCode,
+          },
+          500
+        );
+      }
       return noStoreJson(
         {
           error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column.",
+          code: failureCode,
         },
         422
       );

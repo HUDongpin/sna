@@ -7,6 +7,14 @@
 # packages, never writes beside the uploaded workbook, and never serializes
 # row-level data. All visible results are aggregate network statistics.
 
+local_r_library <- Sys.getenv(
+  "OPEN_SNA_R_LIBS_USER",
+  unset = file.path(getwd(), "tmp", "r-library")
+)
+if (dir.exists(local_r_library)) {
+  .libPaths(unique(c(normalizePath(local_r_library), .libPaths())))
+}
+
 required_packages <- c(
   "jsonlite",
   "readxl",
@@ -18,16 +26,24 @@ required_packages <- c(
   "NetworkComparisonTest"
 )
 
+open_sna_abort <- function(code, ...) {
+  condition <- structure(
+    list(message = paste0(...), call = NULL, code = code),
+    class = c("open_sna_error", "error", "condition")
+  )
+  stop(condition)
+}
+
 assert_packages <- function() {
   missing <- required_packages[
     !vapply(required_packages, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))
   ]
   if (length(missing)) {
-    stop(
+    open_sna_abort(
+      "R_RUNTIME_NOT_READY",
       "Open SNA is missing required R packages: ",
       paste(missing, collapse = ", "),
-      ". Install the declared runtime before accepting analysis jobs.",
-      call. = FALSE
+      ". Install the declared runtime before accepting analysis jobs."
     )
   }
 }
@@ -727,10 +743,16 @@ analyze_workbook <- function(
   if (permutations != 1000L) {
     stop("Permutation count must be exactly 1000.", call. = FALSE)
   }
-  prepared <- read_and_validate_workbook(
-    input_path,
-    sheet = sheet,
-    gender_mapping = gender_mapping
+  prepared <- tryCatch(
+    read_and_validate_workbook(
+      input_path,
+      sheet = sheet,
+      gender_mapping = gender_mapping
+    ),
+    error = function(error) {
+      if (inherits(error, "open_sna_error")) stop(error)
+      open_sna_abort("WORKBOOK_INVALID", conditionMessage(error))
+    }
   )
   gamma <- 0.5
   layout_name <- "spring"
@@ -931,6 +953,12 @@ if (sys.nframe() == 0L) {
   tryCatch(
     main(),
     error = function(error) {
+      error_code <- if (inherits(error, "open_sna_error")) {
+        error$code
+      } else {
+        "R_ANALYSIS_FAILED"
+      }
+      message("OPEN_SNA_ERROR_CODE=", error_code)
       message("Open SNA analysis failed: ", conditionMessage(error))
       quit(save = "no", status = 1L)
     }
