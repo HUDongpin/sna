@@ -477,6 +477,123 @@ export const newsArticles: NewsArticleRecord[] = [
     },
   },
   {
+    id: "sna-012",
+    sequence: 12,
+    slug: "cooperative-base-group-whatsapp-networks",
+    type: "journal",
+    authors: ["Christina Johanna van Staden", "Liezel Nel"],
+    venue: "Discover Education",
+    citation: "Discover Education, 4, Article 552",
+    doi: "10.1007/s44217-025-00972-y",
+    sourceUrl:
+      "https://link.springer.com/article/10.1007/s44217-025-00972-y",
+    sourceLabel: "Discover Education",
+    publishedAt: "2025-12-18",
+    year: 2025,
+    reviewedAt: "2026-08-20",
+    openAccess: true,
+    coverImage:
+      "/images/news/covers/sna-012-cooperative-base-group-whatsapp-networks.png",
+    summaryImage:
+      "/images/news/summary/sna-012-cooperative-base-group-whatsapp-networks-summary.png",
+    localizations: {
+      en: {
+        title:
+          "Effectiveness of the cooperative base groups technique in facilitating cooperative learning in small WhatsApp groups for first-year computer science students: a multi-level social network analysis",
+        imageAlt:
+          "Overhead 3D editorial illustration of eight separate translucent phone-shaped group panels around a laptop, each showing a directed student support network with weighted lines, fragmented components, and isolated nodes beside computer science assignment cards",
+        summary:
+          "A study of 79 first-year computer science students used nine separate WhatsApp cooperative-base-group networks to examine learning support during emergency remote education. Multi-level SNA described whole-group structure, communities, personal development networks, and centrality, while correlations with final marks remained observational and non-causal.",
+        overview: [
+          "The lecturer randomly allocated 79 students in one South African computer science module to nine cooperative base groups of eight or nine members for semester-long WhatsApp activities. Students were expected to meet weekly, complete routine tasks, encourage submissions, and provide academic and personal support. Eleven allocated students never joined or later left their groups, and participation patterns differed sharply across the nine bounded networks.",
+          "The researchers reconstructed a directed, weighted development network for each group from message exchanges. None of the nine networks contained every possible relationship, six were fragmented, and communities or strongly connected components appeared within the groups. Ten students had no recorded development relationship. Personal-network size correlated weakly with final marks overall, but central students were not consistently the highest achievers, so the patterns do not demonstrate that network position or the group technique caused academic performance.",
+        ],
+        howSnaWasUsed:
+          "Each WhatsApp group was analyzed as a separate whole development network at three levels. Macro analysis used degree, weighted degree, density, average path length, diameter, and components; meso analysis examined connected groups and modularity-based communities; micro analysis used clustering, degree, eigenvector, betweenness, closeness, and personal development networks. Pearson correlations compared personal-network size with final marks as a separate, non-causal triangulation.",
+        nodes:
+          "The students allocated to each of nine cooperative base groups, together with the lecturer, assistant, and a constructed shared-group information node used in that group's network model.",
+        ties:
+          "A directed flow of academic information, advice, support, expertise, leadership, or another learning resource from a provider to a receiver in WhatsApp; repeated uses increased the tie weight.",
+        methods:
+          "Nine directed weighted edge lists visualized with Fruchterman-Reingold layouts in Gephi; macro density, distance, degree, and component measures; meso modularity and community detection; micro clustering and centralities; personal development network inspection; and Pearson correlations with final marks.",
+        keyTakeaways: [
+          "All nine groups developed some recorded support relationships, but none formed a complete network and six were fragmented by isolates or multiple components.",
+          "The group with the highest reported density reached 0.482, compared with 0.167 for the lowest-density group, showing substantial variation behind the same cooperative-group design.",
+          "Only four of 18 distinction students occupied the most central positions in their groups, and the overall personal-network-size correlation with final marks was 0.38, so centrality was not a reliable achievement label.",
+        ],
+        whyItMatters:
+          "The study demonstrates how whole-network, subgroup, and individual views can reveal different coordination problems inside small learning groups. It also provides a useful caution for learning analytics: an isolate, a dense group, or a large personal network can prompt questions and support conversations, but none is a direct measure of understanding, effort, or future success.",
+        limitations:
+          "This was a retrospective observational study of one first-year module at one South African university during emergency remote education, without a comparison condition, randomized assignment to the technique, a pre-intervention network, or repeated network waves. WhatsApp join timing and archive access affected what students could see, reading without posting was not observable, and the network coding included instructor, assistant, and a constructed group-information node, making density and centrality sensitive to modeling choices. Small groups, unequal participation, platform-specific traces, post-course analysis, network-dependent observations, and simple Pearson correlations limit generalization and do not support causal claims. The article also reports ten students as 7.9% of 79, although ten of 79 is about 12.7%, so that percentage should not be repeated as a verified estimate. The underlying data are available only on request, and network position must not be used to diagnose cooperation, risk, or achievement without contextual evidence and student safeguards.",
+        tags: [
+          "Cooperative learning networks",
+          "Multi-level SNA",
+          "WhatsApp groups",
+        ],
+      },
+      "zh-hant": {
+        title:
+          "合作基礎小組技術在一年級電腦科學學生小型 WhatsApp 群組中促進合作學習的成效：多層次社會網絡分析",
+        imageAlt:
+          "俯視3D編輯插畫呈現八個環繞手提電腦的半透明手機形小組面板，每個面板都有以加權線連接的有向學生支援網絡、分裂組成部分及孤立節點，旁邊放有電腦科學習作卡片",
+        summary:
+          "研究以79名一年級電腦科學學生的九個獨立 WhatsApp 合作基礎小組網絡，檢視緊急遙距教育期間的學習支援。多層次 SNA 描述整體小組結構、社群、個人發展網絡及中心性，而與期末成績的相關只屬觀察性，不能作因果解釋。",
+        overview: [
+          "講師把南非一個電腦科學課程的79名學生隨機分配至九個合作基礎小組，每組八或九人，並在整個學期以 WhatsApp 進行活動。學生應每週會面、完成例行任務、鼓勵同伴提交習作，以及提供學業與個人支援。十一名獲分配學生從未加入或其後離開小組，而九個有界線網絡的參與模式差異明顯。",
+          "研究者從訊息交流重建每個小組的有向加權發展網絡。九個網絡均未出現所有可能關係，其中六個因孤立節點或多個組成部分而分裂，小組內也出現社群或強連通組成部分。十名學生沒有被記錄的發展關係。個人網絡規模與期末成績只有弱相關，中心位置學生亦非一致取得最高成績，因此結果不能證明網絡位置或小組技術造成學業表現。",
+        ],
+        howSnaWasUsed:
+          "研究把每個 WhatsApp 小組視為獨立整體發展網絡，分三個層次分析。宏觀層次使用度數、加權度數、密度、平均路徑長度、直徑及組成部分；中觀層次檢視連通群組及以模組度識別的社群；微觀層次使用聚類、度數、特徵向量、中介、接近中心性及個人發展網絡。另以皮爾遜相關比較個人網絡規模與期末成績，但只作非因果三角驗證。",
+        nodes:
+          "分配至九個合作基礎小組的學生，以及在每個小組網絡模型中加入的講師、助教和一個建構的共享小組資訊節點。",
+        ties:
+          "WhatsApp 中由提供者指向接收者的學業資訊、建議、支援、專業知識、領導或其他學習資源流；重複使用同一關係會增加連結權重。",
+        methods:
+          "九份有向加權邊列表，以 Gephi 的 Fruchterman-Reingold 佈局視覺化；宏觀密度、距離、度數及組成部分；中觀模組度與社群偵測；微觀聚類及多項中心性；個人發展網絡檢視；以及與期末成績的皮爾遜相關。",
+        keyTakeaways: [
+          "九個小組均形成部分被記錄的支援關係，但沒有一個成為完整網絡，其中六個因孤立節點或多個組成部分而分裂。",
+          "報告中最高密度小組為0.482，最低為0.167，顯示相同合作小組設計背後仍有顯著結構差異。",
+          "18名優異成績學生中只有4人處於小組最中心位置，而個人網絡規模與期末成績的整體相關為0.38，因此中心性不是可靠的成績標籤。",
+        ],
+        whyItMatters:
+          "研究說明整體網絡、子群及個人視角可以揭示小型學習小組內不同的協調問題，也提醒學習分析使用者：孤立節點、高密度小組或大型個人網絡可以引發問題及支援對話，卻不是理解、投入或未來成功的直接量度。",
+        limitations:
+          "這是南非一所大學在緊急遙距教育期間，針對一個一年級課程所作的回溯觀察研究，沒有比較條件、沒有把學生隨機分配至技術處理、沒有介入前網絡，也沒有重複網絡波次。WhatsApp 加入時間及歷史訊息存取影響學生可見內容，閱讀但不發文亦不可觀察；網絡編碼加入講師、助教及建構的小組資訊節點，使密度與中心性容易受建模選擇影響。小組規模細、參與不均、平台特定足跡、課後分析、網絡相依觀察及簡單皮爾遜相關均限制推論，不能支持因果主張。論文亦把10名學生報告為79人的7.9%，但10除以79約為12.7%，故不應把該百分比當作已核實估計重複引用。底層資料只可按要求取得，在沒有情境證據與學生保障下，不可用網絡位置診斷合作、風險或成績。",
+        tags: ["合作學習網絡", "多層次 SNA", "WhatsApp 小組"],
+      },
+      "zh-hans": {
+        title:
+          "合作基础小组技术在一年级计算机科学学生小型 WhatsApp 群组中促进合作学习的成效：多层次社会网络分析",
+        imageAlt:
+          "俯视3D编辑插画呈现八个环绕笔记本电脑的半透明手机形小组面板，每个面板都有以加权线连接的有向学生支持网络、分裂组成部分及孤立节点，旁边放有计算机科学作业卡片",
+        summary:
+          "研究以79名一年级计算机科学学生的九个独立 WhatsApp 合作基础小组网络，考察紧急远程教育期间的学习支持。多层次 SNA 描述整体小组结构、社群、个人发展网络及中心性，而与期末成绩的相关只属观察性，不能作因果解释。",
+        overview: [
+          "讲师把南非一个计算机科学课程的79名学生随机分配到九个合作基础小组，每组八或九人，并在整个学期以 WhatsApp 进行活动。学生应每周会面、完成例行任务、鼓励同伴提交作业，以及提供学业与个人支持。十一名获分配学生从未加入或后来离开小组，而九个有边界网络的参与模式差异明显。",
+          "研究者从消息交流重建每个小组的有向加权发展网络。九个网络均未出现所有可能关系，其中六个因孤立节点或多个组成部分而分裂，小组内也出现社群或强连通组成部分。十名学生没有被记录的发展关系。个人网络规模与期末成绩只有弱相关，中心位置学生也并非一致取得最高成绩，因此结果不能证明网络位置或小组技术造成学业表现。",
+        ],
+        howSnaWasUsed:
+          "研究把每个 WhatsApp 小组视为独立整体发展网络，分三个层次分析。宏观层次使用度数、加权度数、密度、平均路径长度、直径及组成部分；中观层次考察连通群组及以模块度识别的社群；微观层次使用聚类、度数、特征向量、中介、接近中心性及个人发展网络。另以皮尔逊相关比较个人网络规模与期末成绩，但只作非因果三角验证。",
+        nodes:
+          "分配到九个合作基础小组的学生，以及在每个小组网络模型中加入的讲师、助教和一个构建的共享小组信息节点。",
+        ties:
+          "WhatsApp 中由提供者指向接收者的学业信息、建议、支持、专业知识、领导或其他学习资源流；重复使用同一关系会增加连接权重。",
+        methods:
+          "九份有向加权边列表，以 Gephi 的 Fruchterman-Reingold 布局可视化；宏观密度、距离、度数及组成部分；中观模块度与社群检测；微观聚类及多项中心性；个人发展网络检查；以及与期末成绩的皮尔逊相关。",
+        keyTakeaways: [
+          "九个小组均形成部分被记录的支持关系，但没有一个成为完整网络，其中六个因孤立节点或多个组成部分而分裂。",
+          "报告中最高密度小组为0.482，最低为0.167，显示相同合作小组设计背后仍有显著结构差异。",
+          "18名优异成绩学生中只有4人处于小组最中心位置，而个人网络规模与期末成绩的整体相关为0.38，因此中心性不是可靠的成绩标签。",
+        ],
+        whyItMatters:
+          "研究说明整体网络、子群及个人视角可以揭示小型学习小组内不同的协调问题，也提醒学习分析使用者：孤立节点、高密度小组或大型个人网络可以引发问题及支持对话，却不是理解、投入或未来成功的直接测量。",
+        limitations:
+          "这是南非一所大学在紧急远程教育期间，针对一个一年级课程所做的回顾性观察研究，没有比较条件、没有把学生随机分配到技术处理、没有干预前网络，也没有重复网络波次。WhatsApp 加入时间及历史消息访问影响学生可见内容，阅读但不发帖也不可观察；网络编码加入讲师、助教及构建的小组信息节点，使密度与中心性容易受建模选择影响。小组规模小、参与不均、平台特定痕迹、课后分析、网络相依观察及简单皮尔逊相关均限制推论，不能支持因果主张。论文也把10名学生报告为79人的7.9%，但10除以79约为12.7%，故不应把该百分比当作已核实估计重复引用。底层数据只可按要求取得，在没有情境证据与学生保障下，不可用网络位置诊断合作、风险或成绩。",
+        tags: ["合作学习网络", "多层次 SNA", "WhatsApp 小组"],
+      },
+    },
+  },
+  {
     id: "sna-008",
     sequence: 8,
     slug: "bridging-stem-faculty-silos",

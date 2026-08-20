@@ -8,6 +8,229 @@ import {
 
 export const academyLessons: AcademyLessonRecord[] = [
   {
+    id: "academy-011",
+    sequence: 11,
+    slug: "design-honest-reproducible-network-visualizations",
+    track: "methods-visualization",
+    level: "foundation",
+    analysisApproach: "social-network-analysis",
+    publishedAt: "2026-08-20",
+    reviewedAt: "2026-08-20",
+    durationMinutes: 14,
+    sources: [
+      {
+        label: "Jacomy et al.: ForceAtlas2 layout algorithm",
+        url: "https://doi.org/10.1371/journal.pone.0098679",
+      },
+      {
+        label: "McGuffin: Simple algorithms for network visualization",
+        url: "https://doi.org/10.1109/TST.2012.6297585",
+      },
+      {
+        label: "Marai et al.: Ten simple rules for network figures",
+        url: "https://doi.org/10.1371/journal.pcbi.1007244",
+      },
+    ],
+    localizations: {
+      en: {
+        title: "Design Honest, Reproducible Network Visualizations",
+        shortSummary:
+          "Turn a documented network specification into a readable figure whose layout, visual encodings, filters, and stability checks can be audited and reproduced.",
+        tags: ["network visualization", "visual encoding", "reproducible layout"],
+        visualLabel: "Auditable network map",
+        learningObjectives: [
+          "Choose a layout and visual channels that answer a stated relational question rather than decorate a graph.",
+          "Record seeds, settings, filters, coordinates, and legends so another analyst can reproduce the figure.",
+          "Test whether an apparent cluster, hub, bridge, or isolate survives defensible visualization choices.",
+        ],
+        scenario:
+          "A district team must present advice-seeking among 24 teachers across three subject teams after an eight-week professional-learning cycle. Staff need to see whether advice crosses team boundaries, while analysts must prevent an attractive force-directed map from being mistaken for direct evidence of trust, influence, or program impact.",
+        nodes:
+          "All 24 teachers on the eligible staff roster at the census date, including teachers with no observed advice ties, with subject team and role stored as attributes.",
+        ties:
+          "A directed nomination from teacher A to teacher B when A reports seeking substantive teaching advice from B during the same eight-week observation window.",
+        networkType:
+          "One-mode, directed, unweighted whole network with a fixed 24-teacher roster boundary, no self-ties, one observation window, retained isolates, and nonresponse marked as unknown rather than no tie.",
+        tutorialSteps: [
+          {
+            title: "State the message and audit the graph",
+            action:
+              "Write one question the figure must answer, such as whether advice crosses subject-team boundaries. Recheck the node roster, edge direction, isolate handling, missing responses, and tie threshold, then calculate basic counts before opening any layout tool. Keep the raw node and edge tables unchanged.",
+            checkpoint:
+              "The question, 24-node boundary, directed tie definition, missing-data rule, node count, and edge count are written beside a read-only copy of the source data.",
+          },
+          {
+            title: "Choose and record the layout",
+            action:
+              "Create a force-directed view for relational exploration, but save the algorithm name, software version, random seed or starting coordinates, and every setting that affects attraction, repulsion, gravity, overlap, and edge weights. Also produce a circular or matrix view as a structure-preserving comparison.",
+            checkpoint:
+              "A second analyst can rerun the same graph with the recorded settings and recover the same coordinates or an explicitly documented equivalent arrangement.",
+          },
+          {
+            title: "Map data to visual channels",
+            action:
+              "Use color for the three subject teams, arrowheads for advice direction, and one justified size encoding such as in-degree. Retain visible isolates, limit labels to what the question needs, use an accessible palette, and add a legend that names every node and edge encoding without assigning two meanings to one channel.",
+            checkpoint:
+              "The legend explains color, size, line, and arrow direction; zero-tie teachers remain visible; and no spatial position is labeled as a measured variable unless the layout truly encodes it.",
+          },
+          {
+            title: "Stress-test and package the figure",
+            action:
+              "Rerun the layout from several starting positions, compare a fixed-coordinate view with the circular or matrix alternative, and repeat the display under one defensible tie or missingness rule. Preserve only patterns that remain interpretable, then export the figure with its caption, data version, settings, coordinates, and analysis date.",
+            checkpoint:
+              "The release bundle contains the figure, legend, caption, source-data identifier, layout recipe, coordinates or seed, filter rules, and a short note separating stable patterns from layout-sensitive impressions.",
+          },
+        ],
+        interpretation: [
+          "A force-directed layout places connected nodes near one another through an optimization process. Distance, center position, empty space, and apparent group shape are not automatically social variables. Treat a visible cluster or bridge as a prompt to inspect ties and calculated measures, then confirm it in a layout that does not rely on the same spatial assumptions.",
+          "Comparisons require a common visual grammar. Keep node sets, meanings, scales, filters, and preferably coordinates fixed across groups or time; otherwise movement or size changes may come from the drawing procedure. Report when isolates, disconnected components, or missing actors alter the composition of the comparison.",
+        ],
+        coreIdeas: [
+          "A network figure is a chain of choices from boundary and ties to layout, encodings, filters, and annotation.",
+          "Reproducibility requires saved settings, seeds or coordinates, data versions, legends, and captions, not only an exported image.",
+          "Visual prominence suggests questions but does not prove importance, learning, trust, influence, or causal effect.",
+        ],
+        practiceTask:
+          "Using a 12-teacher directed advice network with three subject teams and two isolates, create a force-directed view and a circular or adjacency-matrix comparison. Keep the same roster and color mapping, record the layout recipe, label no more than four justified nodes, and write a caption that names one stable structural pattern and one impression that changes across layouts.",
+        responsibleUse:
+          "Network figures can expose identities, relationships, and apparent marginality even when names are removed. Minimize labels, aggregate or withhold small sensitive groups, protect the node and edge tables, and invite contextual review before sharing. Do not rank staff or target individuals from visual salience alone. Layout proximity, node size, or isolation describes a chosen representation of observed ties; it does not establish ability, intent, trust, learning, performance, influence, or program causality.",
+        relatedConcepts: [
+          "force-directed layout",
+          "adjacency matrix",
+          "visual sensitivity analysis",
+        ],
+      },
+      "zh-hant": {
+        title: "設計誠實且可重現的網絡視覺化",
+        shortSummary:
+          "把有文件記錄的網絡規格轉化為可讀圖像，讓佈局、視覺編碼、篩選規則及穩定性檢查都可審核和重現。",
+        tags: ["網絡視覺化", "視覺編碼", "可重現佈局"],
+        visualLabel: "可審核網絡圖",
+        learningObjectives: [
+          "選擇能回答明確關係問題的佈局與視覺通道，而不是只為美化網絡圖。",
+          "記錄種子、設定、篩選、座標及圖例，讓另一位分析者可以重現圖像。",
+          "檢查看似存在的社群、樞紐、橋樑或孤立節點能否在可辯護的視覺化選擇下維持。",
+        ],
+        scenario:
+          "一個地區團隊需要呈現24名教師在八週專業學習周期後的教學建議尋求網絡，教師分屬三個學科小組。教職員希望了解建議有否跨越小組邊界，而分析者必須避免把美觀的力導向圖誤當成信任、影響力或計劃成效的直接證據。",
+        nodes:
+          "普查日期合資格教職員名冊內的全部24名教師，包括沒有已觀察建議連結的教師，並把學科小組與職務保存為節點屬性。",
+        ties:
+          "若教師A報告在同一八週觀察窗內曾向教師B尋求實質教學建議，便建立一條由A指向B的提名連結。",
+        networkType:
+          "單模式、有向、無權重完整網絡，採用固定24名教師名冊邊界、沒有自我連結、只有一個觀察窗、保留孤立節點，並把未回應標記為未知而非沒有連結。",
+        tutorialSteps: [
+          {
+            title: "說明訊息並審核網絡",
+            action:
+              "寫下一個圖像必須回答的問題，例如建議有否跨越學科小組邊界。開啟任何佈局工具前，重新核對節點名冊、連結方向、孤立節點處理、缺失回應與連結門檻，並計算基本數量，同時保持原始節點表及邊列表不變。",
+            checkpoint:
+              "問題、24個節點的邊界、有向連結定義、缺失資料規則、節點數及連結數，均記錄在來源資料唯讀副本旁。",
+          },
+          {
+            title: "選擇並記錄佈局",
+            action:
+              "建立力導向視圖以探索關係，但必須保存演算法名稱、軟件版本、隨機種子或起始座標，以及所有影響吸引、排斥、重力、重疊與邊權重的設定。另建立圓形或矩陣視圖，作為保留結構的比較。",
+            checkpoint:
+              "另一位分析者可用所記錄設定重新運行同一網絡，取得相同座標或文件已清楚說明的等效排列。",
+          },
+          {
+            title: "把資料映射至視覺通道",
+            action:
+              "以顏色表示三個學科小組，以箭頭表示建議方向，並只使用一項有理據的大小編碼，例如入度。保留可見孤立節點，把標籤限制於問題所需內容，採用易於辨識的配色，並以圖例說明每項節點及連結編碼，不可讓同一通道同時代表兩個意義。",
+            checkpoint:
+              "圖例解釋顏色、大小、線條及箭頭方向；零連結教師仍然可見；除非佈局確實編碼某變項，否則不可把空間位置標示為已量度變項。",
+          },
+          {
+            title: "壓力測試並封裝圖像",
+            action:
+              "從多個起始位置重新運行佈局，把固定座標視圖與圓形或矩陣替代方案比較，並在一項可辯護的連結或缺失規則下重複顯示。只保留仍可詮釋的模式，最後連同說明文字、資料版本、設定、座標及分析日期輸出圖像。",
+            checkpoint:
+              "發布套件包含圖像、圖例、說明文字、來源資料識別、佈局步驟、座標或種子、篩選規則，以及區分穩定模式與佈局敏感印象的短註。",
+          },
+        ],
+        interpretation: [
+          "力導向佈局透過最佳化程序把相連節點放近。距離、中心位置、空白及看似存在的小組形狀並非自動成為社會變項。應把可見社群或橋樑視為檢查連結與計算指標的起點，再以不依賴相同空間假設的佈局確認。",
+          "比較需要共同視覺語法。跨小組或時間應固定節點集合、意義、尺度、篩選，並盡量固定座標，否則移動或大小改變可能來自繪圖程序。當孤立節點、分離組成部分或缺失行動者改變比較構成時，必須報告。",
+        ],
+        coreIdeas: [
+          "網絡圖像是一連串由邊界及連結到佈局、編碼、篩選與註釋的選擇。",
+          "可重現性需要保存設定、種子或座標、資料版本、圖例及說明文字，而不只是輸出的圖片。",
+          "視覺顯著性可以提出問題，但不能證明重要性、學習、信任、影響力或因果效果。",
+        ],
+        practiceTask:
+          "使用一個包含三個學科小組及兩個孤立節點的12名教師有向建議網絡，建立力導向視圖及圓形或鄰接矩陣比較。保持相同名冊及顏色映射，記錄佈局步驟，最多只標示四個有理據的節點，並撰寫說明文字，指出一個穩定結構模式及一個會隨佈局改變的印象。",
+        responsibleUse:
+          "即使刪除姓名，網絡圖像仍可能暴露身分、關係及看似邊緣的位置。應減少標籤、匯總或不發布細小敏感群組、保障節點表及邊列表，並在分享前邀請情境審閱。不可只根據視覺顯著性排列教職員或針對個人。佈局距離、節點大小或孤立情況，只描述所選表示方式下已觀察連結的形態，不能確立能力、意圖、信任、學習、表現、影響力或計劃因果效果。",
+        relatedConcepts: ["力導向佈局", "鄰接矩陣", "視覺敏感度分析"],
+      },
+      "zh-hans": {
+        title: "设计诚实且可复现的网络可视化",
+        shortSummary:
+          "把有文档记录的网络规格转化为可读图像，让布局、视觉编码、筛选规则及稳定性检查都可审核和复现。",
+        tags: ["网络可视化", "视觉编码", "可复现布局"],
+        visualLabel: "可审核网络图",
+        learningObjectives: [
+          "选择能回答明确关系问题的布局与视觉通道，而不是只为美化网络图。",
+          "记录种子、设置、筛选、坐标及图例，让另一位分析者可以复现图像。",
+          "检查看似存在的社群、枢纽、桥梁或孤立节点能否在可辩护的可视化选择下保持。",
+        ],
+        scenario:
+          "一个地区团队需要呈现24名教师在八周专业学习周期后的教学建议寻求网络，教师分属三个学科小组。教职员希望了解建议是否跨越小组边界，而分析者必须避免把美观的力导向图误当成信任、影响力或项目成效的直接证据。",
+        nodes:
+          "普查日期符合条件的教职员名册内全部24名教师，包括没有已观察建议连接的教师，并把学科小组与职务保存为节点属性。",
+        ties:
+          "如果教师A报告在同一八周观察窗内曾向教师B寻求实质教学建议，便建立一条由A指向B的提名连接。",
+        networkType:
+          "单模式、有向、无权重完整网络，采用固定24名教师名册边界、没有自我连接、只有一个观察窗、保留孤立节点，并把未回应标记为未知而非没有连接。",
+        tutorialSteps: [
+          {
+            title: "说明信息并审核网络",
+            action:
+              "写下一个图像必须回答的问题，例如建议是否跨越学科小组边界。打开任何布局工具前，重新核对节点名册、连接方向、孤立节点处理、缺失回应与连接门槛，并计算基本数量，同时保持原始节点表及边列表不变。",
+            checkpoint:
+              "问题、24个节点的边界、有向连接定义、缺失数据规则、节点数及连接数，均记录在来源数据只读副本旁。",
+          },
+          {
+            title: "选择并记录布局",
+            action:
+              "建立力导向视图以探索关系，但必须保存算法名称、软件版本、随机种子或起始坐标，以及所有影响吸引、排斥、重力、重叠与边权重的设置。另建立圆形或矩阵视图，作为保留结构的比较。",
+            checkpoint:
+              "另一位分析者可用所记录设置重新运行同一网络，取得相同坐标或文档已清楚说明的等效排列。",
+          },
+          {
+            title: "把数据映射到视觉通道",
+            action:
+              "以颜色表示三个学科小组，以箭头表示建议方向，并只使用一项有依据的大小编码，例如入度。保留可见孤立节点，把标签限制在问题所需内容，采用容易辨识的配色，并以图例说明每项节点及连接编码，不可让同一通道同时代表两个意义。",
+            checkpoint:
+              "图例解释颜色、大小、线条及箭头方向；零连接教师仍然可见；除非布局确实编码某变量，否则不可把空间位置标记为已测量变量。",
+          },
+          {
+            title: "压力测试并封装图像",
+            action:
+              "从多个起始位置重新运行布局，把固定坐标视图与圆形或矩阵替代方案比较，并在一项可辩护的连接或缺失规则下重复显示。只保留仍可解释的模式，最后连同说明文字、数据版本、设置、坐标及分析日期输出图像。",
+            checkpoint:
+              "发布套件包含图像、图例、说明文字、来源数据标识、布局步骤、坐标或种子、筛选规则，以及区分稳定模式与布局敏感印象的短注。",
+          },
+        ],
+        interpretation: [
+          "力导向布局通过优化程序把相连节点放近。距离、中心位置、空白及看似存在的小组形状并不会自动成为社会变量。应把可见社群或桥梁视为检查连接与计算指标的起点，再以不依赖相同空间假设的布局确认。",
+          "比较需要共同视觉语法。跨小组或时间应固定节点集合、意义、尺度、筛选，并尽量固定坐标，否则移动或大小改变可能来自绘图程序。当孤立节点、分离组成部分或缺失行动者改变比较构成时，必须报告。",
+        ],
+        coreIdeas: [
+          "网络图像是一连串从边界及连接到布局、编码、筛选与注释的选择。",
+          "可复现性需要保存设置、种子或坐标、数据版本、图例及说明文字，而不只是输出的图片。",
+          "视觉显著性可以提出问题，但不能证明重要性、学习、信任、影响力或因果效果。",
+        ],
+        practiceTask:
+          "使用一个包含三个学科小组及两个孤立节点的12名教师有向建议网络，建立力导向视图及圆形或邻接矩阵比较。保持相同名册及颜色映射，记录布局步骤，最多只标记四个有依据的节点，并撰写说明文字，指出一个稳定结构模式及一个会随布局改变的印象。",
+        responsibleUse:
+          "即使删除姓名，网络图像仍可能暴露身份、关系及看似边缘的位置。应减少标签、汇总或不发布细小敏感群组、保护节点表及边列表，并在分享前邀请情境审核。不可只根据视觉显著性排列教职员或针对个人。布局距离、节点大小或孤立情况，只描述所选表示方式下已观察连接的形态，不能确立能力、意图、信任、学习、表现、影响力或项目因果效果。",
+        relatedConcepts: ["力导向布局", "邻接矩阵", "视觉敏感度分析"],
+      },
+    },
+  },
+  {
     id: "academy-010",
     sequence: 10,
     slug: "compare-density-reciprocity-and-transitivity",
