@@ -1,10 +1,11 @@
 import type { Locale } from "@/lib/i18n";
+import { backfillNewsArticles } from "@/lib/news-backfill-data";
 import type {
   LocalizedNewsArticle,
   NewsArticleRecord,
 } from "@/lib/news-types";
 
-export const newsArticles: NewsArticleRecord[] = [
+const reviewedNewsArticles: NewsArticleRecord[] = [
   {
     id: "sna-011",
     sequence: 11,
@@ -1360,6 +1361,15 @@ export const newsArticles: NewsArticleRecord[] = [
     },
   },
 ];
+
+export const newsArticles: NewsArticleRecord[] = [
+  ...reviewedNewsArticles,
+  ...backfillNewsArticles,
+].sort(
+  (left, right) =>
+    right.publishedAt.localeCompare(left.publishedAt) ||
+    right.sequence - left.sequence,
+);
 
 export const newsYears: number[] = Array.from(
   new Set(newsArticles.map((article) => article.year)),

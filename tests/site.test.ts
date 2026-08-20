@@ -307,8 +307,10 @@ test("News search, filtering, and six-item pagination preserve the reviewed corp
   assert.ok(search.items.some((article) => article.methods.toLowerCase().includes("centrality")));
 
   const filteredYear = filterNewsArticles(english, { year: "2024" });
-  assert.equal(filteredYear.total, 1);
-  assert.equal(filteredYear.items[0].id, "sna-006");
+  const expected2024 = english.filter((article) => article.year === 2024);
+  assert.equal(filteredYear.total, expected2024.length);
+  assert.deepEqual(filteredYear.items, expected2024.slice(0, 6));
+  assert.ok(filteredYear.items.some((article) => article.id === "sna-006"));
 });
 
 test("each News article has a distinct 1536 by 960 PNG and a byte-identical summary copy", () => {

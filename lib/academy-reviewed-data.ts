@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { backfillAcademyLessons } from "@/lib/academy-backfill-data";
 import {
   ACADEMY_LEVELS,
   ACADEMY_TRACKS,
@@ -6,7 +7,7 @@ import {
   type LocalizedAcademyLesson,
 } from "@/lib/academy-types";
 
-export const academyLessons: AcademyLessonRecord[] = [
+const reviewedAcademyLessons: AcademyLessonRecord[] = [
   {
     id: "academy-011",
     sequence: 11,
@@ -2281,6 +2282,11 @@ export const academyLessons: AcademyLessonRecord[] = [
     },
   },
 ];
+
+export const academyLessons: AcademyLessonRecord[] = [
+  ...reviewedAcademyLessons,
+  ...backfillAcademyLessons,
+].sort((left, right) => right.sequence - left.sequence);
 
 export function localizeAcademyLesson(
   lesson: AcademyLessonRecord,
