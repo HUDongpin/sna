@@ -10,7 +10,9 @@
 
 **Production site:** `https://www.sna.hk/en/open-sna`
 
-**Report status:** Source remediation and local two-service acceptance passed, and the reviewed changes are committed locally. Production remains intentionally unchanged until the local release commit is explicitly authorized for push and a dedicated R worker is deployed.
+**Report status:** This pre-deployment remediation record is retained for audit history. Production deployment and live XLSX acceptance are now complete; see `OPEN_SNA_PRODUCTION_DEPLOYMENT_REPORT_2026-08-23.md` for the current final state.
+
+> Superseded production-status note: the release commit was subsequently authorized and pushed, the dedicated Cloud Run worker was deployed, Vercel production was configured and redeployed, and the public XLSX-to-R-to-results loop passed. Historical statements below describing production as unchanged or blocked reflect the earlier checkpoint only.
 
 ## 1. Executive conclusion
 
