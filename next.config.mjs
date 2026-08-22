@@ -1,5 +1,6 @@
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  ...(process.env.OPEN_SNA_CONTAINER_BUILD === "1" ? { output: "standalone" } : {}),
   poweredByHeader: false,
   reactStrictMode: true,
   env: {

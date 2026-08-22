@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
@@ -19,6 +19,7 @@ const ALLOWED_BOOTSTRAPS = new Set(["100", "500", "1000"]);
 const REQUIRED_NCT_PERMUTATIONS = "1000";
 const XLSX_ZIP_SIGNATURE = "PK";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+let activeWorkerJobs = 0;
 
 function noStoreJson(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -49,10 +50,102 @@ async function readBoundedResult(outputPath: string) {
 
 type RProcessResult = { exitCode: number; timedOut: boolean; stderr: string };
 type RFailureCode = "R_RUNTIME_NOT_READY" | "WORKBOOK_INVALID" | "R_ANALYSIS_FAILED";
+type RemoteFailureCode = RFailureCode | "WORKER_BUSY";
+
+class RemoteEngineError extends Error {
+  constructor(
+    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID",
+    readonly status: number,
+  ) {
+    super(code);
+  }
+}
 
 function parseRFailureCode(stderr: string): RFailureCode {
   const match = stderr.match(/^OPEN_SNA_ERROR_CODE=(R_RUNTIME_NOT_READY|WORKBOOK_INVALID|R_ANALYSIS_FAILED)$/m);
   return match?.[1] as RFailureCode | undefined || "R_ANALYSIS_FAILED";
+}
+
+function workerModeEnabled() {
+  return process.env.OPEN_SNA_R_WORKER_MODE === "1";
+}
+
+function safeTokenMatches(actualHeader: string | null, expectedToken: string) {
+  const prefix = "Bearer ";
+  if (!actualHeader?.startsWith(prefix)) return false;
+  const actualToken = actualHeader.slice(prefix.length);
+  const actualBytes = Buffer.from(actualToken, "utf8");
+  const expectedBytes = Buffer.from(expectedToken, "utf8");
+  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+}
+
+function workerAuthenticationFailure(request: Request) {
+  if (!workerModeEnabled()) return null;
+  const workerToken = process.env.OPEN_SNA_R_WORKER_TOKEN || "";
+  if (workerToken.length < 32 || process.env.OPEN_SNA_R_API_URL) {
+    return noStoreJson(
+      {
+        error: "The Open SNA R worker configuration is incomplete.",
+        code: "WORKER_CONFIGURATION_INVALID",
+      },
+      503,
+    );
+  }
+  if (!safeTokenMatches(request.headers.get("authorization"), workerToken)) {
+    return noStoreJson(
+      { error: "The Open SNA R worker requires valid service authentication.", code: "WORKER_UNAUTHORIZED" },
+      401,
+    );
+  }
+  return null;
+}
+
+function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError {
+  const code = payload && typeof payload === "object" && "code" in payload
+    ? (payload as { code?: unknown }).code
+    : undefined;
+  if (code === "WORKBOOK_INVALID" && status === 422) return new RemoteEngineError(code, 422);
+  if (code === "R_RUNTIME_NOT_READY" && status === 503) return new RemoteEngineError(code, 503);
+  if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502);
+  if (code === "WORKER_BUSY" && status === 429) return new RemoteEngineError(code, 429);
+  return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
+}
+
+function remoteFailureResponse(error: RemoteEngineError) {
+  if (error.code === "R_ENGINE_CONFIGURATION_INVALID") {
+    return noStoreJson(
+      {
+        error: "The production R analysis service configuration is incomplete.",
+        code: error.code,
+      },
+      error.status,
+    );
+  }
+  if (error.code === "WORKBOOK_INVALID") {
+    return noStoreJson(
+      {
+        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column.",
+        code: error.code,
+      },
+      error.status,
+    );
+  }
+  if (error.code === "R_RUNTIME_NOT_READY") {
+    return noStoreJson(
+      { error: "The production R analysis runtime is not ready. Try again later.", code: error.code },
+      error.status,
+    );
+  }
+  if (error.code === "WORKER_BUSY") {
+    return noStoreJson(
+      { error: "The production R analysis service is busy. Wait for the current analysis to finish and try again.", code: error.code },
+      error.status,
+    );
+  }
+  return noStoreJson(
+    { error: "The production R analysis service is temporarily unavailable. Try again later.", code: error.code },
+    error.status,
+  );
 }
 
 function runRAnalysis(options: {
@@ -149,42 +242,65 @@ function runRAnalysis(options: {
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
   const engineUrl = process.env.OPEN_SNA_R_API_URL;
   if (!engineUrl) return null;
-  const outgoing = new FormData();
-  outgoing.set("workbook", new File([bytes], "input.xlsx", { type: XLSX_MIME }));
-  outgoing.set("bootstraps", bootstraps);
-  outgoing.set("permutations", permutations);
+  const engineToken = process.env.OPEN_SNA_R_API_TOKEN || "";
+  let parsedEngineUrl: URL;
+  try {
+    parsedEngineUrl = new URL(engineUrl);
+  } catch {
+    throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
+  }
+  const loopbackHost = ["localhost", "127.0.0.1", "[::1]"].includes(parsedEngineUrl.hostname);
+  if (
+    engineToken.length < 32 ||
+    parsedEngineUrl.username ||
+    parsedEngineUrl.password ||
+    (parsedEngineUrl.protocol !== "https:" && !loopbackHost)
+  ) {
+    throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
+  }
+  try {
+    const outgoing = new FormData();
+    outgoing.set("workbook", new File([bytes], "input.xlsx", { type: XLSX_MIME }));
+    outgoing.set("bootstraps", bootstraps);
+    outgoing.set("permutations", permutations);
 
-  const headers = new Headers({ Accept: "application/json" });
-  if (process.env.OPEN_SNA_R_API_TOKEN) {
-    headers.set("Authorization", `Bearer ${process.env.OPEN_SNA_R_API_TOKEN}`);
+    const headers = new Headers({ Accept: "application/json" });
+    headers.set("Authorization", `Bearer ${engineToken}`);
+    const response = await fetch(engineUrl, {
+      method: "POST",
+      body: outgoing,
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
+    });
+    const declaredLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_RESULT_BYTES) {
+      throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
+    }
+    const responseText = await response.text();
+    const responseBytes = Buffer.byteLength(responseText, "utf8");
+    if (responseBytes === 0 || responseBytes > MAX_RESULT_BYTES) {
+      throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
+    }
+    const payload: unknown = JSON.parse(responseText);
+    if (!response.ok) throw safeRemoteFailure(payload, response.status);
+    if (!isOpenSnaResult(payload) || !matchesOpenSnaRequest(payload, bootstraps, permutations)) {
+      throw new Error("REMOTE_ENGINE_CONTRACT_FAILED");
+    }
+    return payload;
+  } catch (error) {
+    if (error instanceof RemoteEngineError) throw error;
+    throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }
-  const response = await fetch(engineUrl, {
-    method: "POST",
-    body: outgoing,
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error("REMOTE_ENGINE_FAILED");
-  const declaredLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_RESULT_BYTES) {
-    throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
-  }
-  const responseText = await response.text();
-  const responseBytes = Buffer.byteLength(responseText, "utf8");
-  if (responseBytes === 0 || responseBytes > MAX_RESULT_BYTES) {
-    throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
-  }
-  const payload: unknown = JSON.parse(responseText);
-  if (!isOpenSnaResult(payload) || !matchesOpenSnaRequest(payload, bootstraps, permutations)) {
-    throw new Error("REMOTE_ENGINE_CONTRACT_FAILED");
-  }
-  return payload;
 }
 
 export async function POST(request: Request) {
   let jobDirectory: string | null = null;
+  let claimedWorkerSlot = false;
   try {
+    const authenticationFailure = workerAuthenticationFailure(request);
+    if (authenticationFailure) return authenticationFailure;
+
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return noStoreJson({ error: "Open SNA expects a multipart XLSX upload." }, 415);
@@ -245,13 +361,36 @@ export async function POST(request: Request) {
       );
     }
 
+    const workerMode = workerModeEnabled();
+    if (workerMode && activeWorkerJobs >= 1) {
+      return noStoreJson(
+        {
+          error: "The Open SNA R worker is already processing an analysis.",
+          code: "WORKER_BUSY",
+        },
+        429,
+      );
+    }
+    if (workerMode) {
+      activeWorkerJobs += 1;
+      claimedWorkerSlot = true;
+    }
     const temporaryRoot = path.resolve(
       /* turbopackIgnore: true */
-      process.env.OPEN_SNA_TMP_ROOT || path.join(process.cwd(), "tmp", "open-sna-jobs")
+      workerMode
+        ? process.env.OPEN_SNA_R_WORKER_TMP_ROOT || "/tmp/open-sna-jobs"
+        : process.env.OPEN_SNA_TMP_ROOT || path.join(process.cwd(), "tmp", "open-sna-jobs")
     );
-    if (!temporaryRoot.startsWith("/Volumes/Starship/")) {
+    const validWorkerRoot = workerMode &&
+      (temporaryRoot.startsWith("/tmp/open-sna-") || temporaryRoot.startsWith("/var/tmp/open-sna-"));
+    if (!validWorkerRoot && !temporaryRoot.startsWith("/Volumes/Starship/")) {
       return noStoreJson(
-        { error: "Local Open SNA jobs are restricted to a temporary directory on /Volumes/Starship/." },
+        {
+          error: workerMode
+            ? "Open SNA worker jobs require an isolated /tmp/open-sna-* or /var/tmp/open-sna-* directory."
+            : "Local Open SNA jobs are restricted to a temporary directory on /Volumes/Starship/.",
+          code: workerMode ? "WORKER_CONFIGURATION_INVALID" : undefined,
+        },
         503
       );
     }
@@ -306,7 +445,8 @@ export async function POST(request: Request) {
     };
     const lunaOutcome = await withLunaInterpretation(result);
     return noStoreJson(lunaOutcome.result);
-  } catch {
+  } catch (error) {
+    if (error instanceof RemoteEngineError) return remoteFailureResponse(error);
     return noStoreJson({ error: "Open SNA could not start this analysis. Try again or inspect the reference results." }, 500);
   } finally {
     if (jobDirectory) {
@@ -316,5 +456,6 @@ export async function POST(request: Request) {
         // The response must remain fail-safe even if temporary cleanup reports an error.
       }
     }
+    if (claimedWorkerSlot) activeWorkerJobs -= 1;
   }
 }

@@ -1,0 +1,15 @@
+.git
+.next
+.vercel
+node_modules
+tmp
+.env*
+OPEN_SNA_FUNCTIONAL_QA_REPORT_*.md
+New Programming Resilience
+tests
+*.docx
+*.xlsx
+*.csv
+*.pdf
+*.log
+*.tsbuildinfo

@@ -98,6 +98,42 @@ test("the upload adapter is bounded, cleans temporary files, and fails closed on
   assert.doesNotMatch(route, /shell:\s*true/);
 });
 
+test("the production R worker is reproducibly containerized and runs without root privileges", () => {
+  const dockerfilePath = fromRoot("Dockerfile.open-sna-worker");
+  const lockfilePath = fromRoot("analysis/open-sna/renv.lock");
+  assert.ok(existsSync(dockerfilePath), "the Open SNA worker Dockerfile must exist");
+  assert.ok(existsSync(lockfilePath), "the complete R dependency lockfile must exist");
+
+  const dockerfile = read("Dockerfile.open-sna-worker");
+  assert.match(dockerfile, /rocker\/r-ver:4\.4\.2/);
+  assert.match(dockerfile, /renv::restore/);
+  assert.match(dockerfile, /USER\s+open-sna/);
+  assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(dockerfile, /process\.env\.PORT/);
+  assert.match(dockerfile, /npm run build -- --webpack/);
+  assert.doesNotMatch(dockerfile, /npm\s+run\s+dev/);
+});
+
+test("the Cloud Run release contract fixes worker capacity, concurrency, timeout, and secret handling", () => {
+  const cloudBuildPath = fromRoot("cloudbuild.open-sna-worker.yaml");
+  const deployScriptPath = fromRoot("scripts/deploy-open-sna-worker-cloud-run.sh");
+  assert.ok(existsSync(cloudBuildPath), "the Cloud Build definition must exist");
+  assert.ok(existsSync(deployScriptPath), "the Cloud Run deployment script must exist");
+
+  const cloudBuild = read("cloudbuild.open-sna-worker.yaml");
+  const deployScript = read("scripts/deploy-open-sna-worker-cloud-run.sh");
+  assert.match(cloudBuild, /Dockerfile\.open-sna-worker/);
+  assert.match(cloudBuild, /E2_HIGHCPU_8/);
+  assert.match(deployScript, /asia-east2/);
+  assert.match(deployScript, /--cpu 8/);
+  assert.match(deployScript, /--memory 16Gi/);
+  assert.match(deployScript, /--concurrency 1/);
+  assert.match(deployScript, /--max-instances 1/);
+  assert.match(deployScript, /--timeout 300/);
+  assert.match(deployScript, /--update-secrets OPEN_SNA_R_WORKER_TOKEN=/);
+  assert.doesNotMatch(deployScript, /OPEN_SNA_R_WORKER_TOKEN=[A-Za-z0-9+/]{32,}/);
+});
+
 test("the bundled demonstration is aggregate output and matches the public contract", () => {
   const unknownDemo: unknown = JSON.parse(read("public/open-sna/programming-resilience-demo.json"));
   assert.ok(isOpenSnaResult(unknownDemo));
