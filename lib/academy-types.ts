@@ -12,12 +12,12 @@ export const ACADEMY_PAGE_SIZE = 6;
 export type AcademyTrack = (typeof ACADEMY_TRACKS)[number];
 export type AcademyLevel = (typeof ACADEMY_LEVELS)[number];
 
-export type AcademySource = {
+type AcademySource = {
   label: string;
   url: string;
 };
 
-export type AcademyTutorialStep = {
+type AcademyTutorialStep = {
   title: string;
   action: string;
   checkpoint: string;

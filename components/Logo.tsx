@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-export type LogoLocale = "en" | "zh-hant" | "zh-hans";
+type LogoLocale = "en" | "zh-hant" | "zh-hans";
 
-export interface LogoProps {
+interface LogoProps {
   locale: LogoLocale;
   compact?: boolean;
 }

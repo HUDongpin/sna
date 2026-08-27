@@ -1,11 +1,6 @@
 import type { Locale } from "@/lib/i18n";
 import { backfillAcademyLessons } from "@/lib/academy-backfill-data";
-import {
-  ACADEMY_LEVELS,
-  ACADEMY_TRACKS,
-  type AcademyLessonRecord,
-  type LocalizedAcademyLesson,
-} from "@/lib/academy-types";
+import type { AcademyLessonRecord, LocalizedAcademyLesson } from "@/lib/academy-types";
 
 const reviewedAcademyLessons: AcademyLessonRecord[] = [
   {
@@ -2333,6 +2328,3 @@ export function getAcademySequenceNeighbors(lesson: AcademyLessonRecord, locale:
       : undefined,
   };
 }
-
-export const academyTracks = ACADEMY_TRACKS;
-export const academyLevels = ACADEMY_LEVELS;

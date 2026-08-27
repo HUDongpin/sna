@@ -1,7 +1,7 @@
 import type { OpenSnaNode, OpenSnaResult } from "@/lib/open-sna";
 
 export const LUNA_MODEL = "openai/gpt-5.6-luna";
-export const LUNA_GENERATOR = "GPT-5.6 Luna via OpenRouter";
+const LUNA_GENERATOR = "GPT-5.6 Luna via OpenRouter";
 
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_TIMEOUT_MS = 25_000;

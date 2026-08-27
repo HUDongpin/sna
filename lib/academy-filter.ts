@@ -7,7 +7,7 @@ import {
   type LocalizedAcademyLesson,
 } from "@/lib/academy-types";
 
-export type AcademyFilterOptions = {
+type AcademyFilterOptions = {
   q?: string;
   track?: string;
   level?: string;
@@ -15,7 +15,7 @@ export type AcademyFilterOptions = {
   pageSize?: number;
 };
 
-export type AcademyFilterResult = {
+type AcademyFilterResult = {
   items: LocalizedAcademyLesson[];
   total: number;
   page: number;

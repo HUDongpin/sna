@@ -1,4 +1,4 @@
-export const OPEN_SNA_TABS = [
+const OPEN_SNA_TABS = [
   { id: "overview", label: "Data Overview" },
   { id: "network", label: "Network Visualization" },
   { id: "centrality", label: "Centrality Analysis" },
@@ -28,7 +28,7 @@ export type OpenSnaNode = {
   predictability: number | null;
 };
 
-export type OpenSnaEdge = {
+type OpenSnaEdge = {
   source: string;
   target: string;
   weight: number;
@@ -37,7 +37,7 @@ export type OpenSnaEdge = {
   relationship: "within-community" | "between-community";
 };
 
-export type OpenSnaStabilityMetric = {
+type OpenSnaStabilityMetric = {
   id: "strength" | "bridgeStrength" | "bridgeCloseness" | "bridgeBetweenness";
   metric: string;
   coefficient: number | null;
