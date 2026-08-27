@@ -38,12 +38,23 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   const typedLocale = locale as Locale;
   const dictionary = getDictionary(typedLocale);
   const meta = getLocaleMeta(typedLocale);
+  const headerLabels = {
+    home: dictionary.nav.home,
+    mission: dictionary.nav.mission,
+    openSna: dictionary.nav.openSna,
+    news: dictionary.nav.news,
+    academy: dictionary.nav.academy,
+    about: dictionary.nav.about,
+    menu: dictionary.nav.menu,
+    close: dictionary.nav.close,
+    navigation: dictionary.footer.navigation,
+  };
 
   return (
     <div lang={meta.htmlLang} dir={meta.dir}>
       <HtmlLangSync lang={meta.htmlLang} dir={meta.dir} />
       <JsonLd data={[organizationJsonLd(), webSiteJsonLd()]} />
-      <Header locale={typedLocale} dictionary={dictionary} />
+      <Header locale={typedLocale} labels={headerLabels} />
       <main>{children}</main>
       <Footer locale={typedLocale} dictionary={dictionary} />
     </div>

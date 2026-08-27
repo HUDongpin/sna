@@ -3,21 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import type { Dictionary, Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/locales";
 import { cn } from "@/lib/utils";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import Logo from "@/components/Logo";
 
-export default function Header({ locale, dictionary }: { locale: Locale; dictionary: Dictionary }) {
+type HeaderLabels = {
+  home: string;
+  mission: string;
+  openSna: string;
+  news: string;
+  academy: string;
+  about: string;
+  menu: string;
+  close: string;
+  navigation: string;
+};
+
+export default function Header({ locale, labels }: { locale: Locale; labels: HeaderLabels }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname().replace(/\/$/, "");
   const navItems = [
-    { href: `/${locale}`, label: dictionary.nav.home },
-    { href: `/${locale}/mission`, label: dictionary.nav.mission },
-    { href: `/${locale}/open-sna`, label: dictionary.nav.openSna },
-    { href: `/${locale}/news`, label: dictionary.nav.news },
-    { href: `/${locale}/academy`, label: dictionary.nav.academy },
-    { href: `/${locale}/about`, label: dictionary.nav.about },
+    { href: `/${locale}`, label: labels.home },
+    { href: `/${locale}/mission`, label: labels.mission },
+    { href: `/${locale}/open-sna`, label: labels.openSna },
+    { href: `/${locale}/news`, label: labels.news },
+    { href: `/${locale}/academy`, label: labels.academy },
+    { href: `/${locale}/about`, label: labels.about },
   ];
 
   function isActive(href: string) {
@@ -29,7 +41,7 @@ export default function Header({ locale, dictionary }: { locale: Locale; diction
     <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--surface-glass)] backdrop-blur-xl">
       <div className="container-page flex h-20 items-center justify-between gap-4">
         <Logo locale={locale} />
-        <nav className="hidden items-center gap-1 lg:flex" aria-label={dictionary.footer.navigation}>
+        <nav className="hidden items-center gap-1 lg:flex" aria-label={labels.navigation}>
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -56,7 +68,7 @@ export default function Header({ locale, dictionary }: { locale: Locale; diction
           aria-expanded={open}
           aria-controls="mobile-navigation"
         >
-          {open ? dictionary.nav.close : dictionary.nav.menu}
+          {open ? labels.close : labels.menu}
         </button>
       </div>
       <div id="mobile-navigation" className={cn("border-t border-[var(--line)] bg-[var(--surface)] px-4 py-4 lg:hidden", open ? "block" : "hidden")}>

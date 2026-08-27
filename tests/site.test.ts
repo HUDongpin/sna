@@ -5,9 +5,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { getDictionary, localeMeta, locales } from "../lib/i18n";
+import { getDictionary } from "../lib/i18n";
+import { DEFAULT_LOCALE, localeFromPathname, localeMeta, locales } from "../lib/locales";
 import { filterNewsArticles } from "../lib/news-filter";
 import { localizeNewsArticle, newsArticles, newsYears } from "../lib/news-reviewed-data";
+import { statusCopy } from "../lib/status-copy";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -107,6 +109,89 @@ test("the locale contract contains exactly three complete dictionaries with matc
     assert.deepEqual(dictionaryShape(dictionary), reference, `${locale} dictionary shape must match English`);
     assertCompleteText(dictionary, locale);
   }
+});
+
+test("localeFromPathname recognizes only an exact supported first path segment", () => {
+  assert.equal(DEFAULT_LOCALE, "en");
+  assert.equal(localeFromPathname("/en"), "en");
+  assert.equal(localeFromPathname("/en/news"), "en");
+  assert.equal(localeFromPathname("/zh-hant/academy"), "zh-hant");
+  assert.equal(localeFromPathname("/zh-hans/mission"), "zh-hans");
+  assert.equal(localeFromPathname("zh-hant/news"), "zh-hant");
+  assert.equal(localeFromPathname("/"), DEFAULT_LOCALE);
+  assert.equal(localeFromPathname(""), DEFAULT_LOCALE);
+  assert.equal(localeFromPathname("/fr/news"), DEFAULT_LOCALE);
+  assert.equal(localeFromPathname("/EN/news"), DEFAULT_LOCALE);
+  assert.equal(localeFromPathname("/zh-hant-extra/news"), DEFAULT_LOCALE);
+  assert.equal(localeFromPathname("//zh-hans/news"), DEFAULT_LOCALE);
+});
+
+test("route status copy contains exactly three complete locale records with matching shapes", () => {
+  assert.deepEqual(Object.keys(statusCopy).sort(), [...locales].sort());
+
+  const reference = dictionaryShape(statusCopy.en);
+  for (const locale of locales) {
+    assert.deepEqual(dictionaryShape(statusCopy[locale]), reference, `${locale} status copy shape must match English`);
+    assertCompleteText(statusCopy[locale], `${locale}.status`);
+
+    const dictionary = getDictionary(locale) as unknown as Record<string, unknown>;
+    assert.equal("notFound" in dictionary, false);
+    assert.equal("loading" in dictionary, false);
+    assert.equal("error" in dictionary, false);
+    assert.equal("common" in dictionary, false);
+    assert.equal("language" in (dictionary.nav as Record<string, unknown>), false);
+  }
+});
+
+test("root route boundaries use localized path-aware status components", () => {
+  const notFoundSource = read("app/not-found.tsx");
+  const loadingSource = read("app/loading.tsx");
+  const errorSource = read("app/error.tsx");
+  const routeStatusSource = read("components/RouteStatus.tsx");
+
+  assert.match(notFoundSource, /return <RouteNotFound \/>/);
+  assert.match(loadingSource, /return <RouteLoading \/>/);
+  assert.match(errorSource, /^"use client";/);
+  assert.match(errorSource, /return <RouteError reset=\{reset\} \/>/);
+  assert.doesNotMatch(errorSource, /error\.(?:message|digest)/);
+
+  assert.match(routeStatusSource, /^"use client";/);
+  assert.match(routeStatusSource, /const pathname = usePathname\(\)/);
+  assert.match(routeStatusSource, /useState<Locale>\(DEFAULT_LOCALE\)/);
+  assert.match(routeStatusSource, /setLocale\(localeFromPathname\(pathname\)\)/);
+  assert.match(routeStatusSource, /<HtmlLangSync lang=\{meta\.htmlLang\} dir=\{meta\.dir\} \/>/);
+  assert.match(routeStatusSource, /href=\{`\/\$\{locale\}`\}/);
+  assert.match(routeStatusSource, /\{copy\.loading\.label\} SNA\.HK/);
+  assert.match(routeStatusSource, /onClick=\{reset\}/);
+  assert.doesNotMatch(routeStatusSource, /error\.(?:message|digest)/);
+  assert.equal(existsSync(fromRoot("app/global-error.tsx")), false);
+});
+
+test("Header receives only its nine labels and client components avoid the full dictionary module", () => {
+  const headerSource = read("components/Header.tsx");
+  const localeLayoutSource = read("app/[locale]/layout.tsx");
+  const languageSwitcherSource = read("components/LanguageSwitcher.tsx");
+
+  assert.match(headerSource, /locale, labels/);
+  assert.doesNotMatch(headerSource, /\bDictionary\b|dictionary\./);
+  for (const label of ["home", "mission", "openSna", "news", "academy", "about", "menu", "close", "navigation"]) {
+    assert.match(headerSource, new RegExp(`\\b${label}: string;`));
+    assert.match(localeLayoutSource, new RegExp(`${label}: dictionary\\.(?:nav|footer)\\.${label}`));
+  }
+  assert.match(localeLayoutSource, /<Header locale=\{typedLocale\} labels=\{headerLabels\} \/>/);
+  assert.doesNotMatch(localeLayoutSource, /<Header[^>]*dictionary=/);
+  assert.match(languageSwitcherSource, /from "@\/lib\/locales"/);
+
+  const clientSources = [fromRoot("app"), fromRoot("components")]
+    .flatMap(walk)
+    .filter((file) => /\.tsx$/.test(file))
+    .filter((file) => /^"use client";/m.test(readFileSync(file, "utf8")));
+  const clientDictionaryImports = clientSources.flatMap((file) =>
+    importSpecifiers(readFileSync(file, "utf8"))
+      .filter((specifier) => specifier === "@/lib/i18n" || specifier.endsWith("/lib/i18n"))
+      .map((specifier) => `${path.relative(repositoryRoot, file)} -> ${specifier}`)
+  );
+  assert.deepEqual(clientDictionaryImports, []);
 });
 
 test("the localized Home, Mission, Open SNA, News, Academy, and About route files exist", () => {

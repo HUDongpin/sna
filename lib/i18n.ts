@@ -1,6 +1,15 @@
-export const locales = ["en", "zh-hant", "zh-hans"] as const;
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/locales";
 
-export type Locale = (typeof locales)[number];
+export {
+  DEFAULT_LOCALE,
+  getLocaleMeta,
+  isLocale,
+  localeFromPathname,
+  localeMeta,
+  locales,
+  type Locale,
+  type LocaleMetadata,
+} from "@/lib/locales";
 
 export type Dictionary = {
   nav: {
@@ -12,11 +21,6 @@ export type Dictionary = {
     about: string;
     menu: string;
     close: string;
-    language: string;
-  };
-  common: {
-    primaryCta: string;
-    secondaryCta: string;
   };
   home: {
     eyebrow: string;
@@ -166,42 +170,6 @@ export type Dictionary = {
     scopeItems: string[];
     copyright: string;
   };
-  notFound: {
-    title: string;
-    text: string;
-    cta: string;
-  };
-  loading: {
-    label: string;
-  };
-  error: {
-    title: string;
-    text: string;
-    retry: string;
-  };
-};
-
-type LocaleMetadata = {
-  label: string;
-  languageLabel: string;
-  htmlLang: string;
-  dir: "ltr";
-};
-
-export const localeMeta: Record<Locale, LocaleMetadata> = {
-  en: { label: "English", languageLabel: "Select language", htmlLang: "en-HK", dir: "ltr" },
-  "zh-hant": {
-    label: "繁體中文",
-    languageLabel: "選擇語言",
-    htmlLang: "zh-Hant-HK",
-    dir: "ltr",
-  },
-  "zh-hans": {
-    label: "简体中文",
-    languageLabel: "选择语言",
-    htmlLang: "zh-Hans-CN",
-    dir: "ltr",
-  },
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -215,11 +183,6 @@ const dictionaries: Record<Locale, Dictionary> = {
       about: "About",
       menu: "Menu",
       close: "Close",
-      language: "Language",
-    },
-    common: {
-      primaryCta: "Explore social network analysis",
-      secondaryCta: "Learn about our mission",
     },
     home: {
       eyebrow: "Social Network Analysis",
@@ -450,19 +413,6 @@ const dictionaries: Record<Locale, Dictionary> = {
       scopeItems: ["Network theory", "Methods and visualization", "Responsible application"],
       copyright: "SNA.hk. All rights reserved.",
     },
-    notFound: {
-      title: "Page not found",
-      text: "The page you requested does not exist or may have moved.",
-      cta: "Return home",
-    },
-    loading: {
-      label: "Loading",
-    },
-    error: {
-      title: "Something went wrong",
-      text: "We could not load this page. Please try again.",
-      retry: "Try again",
-    },
   },
   "zh-hant": {
     nav: {
@@ -474,11 +424,6 @@ const dictionaries: Record<Locale, Dictionary> = {
       about: "關於我們",
       menu: "選單",
       close: "關閉",
-      language: "語言",
-    },
-    common: {
-      primaryCta: "探索社會網絡分析",
-      secondaryCta: "了解我們的使命",
     },
     home: {
       eyebrow: "社會網絡分析",
@@ -706,19 +651,6 @@ const dictionaries: Record<Locale, Dictionary> = {
       scopeItems: ["網絡理論", "方法與視覺化", "負責任應用"],
       copyright: "SNA.hk。版權所有。",
     },
-    notFound: {
-      title: "找不到頁面",
-      text: "你所要求的頁面不存在或可能已移動。",
-      cta: "返回首頁",
-    },
-    loading: {
-      label: "載入中",
-    },
-    error: {
-      title: "發生錯誤",
-      text: "目前無法載入此頁，請再試一次。",
-      retry: "再試一次",
-    },
   },
   "zh-hans": {
     nav: {
@@ -730,11 +662,6 @@ const dictionaries: Record<Locale, Dictionary> = {
       about: "关于我们",
       menu: "菜单",
       close: "关闭",
-      language: "语言",
-    },
-    common: {
-      primaryCta: "探索社会网络分析",
-      secondaryCta: "了解我们的使命",
     },
     home: {
       eyebrow: "社会网络分析",
@@ -962,30 +889,9 @@ const dictionaries: Record<Locale, Dictionary> = {
       scopeItems: ["网络理论", "方法与可视化", "负责任应用"],
       copyright: "SNA.hk。版权所有。",
     },
-    notFound: {
-      title: "找不到页面",
-      text: "你所请求的页面不存在或可能已移动。",
-      cta: "返回首页",
-    },
-    loading: {
-      label: "加载中",
-    },
-    error: {
-      title: "发生错误",
-      text: "目前无法加载此页，请重试。",
-      retry: "重试",
-    },
   },
 };
 
-export function isLocale(value: unknown): value is Locale {
-  return typeof value === "string" && (locales as readonly string[]).includes(value);
-}
-
 export function getDictionary(value: unknown): Dictionary {
-  return dictionaries[isLocale(value) ? value : "en"];
-}
-
-export function getLocaleMeta(value: unknown): LocaleMetadata {
-  return localeMeta[isLocale(value) ? value : "en"];
+  return dictionaries[isLocale(value) ? value : DEFAULT_LOCALE];
 }

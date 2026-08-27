@@ -24,7 +24,7 @@ test("Open SNA is a localized route placed between Mission and News", () => {
   const openSna = header.indexOf("/${locale}/open-sna");
   const news = header.indexOf("/${locale}/news");
   assert.ok(mission >= 0 && openSna > mission && news > openSna);
-  assert.match(header, /dictionary\.nav\.openSna/);
+  assert.match(header, /labels\.openSna/);
   const urls = sitemap().map((entry) => entry.url);
   assert.ok(urls.includes("https://www.sna.hk/en/open-sna"));
   assert.ok(!urls.includes("https://www.sna.hk/zh-hant/open-sna"));
