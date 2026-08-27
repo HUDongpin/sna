@@ -305,6 +305,12 @@ read_and_validate_workbook <- function(
       call. = FALSE
     )
   }
+  group_levels <- names(group_counts)
+  group_count_rows <- data.frame(
+    group = group_levels,
+    n = as.integer(group_counts),
+    stringsAsFactors = FALSE
+  )
 
   list(
     raw = raw,
@@ -314,6 +320,8 @@ read_and_validate_workbook <- function(
     communities = stats::setNames(community_from_item(item_columns), item_columns),
     group_column = group_column,
     group_values = group_values,
+    group_levels = group_levels,
+    group_counts = group_count_rows,
     sheet = selected_sheet,
     original_rows = nrow(raw),
     dropped_rows = sum(!complete)
@@ -454,30 +462,10 @@ network_summary <- function(items, weights, nodes, edges) {
 }
 
 subgroup_comparison <- function(prepared, gamma, permutations, seed) {
-  if (is.na(prepared$group_column)) {
-    return(list(
-      available = FALSE,
-      reason = "No two-level subgroup column was found."
-    ))
-  }
-
   group_values <- prepared$group_values[prepared$complete]
-  levels <- sort(unique(stats::na.omit(group_values)))
-  if (length(levels) != 2L) {
-    return(list(
-      available = FALSE,
-      reason = "Subgroup comparison requires exactly two non-empty group levels."
-    ))
-  }
-
+  levels <- prepared$group_levels
   first_index <- which(group_values == levels[[1]])
   second_index <- which(group_values == levels[[2]])
-  if (min(length(first_index), length(second_index)) < 20L) {
-    return(list(
-      available = FALSE,
-      reason = "Each subgroup needs at least 20 complete rows."
-    ))
-  }
 
   items <- prepared$items
   first_data <- items[first_index, , drop = FALSE]
@@ -534,8 +522,8 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
     groupColumn = prepared$group_column,
     groupA = levels[[1]],
     groupB = levels[[2]],
-    nA = length(first_index),
-    nB = length(second_index),
+    nA = prepared$group_counts$n[[1]],
+    nB = prepared$group_counts$n[[2]],
     permutations = permutations,
     globalStrengthA = round_metric(nct_result$glstrinv.sep[[1]]),
     globalStrengthB = round_metric(nct_result$glstrinv.sep[[2]]),
@@ -688,27 +676,25 @@ build_interpretation <- function(overview, nodes, comparison, stability, runtime
     )
   }
 
-  if (isTRUE(comparison$available)) {
-    significant <- comparison$networkStructurePValue < 0.05
-    insights[[length(insights) + 1L]] <- list(
-      id = "subgroup-comparison",
-      title = "Subgroup comparison",
-      text = if (significant) {
-        paste0(
-          "The permutation test detects a subgroup difference in network structure (p = ",
-          format(round(comparison$networkStructurePValue, 3), nsmall = 3),
-          "). Inspect corrected edge tests before drawing item-level conclusions."
-        )
-      } else {
-        paste0(
-          "The permutation test does not detect a subgroup difference in network structure at alpha .05 (p = ",
-          format(round(comparison$networkStructurePValue, 3), nsmall = 3),
-          "). This is not evidence that the networks are identical."
-        )
-      },
-      evidence = "Subgroup Comparison: permutation test"
-    )
-  }
+  significant <- comparison$networkStructurePValue < 0.05
+  insights[[length(insights) + 1L]] <- list(
+    id = "subgroup-comparison",
+    title = "Subgroup comparison",
+    text = if (significant) {
+      paste0(
+        "The permutation test detects a subgroup difference in network structure (p = ",
+        format(round(comparison$networkStructurePValue, 3), nsmall = 3),
+        "). Inspect corrected edge tests before drawing item-level conclusions."
+      )
+    } else {
+      paste0(
+        "The permutation test does not detect a subgroup difference in network structure at alpha .05 (p = ",
+        format(round(comparison$networkStructurePValue, 3), nsmall = 3),
+        "). This is not evidence that the networks are identical."
+      )
+    },
+    evidence = "Subgroup Comparison: permutation test"
+  )
 
   list(
     generator = "Deterministic evidence-bound rules implemented in R",
@@ -803,20 +789,8 @@ analyze_workbook <- function(
     analysis_warnings
   )
 
-  complete_group_values <- prepared$group_values[prepared$complete]
-  group_counts <- if (is.na(prepared$group_column)) {
-    data.frame(group = character(), n = integer(), stringsAsFactors = FALSE)
-  } else {
-    counts <- table(complete_group_values, useNA = "no")
-    data.frame(
-      group = names(counts),
-      n = as.integer(counts),
-      stringsAsFactors = FALSE
-    )
-  }
-
   result <- list(
-    schemaVersion = "1.0",
+    schemaVersion = "1.1",
     analysisProfile = "npn-ebicglasso-v1",
     dataSource = data_source,
     generatedAt = format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ"),
@@ -834,8 +808,8 @@ analyze_workbook <- function(
       originalRows = prepared$original_rows,
       analyzedRows = nrow(prepared$items),
       droppedRows = prepared$dropped_rows,
-      groupColumn = if (is.na(prepared$group_column)) NULL else prepared$group_column,
-      groupCounts = group_counts,
+      groupColumn = prepared$group_column,
+      groupCounts = prepared$group_counts,
       itemColumns = prepared$item_columns
     ),
     settings = list(

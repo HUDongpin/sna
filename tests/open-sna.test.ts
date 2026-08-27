@@ -49,6 +49,8 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.match(workbench, /role="tabpanel"/);
   assert.match(workbench, /accept="\.xlsx"/);
   assert.match(workbench, /lang="en"/);
+  assert.match(workbench, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
+  assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });
 
 test("the Open SNA interface provides accessible interactive exploration", () => {
@@ -79,6 +81,9 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /discover_item_columns/);
   assert.match(engine, /6 to 40 item columns/);
   assert.match(engine, /gender-1-label/);
+  assert.match(engine, /schemaVersion\s*=\s*"1\.1"/);
+  assert.match(engine, /groupCounts\s*=\s*prepared\$group_counts/);
+  assert.doesNotMatch(engine, /available\s*=\s*FALSE/);
   assert.doesNotMatch(engine, /Desktop\/New Programming Resilience/);
   assert.doesNotMatch(engine, /install\.packages\(/);
 });
@@ -138,7 +143,7 @@ test("the bundled demonstration is aggregate output and matches the public contr
   const unknownDemo: unknown = JSON.parse(read("public/open-sna/programming-resilience-demo.json"));
   assert.ok(isOpenSnaResult(unknownDemo));
   const demo = unknownDemo as OpenSnaResult;
-  assert.equal(demo.schemaVersion, "1.0");
+  assert.equal(demo.schemaVersion, "1.1");
   assert.equal(demo.analysisProfile, "npn-ebicglasso-v1");
   assert.equal(demo.dataSource, "aggregate-demo");
   assert.equal(demo.source.fileName, "Programming Resilience aggregate reference");
@@ -152,10 +157,8 @@ test("the bundled demonstration is aggregate output and matches the public contr
   assert.equal(demo.settings.bootstrapReplicates, 1000);
   assert.equal(demo.settings.nctPermutations, 1000);
   assert.equal(demo.subgroupComparison.available, true);
-  if (demo.subgroupComparison.available) {
-    assert.equal(demo.subgroupComparison.packageVersion, "2.2.3");
-    assert.equal(demo.subgroupComparison.permutations, 1000);
-  }
+  assert.equal(demo.subgroupComparison.packageVersion, "2.2.3");
+  assert.equal(demo.subgroupComparison.permutations, 1000);
   assert.deepEqual(
     demo.stability.metrics.map(({ id, coefficient, interpretation }) => ({ id, coefficient, interpretation })),
     [
@@ -176,4 +179,135 @@ test("the bundled demonstration is aggregate output and matches the public contr
   assert.equal(matchesOpenSnaRequest(uploaded, "1000", "1000"), true);
   assert.equal(matchesOpenSnaRequest(uploaded, "500", "1000"), false);
   assert.equal(matchesOpenSnaRequest(demo, "1000", "1000"), false);
+});
+
+test("the Open SNA 1.1 validator enforces the mandatory two-group NCT contract", () => {
+  const unknownDemo: unknown = JSON.parse(read("public/open-sna/programming-resilience-demo.json"));
+  assert.ok(isOpenSnaResult(unknownDemo));
+  const demo = unknownDemo as OpenSnaResult;
+
+  const mutationCases: Array<{ name: string; mutate: (result: OpenSnaResult) => void }> = [
+    {
+      name: "legacy schema outside the remote adapter",
+      mutate: (result) => { Object.assign(result, { schemaVersion: "1.0" }); },
+    },
+    {
+      name: "null group column",
+      mutate: (result) => { Object.assign(result.source, { groupColumn: null }); },
+    },
+    {
+      name: "zero group counts",
+      mutate: (result) => { Object.assign(result.source, { groupCounts: [] }); },
+    },
+    {
+      name: "one group count",
+      mutate: (result) => { Object.assign(result.source, { groupCounts: [result.source.groupCounts[0]] }); },
+    },
+    {
+      name: "three group counts",
+      mutate: (result) => {
+        Object.assign(result.source, {
+          groupCounts: [...result.source.groupCounts, { group: "Other", n: 20 }],
+        });
+      },
+    },
+    {
+      name: "duplicate group labels",
+      mutate: (result) => {
+        Object.assign(result.source, {
+          groupCounts: [
+            result.source.groupCounts[0],
+            { ...result.source.groupCounts[1], group: result.source.groupCounts[0].group },
+          ],
+        });
+      },
+    },
+    {
+      name: "unsafe group label",
+      mutate: (result) => {
+        Object.assign(result.source, {
+          groupCounts: [{ ...result.source.groupCounts[0], group: "<group>" }, result.source.groupCounts[1]],
+        });
+      },
+    },
+    {
+      name: "group below the minimum analyzed size",
+      mutate: (result) => {
+        Object.assign(result.source, {
+          groupCounts: [
+            { ...result.source.groupCounts[0], n: 19 },
+            { ...result.source.groupCounts[1], n: result.source.analyzedRows - 19 },
+          ],
+        });
+      },
+    },
+    {
+      name: "group counts that do not sum to analyzed rows",
+      mutate: (result) => {
+        Object.assign(result.source.groupCounts[0], { n: result.source.groupCounts[0].n + 1 });
+      },
+    },
+    {
+      name: "unavailable subgroup comparison",
+      mutate: (result) => {
+        Object.assign(result, { subgroupComparison: { available: false, reason: "missing" } });
+      },
+    },
+    {
+      name: "comparison group column mismatch",
+      mutate: (result) => { Object.assign(result.subgroupComparison, { groupColumn: "Cohort" }); },
+    },
+    {
+      name: "comparison group label mismatch",
+      mutate: (result) => { Object.assign(result.subgroupComparison, { groupA: "Other" }); },
+    },
+    {
+      name: "comparison sample count mismatch",
+      mutate: (result) => { Object.assign(result.subgroupComparison, { nA: result.subgroupComparison.nA + 1 }); },
+    },
+    {
+      name: "comparison permutation mismatch",
+      mutate: (result) => { Object.assign(result.subgroupComparison, { permutations: 999 }); },
+    },
+    {
+      name: "global-strength p-value outside probability range",
+      mutate: (result) => { Object.assign(result.subgroupComparison, { globalStrengthPValue: 1.01 }); },
+    },
+    {
+      name: "negative absolute network-structure difference",
+      mutate: (result) => { Object.assign(result.subgroupComparison, { networkStructureDifference: -0.01 }); },
+    },
+    {
+      name: "edge difference with an unknown node",
+      mutate: (result) => {
+        Object.assign(result.subgroupComparison.strongestEdgeDifferences[0], { source: "Unknown99" });
+      },
+    },
+    {
+      name: "self-referencing edge difference",
+      mutate: (result) => {
+        const edge = result.subgroupComparison.strongestEdgeDifferences[0];
+        Object.assign(edge, { target: edge.source });
+      },
+    },
+    {
+      name: "duplicate subgroup edge difference",
+      mutate: (result) => {
+        const edge = result.subgroupComparison.strongestEdgeDifferences[0];
+        result.subgroupComparison.strongestEdgeDifferences.push({ ...edge });
+      },
+    },
+    {
+      name: "Holm p-value outside probability range",
+      mutate: (result) => {
+        Object.assign(result.subgroupComparison.strongestEdgeDifferences[0], { pValueHolm: -0.01 });
+      },
+    },
+  ];
+
+  for (const { name, mutate } of mutationCases) {
+    const invalid = structuredClone(demo);
+    mutate(invalid);
+    assert.equal(isOpenSnaResult(invalid), false, name);
+  }
 });

@@ -6,8 +6,8 @@ The public Next.js application cannot execute R on Vercel. Production workbook a
 
 1. `www.sna.hk` accepts and validates the XLSX upload.
 2. The Vercel route forwards the validated workbook over HTTPS with a Bearer token.
-3. A dedicated container runs the pinned R analysis and returns aggregate JSON.
-4. The Vercel route revalidates the JSON contract, replaces source names with neutral labels, optionally adds aggregate-only LUNA interpretation, and returns the result to the browser.
+3. A dedicated container runs the pinned R analysis and returns aggregate schema `1.1` JSON with the required two-group NCT result.
+4. The Vercel route revalidates the JSON contract, replaces source names with neutral labels, optionally adds aggregate-only LUNA interpretation, and returns schema `1.1` to the browser.
 
 The worker never returns source rows or respondent identifiers. It deletes the per-job directory in `finally` after success or failure.
 
@@ -117,6 +117,18 @@ OPEN_SNA_R_API_TOKEN=<same service token>
 
 Both values are required. The Web adapter rejects missing or short tokens and rejects non-HTTPS non-loopback URLs.
 
+## Schema 1.1 rollout and compatibility window
+
+Deploy the schema change web-first so the public adapter can continue reading the preceding worker during the transition:
+
+1. Deploy the Web adapter that strictly validates native `1.1` and can normalize only a `1.0` remote result that already satisfies every mandatory two-group and NCT invariant.
+2. Verify that the adapter reads the existing `1.0` worker response and returns canonical `1.1` to the browser.
+3. Deploy the worker that writes only `1.1`, then verify both the direct authenticated worker probe and the public upload path.
+4. If rollback is required, roll back the worker before rolling back the Web adapter.
+5. Retire the temporary `1.0` reader in a separate change only after two consecutive production worker revisions have written `1.1`, 100% of traffic uses `1.1`, and current direct-worker and public-upload evidence is recorded.
+
+The compatibility reader is remote-only. It rejects `1.0` results with an unavailable NCT, a null grouping column, missing or inconsistent group counts, unknown schema versions, and malformed payloads. Local R execution, worker output, the bundled demo, browser responses, and AI input remain single-write `1.1`.
+
 ## Release gates
 
 Complete every gate before describing the production loop as working:
@@ -124,9 +136,9 @@ Complete every gate before describing the production loop as working:
 1. Worker image build succeeds on the target architecture.
 2. Container health becomes `healthy` while an unauthenticated POST returns `401 WORKER_UNAUTHORIZED`.
 3. R preflight passes inside the final runtime image.
-4. A valid synthetic XLSX returns HTTP 200 through the public Vercel endpoint.
+4. A valid synthetic XLSX with one binary grouping column and at least 20 analyzed rows per group returns HTTP 200 through the public Vercel endpoint.
 5. The browser changes from the reference result to `Uploaded workbook` and renders all eight panels.
-6. The response contains `rawRowsIncluded: false`, `uploadedWorkbookRetainedByEngine: false`, no `records`, and no `rawData`.
+6. The response uses schema `1.1`, contains exactly two source group counts and an available NCT result, contains `rawRowsIncluded: false` and `uploadedWorkbookRetainedByEngine: false`, and contains no `records` or `rawData`.
 7. The worker job directory is empty after the response.
 8. A second simultaneous analysis returns `429 WORKER_BUSY`.
 9. Invalid workbooks return the bounded `422 WORKBOOK_INVALID` response without worker diagnostics.
