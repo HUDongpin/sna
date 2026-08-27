@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import test from "node:test";
@@ -22,6 +23,26 @@ function analysisRequest(authorization?: string) {
   return new Request("http://localhost/api/open-sna/analyze", { method: "POST", body: formData, headers });
 }
 
+function workerResult(schemaVersion: "1.0" | "1.1") {
+  const result = JSON.parse(
+    readFileSync(path.join(repositoryRoot, "public", "open-sna", "programming-resilience-demo.json"), "utf8"),
+  ) as Record<string, unknown>;
+  const settings = result.settings as Record<string, unknown>;
+  const stability = result.stability as Record<string, unknown>;
+  result.schemaVersion = schemaVersion;
+  result.dataSource = "uploaded-workbook";
+  settings.bootstrapReplicates = 100;
+  stability.bootstraps = 100;
+  return result;
+}
+
+function isolateRouteEnvironment(keys: readonly string[]) {
+  const allKeys = Array.from(new Set([...keys, "OPENROUTER_API_KEY"]));
+  const originalEnvironment = Object.fromEntries(allKeys.map((key) => [key, process.env[key]]));
+  delete process.env.OPENROUTER_API_KEY;
+  return originalEnvironment;
+}
+
 function restoreEnvironment(originalEnvironment: Record<string, string | undefined>) {
   for (const [key, value] of Object.entries(originalEnvironment)) {
     if (value === undefined) delete process.env[key];
@@ -40,9 +61,7 @@ test("the upload route distinguishes R runtime, workbook, and analysis failures"
     "R_LIBS_USER",
     "VERCEL",
   ] as const;
-  const originalEnvironment = Object.fromEntries(
-    environmentKeys.map((key) => [key, process.env[key]]),
-  );
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
 
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
   process.env.OPEN_SNA_TMP_ROOT = path.join(repositoryRoot, "tmp", "open-sna-route-tests");
@@ -109,9 +128,7 @@ test("worker mode requires bearer authentication and accepts an isolated Linux t
     "R_LIBS_USER",
     "VERCEL",
   ] as const;
-  const originalEnvironment = Object.fromEntries(
-    environmentKeys.map((key) => [key, process.env[key]]),
-  );
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const workerToken = "test-worker-token-with-32-characters";
 
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
@@ -167,9 +184,7 @@ test("the web adapter maps remote worker failures without leaking worker diagnos
     "OPEN_SNA_R_WORKER_TOKEN",
     "VERCEL",
   ] as const;
-  const originalEnvironment = Object.fromEntries(
-    environmentKeys.map((key) => [key, process.env[key]]),
-  );
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const forwardingToken = "test-forwarding-token-with-32-characters";
   process.env.OPEN_SNA_R_API_URL = `http://127.0.0.1:${address.port}/api/open-sna/analyze`;
   process.env.OPEN_SNA_R_API_TOKEN = forwardingToken;
@@ -192,6 +207,87 @@ test("the web adapter maps remote worker failures without leaking worker diagnos
   }
 });
 
+test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes only canonical 1.1", async () => {
+  let responsePayload: unknown = workerResult("1.1");
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify(responsePayload));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+
+  const environmentKeys = [
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_API_TOKEN",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_R_API_URL = `http://127.0.0.1:${address.port}/api/open-sna/analyze`;
+  process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_R_WORKER_TOKEN;
+  delete process.env.VERCEL;
+
+  try {
+    for (const version of ["1.0", "1.1"] as const) {
+      responsePayload = workerResult(version);
+      const response = await POST(analysisRequest());
+      const payload = await response.json() as {
+        schemaVersion?: string;
+        dataSource?: string;
+        inputFingerprint?: string;
+        overview?: { nodeCount?: number };
+        source?: { fileName?: string; sheet?: string };
+      };
+      assert.equal(response.status, 200, version);
+      assert.equal(payload.schemaVersion, "1.1", version);
+      assert.equal(payload.dataSource, "uploaded-workbook", version);
+      assert.match(payload.inputFingerprint || "", /^sha256:[a-f0-9]{64}$/, version);
+      assert.equal(payload.overview?.nodeCount, 16, version);
+      assert.equal(payload.source?.fileName, "Uploaded workbook", version);
+      assert.equal(payload.source?.sheet, "Uploaded worksheet", version);
+    }
+
+    const unavailable = workerResult("1.0");
+    unavailable.subgroupComparison = { available: false, reason: "missing" };
+
+    const nullGroupColumn = workerResult("1.0");
+    (nullGroupColumn.source as Record<string, unknown>).groupColumn = null;
+
+    const mismatchedCounts = workerResult("1.0");
+    const counts = (mismatchedCounts.source as Record<string, unknown>).groupCounts as Array<Record<string, unknown>>;
+    counts[0].n = Number(counts[0].n) + 1;
+
+    const missingVersion = workerResult("1.1");
+    delete missingVersion.schemaVersion;
+
+    const invalidPayloads: Array<{ name: string; payload: unknown }> = [
+      { name: "legacy unavailable NCT", payload: unavailable },
+      { name: "legacy null grouping column", payload: nullGroupColumn },
+      { name: "legacy mismatched group counts", payload: mismatchedCounts },
+      { name: "unknown version", payload: { ...workerResult("1.1"), schemaVersion: "1.2" } },
+      { name: "missing version", payload: missingVersion },
+      { name: "non-object JSON", payload: "not-an-open-sna-result" },
+    ];
+
+    for (const invalid of invalidPayloads) {
+      responsePayload = invalid.payload;
+      const response = await POST(analysisRequest());
+      const payload = await response.json() as { code?: string };
+      assert.equal(response.status, 502, invalid.name);
+      assert.equal(payload.code, "R_ENGINE_UNAVAILABLE", invalid.name);
+    }
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    server.close();
+    await once(server, "close");
+  }
+});
+
 test("worker mode admits only one R analysis at a time", async () => {
   const environmentKeys = [
     "OPEN_SNA_RSCRIPT_BIN",
@@ -203,9 +299,7 @@ test("worker mode admits only one R analysis at a time", async () => {
     "OPEN_SNA_TEST_FAILURE_CODE",
     "VERCEL",
   ] as const;
-  const originalEnvironment = Object.fromEntries(
-    environmentKeys.map((key) => [key, process.env[key]]),
-  );
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const workerToken = "test-worker-token-with-32-characters";
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
   process.env.OPEN_SNA_R_WORKER_MODE = "1";
@@ -239,9 +333,7 @@ test("the web adapter reports an unavailable remote worker as a gateway failure"
     "OPEN_SNA_R_WORKER_TOKEN",
     "VERCEL",
   ] as const;
-  const originalEnvironment = Object.fromEntries(
-    environmentKeys.map((key) => [key, process.env[key]]),
-  );
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   process.env.OPEN_SNA_R_API_URL = "http://127.0.0.1:1/api/open-sna/analyze";
   process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
   delete process.env.OPEN_SNA_R_WORKER_MODE;
@@ -267,9 +359,7 @@ test("the web adapter refuses an unauthenticated remote worker configuration", a
     "OPEN_SNA_R_WORKER_TOKEN",
     "VERCEL",
   ] as const;
-  const originalEnvironment = Object.fromEntries(
-    environmentKeys.map((key) => [key, process.env[key]]),
-  );
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
   delete process.env.OPEN_SNA_R_API_TOKEN;
   delete process.env.OPEN_SNA_R_WORKER_MODE;

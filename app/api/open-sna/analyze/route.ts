@@ -124,7 +124,7 @@ function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "WORKBOOK_INVALID") {
     return noStoreJson(
       {
-        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column.",
+        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
         code: error.code,
       },
       error.status,
@@ -239,6 +239,16 @@ function runRAnalysis(options: {
   });
 }
 
+function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const version = (payload as { schemaVersion?: unknown }).schemaVersion;
+  if (version === "1.1") return isOpenSnaResult(payload) ? payload : null;
+  if (version !== "1.0") return null;
+
+  const candidate = { ...payload, schemaVersion: "1.1" };
+  return isOpenSnaResult(candidate) ? candidate : null;
+}
+
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
   const engineUrl = process.env.OPEN_SNA_R_API_URL;
   if (!engineUrl) return null;
@@ -284,10 +294,11 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     }
     const payload: unknown = JSON.parse(responseText);
     if (!response.ok) throw safeRemoteFailure(payload, response.status);
-    if (!isOpenSnaResult(payload) || !matchesOpenSnaRequest(payload, bootstraps, permutations)) {
+    const normalizedResult = normalizeRemoteResult(payload);
+    if (!normalizedResult || !matchesOpenSnaRequest(normalizedResult, bootstraps, permutations)) {
       throw new Error("REMOTE_ENGINE_CONTRACT_FAILED");
     }
-    return payload;
+    return normalizedResult;
   } catch (error) {
     if (error instanceof RemoteEngineError) throw error;
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
@@ -426,7 +437,7 @@ export async function POST(request: Request) {
       }
       return noStoreJson(
         {
-          error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column.",
+          error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
           code: failureCode,
         },
         422

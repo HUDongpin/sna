@@ -45,7 +45,7 @@ export type OpenSnaStabilityMetric = {
 };
 
 export type OpenSnaResult = {
-  schemaVersion: "1.0";
+  schemaVersion: "1.1";
   analysisProfile: "npn-ebicglasso-v1";
   dataSource: "aggregate-demo" | "uploaded-workbook";
   generatedAt: string;
@@ -56,8 +56,8 @@ export type OpenSnaResult = {
     originalRows: number;
     analyzedRows: number;
     droppedRows: number;
-    groupColumn: string | null;
-    groupCounts: Array<{ group: string; n: number }>;
+    groupColumn: string;
+    groupCounts: [{ group: string; n: number }, { group: string; n: number }];
     itemColumns: string[];
   };
   settings: {
@@ -94,31 +94,29 @@ export type OpenSnaResult = {
   };
   nodes: OpenSnaNode[];
   edges: OpenSnaEdge[];
-  subgroupComparison:
-    | {
-        available: true;
-        method: string;
-        packageVersion: string;
-        groupColumn: string;
-        groupA: string;
-        groupB: string;
-        nA: number;
-        nB: number;
-        permutations: number;
-        globalStrengthA: number;
-        globalStrengthB: number;
-        globalStrengthDifference: number;
-        globalStrengthPValue: number;
-        networkStructureDifference: number;
-        networkStructurePValue: number;
-        strongestEdgeDifferences: Array<{
-          source: string;
-          target: string;
-          absoluteDifference: number;
-          pValueHolm: number;
-        }>;
-      }
-    | { available: false; reason: string };
+  subgroupComparison: {
+    available: true;
+    method: string;
+    packageVersion: string;
+    groupColumn: string;
+    groupA: string;
+    groupB: string;
+    nA: number;
+    nB: number;
+    permutations: number;
+    globalStrengthA: number;
+    globalStrengthB: number;
+    globalStrengthDifference: number;
+    globalStrengthPValue: number;
+    networkStructureDifference: number;
+    networkStructurePValue: number;
+    strongestEdgeDifferences: Array<{
+      source: string;
+      target: string;
+      absoluteDifference: number;
+      pValueHolm: number;
+    }>;
+  };
   stability: {
     available: true;
     method: string;
@@ -163,6 +161,10 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isProbability(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0 && value <= 1;
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isNonEmptyString);
 }
@@ -173,14 +175,14 @@ function hasStringFields(value: Record<string, unknown>, fields: string[]) {
 
 export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
   if (!isRecord(value)) return false;
-  if (value.schemaVersion !== "1.0" || value.analysisProfile !== "npn-ebicglasso-v1") return false;
+  if (value.schemaVersion !== "1.1" || value.analysisProfile !== "npn-ebicglasso-v1") return false;
   if (value.dataSource !== "aggregate-demo" && value.dataSource !== "uploaded-workbook") return false;
   if (!isRecord(value.source) || !isRecord(value.settings) || !isRecord(value.overview)) return false;
   if (!isRecord(value.models) || !isRecord(value.runtime) || !isRecord(value.privacy)) return false;
   if (!Array.isArray(value.nodes) || !Array.isArray(value.edges)) return false;
   if (!isRecord(value.stability) || !Array.isArray(value.stability.metrics)) return false;
   if (!Array.isArray(value.warnings) || !value.warnings.every((warning) => typeof warning === "string")) return false;
-  if (!isRecord(value.subgroupComparison) || typeof value.subgroupComparison.available !== "boolean") return false;
+  if (!isRecord(value.subgroupComparison) || value.subgroupComparison.available !== true) return false;
   if (!isRecord(value.interpretation) || !Array.isArray(value.interpretation.insights)) return false;
 
   if (!isNonEmptyString(value.generatedAt) || Number.isNaN(Date.parse(value.generatedAt))) return false;
@@ -200,12 +202,24 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
     !isNonNegativeInteger(source.analyzedRows) ||
     !isNonNegativeInteger(source.droppedRows) ||
     source.originalRows !== source.analyzedRows + source.droppedRows ||
-    (source.groupColumn !== null && !isNonEmptyString(source.groupColumn)) ||
-    !Array.isArray(source.groupCounts)
+    !isNonEmptyString(source.groupColumn) ||
+    !/^[A-Za-z][A-Za-z0-9 _-]{0,39}$/.test(source.groupColumn) ||
+    !Array.isArray(source.groupCounts) ||
+    source.groupCounts.length !== 2
   ) return false;
-  for (const entry of source.groupCounts) {
-    if (!isRecord(entry) || !isNonEmptyString(entry.group) || !isNonNegativeInteger(entry.n)) return false;
+  const groupCounts = source.groupCounts;
+  for (const entry of groupCounts) {
+    if (
+      !isRecord(entry) ||
+      !isNonEmptyString(entry.group) ||
+      !/^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$/.test(entry.group) ||
+      !isNonNegativeInteger(entry.n) ||
+      entry.n < 20
+    ) return false;
   }
+  const firstGroup = groupCounts[0] as { group: string; n: number };
+  const secondGroup = groupCounts[1] as { group: string; n: number };
+  if (firstGroup.group === secondGroup.group || firstGroup.n + secondGroup.n !== source.analyzedRows) return false;
 
   const settings = value.settings;
   if (!hasStringFields(settings, ["estimator", "correlationMethod", "missingData", "communityRule", "layout", "networkType"])) return false;
@@ -283,15 +297,46 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
   }
 
   const comparison = value.subgroupComparison;
-  if (comparison.available) {
-    if (!hasStringFields(comparison, ["method", "packageVersion", "groupColumn", "groupA", "groupB"])) return false;
-    const comparisonNumbers = ["nA", "nB", "permutations", "globalStrengthA", "globalStrengthB", "globalStrengthDifference", "globalStrengthPValue", "networkStructureDifference", "networkStructurePValue"];
-    if (!comparisonNumbers.every((field) => isFiniteNumber(comparison[field]))) return false;
-    if (comparison.permutations !== 1000 || !Array.isArray(comparison.strongestEdgeDifferences)) return false;
-    for (const edge of comparison.strongestEdgeDifferences) {
-      if (!isRecord(edge) || !hasStringFields(edge, ["source", "target"]) || !isFiniteNumber(edge.absoluteDifference) || !isFiniteNumber(edge.pValueHolm)) return false;
-    }
-  } else if (!isNonEmptyString(comparison.reason)) return false;
+  if (!hasStringFields(comparison, ["method", "packageVersion", "groupColumn", "groupA", "groupB"])) return false;
+  if (
+    comparison.groupColumn !== source.groupColumn ||
+    comparison.groupA === comparison.groupB ||
+    !isNonNegativeInteger(comparison.nA) ||
+    !isNonNegativeInteger(comparison.nB) ||
+    comparison.nA < 20 ||
+    comparison.nB < 20 ||
+    !isNonNegativeInteger(comparison.permutations) ||
+    comparison.permutations !== settings.nctPermutations ||
+    !isFiniteNumber(comparison.globalStrengthA) || comparison.globalStrengthA < 0 ||
+    !isFiniteNumber(comparison.globalStrengthB) || comparison.globalStrengthB < 0 ||
+    !isFiniteNumber(comparison.globalStrengthDifference) || comparison.globalStrengthDifference < 0 ||
+    !isProbability(comparison.globalStrengthPValue) ||
+    !isFiniteNumber(comparison.networkStructureDifference) || comparison.networkStructureDifference < 0 ||
+    !isProbability(comparison.networkStructurePValue) ||
+    !Array.isArray(comparison.strongestEdgeDifferences)
+  ) return false;
+  const groupCountByLabel = new Map(groupCounts.map((entry) => [String(entry.group), Number(entry.n)]));
+  if (
+    groupCountByLabel.size !== 2 ||
+    groupCountByLabel.get(String(comparison.groupA)) !== comparison.nA ||
+    groupCountByLabel.get(String(comparison.groupB)) !== comparison.nB
+  ) return false;
+  const comparisonEdgeIds = new Set<string>();
+  for (const edge of comparison.strongestEdgeDifferences) {
+    if (
+      !isRecord(edge) ||
+      !hasStringFields(edge, ["source", "target"]) ||
+      !nodeIds.has(String(edge.source)) ||
+      !nodeIds.has(String(edge.target)) ||
+      edge.source === edge.target ||
+      !isFiniteNumber(edge.absoluteDifference) ||
+      edge.absoluteDifference < 0 ||
+      !isProbability(edge.pValueHolm)
+    ) return false;
+    const comparisonEdgeId = [String(edge.source), String(edge.target)].sort().join("::");
+    if (comparisonEdgeIds.has(comparisonEdgeId)) return false;
+    comparisonEdgeIds.add(comparisonEdgeId);
+  }
 
   if (
     value.stability.available !== true ||
@@ -336,7 +381,6 @@ export function matchesOpenSnaRequest(
     result.dataSource === "uploaded-workbook" &&
     result.settings.bootstrapReplicates === Number(bootstraps) &&
     result.settings.nctPermutations === Number(permutations) &&
-    result.subgroupComparison.available === true &&
     result.subgroupComparison.permutations === Number(permutations)
   );
 }

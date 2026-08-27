@@ -215,16 +215,14 @@ function OverviewPanel({ result }: { result: OpenSnaResult }) {
         </section>
         <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
           <h3 className="text-lg font-black text-[var(--ink)]">Subgroup counts</h3>
-          {result.source.groupCounts.length ? (
-            <ul className="mt-4 space-y-3">
-              {result.source.groupCounts.map((entry) => (
-                <li key={entry.group} className="flex items-center justify-between rounded-xl bg-[var(--surface)] px-4 py-3">
-                  <span className="font-bold text-[var(--ink)]">{entry.group}</span>
-                  <span className="tabular-nums text-[var(--muted)]">n = {entry.n.toLocaleString("en")}</span>
-                </li>
-              ))}
-            </ul>
-          ) : <p className="mt-4 text-sm text-[var(--muted)]">No binary subgroup column was detected.</p>}
+          <ul className="mt-4 space-y-3">
+            {result.source.groupCounts.map((entry) => (
+              <li key={entry.group} className="flex items-center justify-between rounded-xl bg-[var(--surface)] px-4 py-3">
+                <span className="font-bold text-[var(--ink)]">{entry.group}</span>
+                <span className="tabular-nums text-[var(--muted)]">n = {entry.n.toLocaleString("en")}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       </div>
       <MethodNote>
@@ -338,9 +336,6 @@ function PredictabilityPanel({ result }: { result: OpenSnaResult }) {
 
 function ComparisonPanel({ result }: { result: OpenSnaResult }) {
   const comparison = result.subgroupComparison;
-  if (!comparison.available) {
-    return <div className="rounded-2xl border border-[var(--line)] bg-[var(--page)] p-6"><h3 className="text-lg font-black">NCT unavailable</h3><p className="mt-2 text-[var(--muted)]">{comparison.reason}</p></div>;
-  }
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -627,7 +622,7 @@ export default function OpenSnaWorkbench() {
                 {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />Remove</button> : null}
               </div>
             </div>
-            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and an optional valid two-level Gender or metadata column.</p>
+            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.</p>
           </div>
 
           <div>
