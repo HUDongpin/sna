@@ -66,12 +66,10 @@ for (metric in first$stability$metrics) {
 stopifnot(identical(first$privacy$rawRowsIncluded, FALSE))
 stopifnot(identical(first$privacy$uploadedWorkbookRetainedByEngine, FALSE))
 stopifnot(identical(first$privacy$thirdPartyAiUsed, FALSE))
-stopifnot(any(vapply(
+stopifnot(identical(
   first$warnings,
-  identical,
-  logical(1),
-  "The estimated network contains no nonzero edges; case-dropping centrality stability is not available."
-)))
+  list("The estimated network contains no nonzero edges; case-dropping centrality stability is not available.")
+))
 
 first$generatedAt <- NULL
 second$generatedAt <- NULL

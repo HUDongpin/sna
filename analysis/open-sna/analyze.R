@@ -341,7 +341,7 @@ estimate_network <- function(items, gamma = 0.5) {
     npn.func = "shrinkage",
     verbose = FALSE
   )
-  correlation <- stats::cor(transformed)
+  correlation <- stabilize_npn_correlation(stats::cor(transformed))
   weights <- qgraph::EBICglasso(correlation, n = nrow(items), gamma = gamma)
   rownames(weights) <- colnames(weights) <- colnames(items)
   diag(weights) <- 0
@@ -529,7 +529,54 @@ network_summary <- function(items, weights, nodes, edges) {
   )
 }
 
-subgroup_comparison <- function(prepared, gamma, permutations, seed, weights) {
+stabilize_npn_correlation <- function(correlation, eigen_floor = 1e-4) {
+  if (!is.matrix(correlation) || nrow(correlation) != ncol(correlation) || any(!is.finite(correlation))) {
+    stop("NPN Pearson correlation matrix must be finite and square.", call. = FALSE)
+  }
+  item_names <- colnames(correlation)
+  correlation <- (correlation + t(correlation)) / 2
+  decomposition <- eigen(correlation, symmetric = TRUE)
+  if (min(decomposition$values) < eigen_floor) {
+    conditioned_values <- pmax(decomposition$values, eigen_floor)
+    correlation <- sweep(decomposition$vectors, 2L, conditioned_values, `*`) %*%
+      t(decomposition$vectors)
+    correlation <- (correlation + t(correlation)) / 2
+    scales <- sqrt(diag(correlation))
+    correlation <- correlation / outer(scales, scales)
+  }
+  rownames(correlation) <- colnames(correlation) <- item_names
+  conditioned_eigenvalues <- eigen(correlation, symmetric = TRUE, only.values = TRUE)$values
+  if (any(!is.finite(conditioned_eigenvalues)) || min(conditioned_eigenvalues) <= 0) {
+    stop("NPN Pearson correlation conditioning did not produce a positive-definite matrix.", call. = FALSE)
+  }
+  correlation
+}
+
+nct_npn_ebicglasso_estimator <- function(data, gamma) {
+  withCallingHandlers(
+    {
+      item_names <- colnames(data)
+      transformed <- huge::huge.npn(
+        as.matrix(data),
+        npn.func = "shrinkage",
+        verbose = FALSE
+      )
+      correlation <- stabilize_npn_correlation(stats::cor(transformed))
+      weights <- suppressMessages(qgraph::EBICglasso(
+        correlation,
+        n = nrow(data),
+        gamma = gamma
+      ))
+      rownames(weights) <- colnames(weights) <- item_names
+      diag(weights) <- 0
+      weights[abs(weights) < 1e-6] <- 0
+      weights
+    },
+    warning = function(condition) invokeRestart("muffleWarning")
+  )
+}
+
+subgroup_comparison <- function(prepared, gamma, permutations, seed) {
   group_values <- prepared$group_values[prepared$complete]
   levels <- prepared$group_levels
   first_index <- which(group_values == levels[[1]])
@@ -538,53 +585,22 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed, weights) {
   items <- prepared$items
   first_data <- items[first_index, , drop = FALSE]
   second_data <- items[second_index, , drop = FALSE]
-  if (is_empty_network(weights)) {
-    set.seed(seed + 101L)
-    nct_result <- NetworkComparisonTest::NCT(
-      first_data,
-      second_data,
-      gamma = gamma,
-      it = permutations,
-      paired = FALSE,
-      weighted = TRUE,
-      abs = TRUE,
-      test.edges = TRUE,
-      edges = "all",
-      progressbar = FALSE,
-      p.adjust.methods = "holm",
-      verbose = FALSE
-    )
-  } else {
-    set.seed(seed)
-    first_network <- bootnet::estimateNetwork(
-      first_data,
-      default = "EBICglasso",
-      corMethod = "npn",
-      tuning = gamma,
-      verbose = FALSE
-    )
-    second_network <- bootnet::estimateNetwork(
-      second_data,
-      default = "EBICglasso",
-      corMethod = "npn",
-      tuning = gamma,
-      verbose = FALSE
-    )
-    set.seed(seed + 101L)
-    nct_result <- NetworkComparisonTest::NCT(
-      first_network,
-      second_network,
-      it = permutations,
-      paired = FALSE,
-      weighted = TRUE,
-      abs = TRUE,
-      test.edges = TRUE,
-      edges = "all",
-      progressbar = FALSE,
-      p.adjust.methods = "holm",
-      verbose = FALSE
-    )
-  }
+  set.seed(seed + 101L)
+  nct_result <- NetworkComparisonTest::NCT(
+    first_data,
+    second_data,
+    it = permutations,
+    paired = FALSE,
+    weighted = TRUE,
+    abs = TRUE,
+    test.edges = TRUE,
+    edges = "all",
+    progressbar = FALSE,
+    p.adjust.methods = "holm",
+    estimator = nct_npn_ebicglasso_estimator,
+    estimatorArgs = list(gamma = gamma),
+    verbose = FALSE
+  )
 
   edge_p_values <- nct_result$einv.pvals
   edge_table <- data.frame(
@@ -603,7 +619,7 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed, weights) {
 
   list(
     available = TRUE,
-    method = "NetworkComparisonTest::NCT permutation test",
+    method = "NetworkComparisonTest::NCT permutation test using NPN EBICglasso with conditional positive-definite conditioning",
     packageVersion = as.character(utils::packageVersion("NetworkComparisonTest")),
     groupColumn = prepared$group_column,
     groupA = levels[[1]],
@@ -895,8 +911,7 @@ analyze_workbook <- function(
     prepared,
     gamma = gamma,
     permutations = permutations,
-    seed = seed,
-    weights = network$weights
+    seed = seed
   ))
   stability <- record_warnings(stability_analysis(
     prepared$items,
@@ -940,7 +955,7 @@ analyze_workbook <- function(
     ),
     settings = list(
       estimator = "EBICglasso Gaussian graphical model",
-      correlationMethod = "Nonparanormal transformation followed by Pearson correlation",
+      correlationMethod = "Nonparanormal transformation followed by Pearson correlation with conditional positive-definite conditioning",
       gamma = gamma,
       missingData = "Listwise deletion across selected network items",
       communityRule = "Item-name prefix before the trailing number",
