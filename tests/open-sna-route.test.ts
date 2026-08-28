@@ -265,12 +265,22 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
     const missingVersion = workerResult("1.1");
     delete missingVersion.schemaVersion;
 
+    const legacyWithRawData = workerResult("1.0");
+    legacyWithRawData.rawData = [{ respondentId: "private-row" }];
+    const nativeWithRecords = workerResult("1.1");
+    nativeWithRecords.records = [{ respondentId: "private-row" }];
+    const legacyWithNestedPrivateField = workerResult("1.0");
+    (legacyWithNestedPrivateField.privacy as Record<string, unknown>).rawData = [{ respondentId: "private-row" }];
+
     const invalidPayloads: Array<{ name: string; payload: unknown }> = [
       { name: "legacy unavailable NCT", payload: unavailable },
       { name: "legacy null grouping column", payload: nullGroupColumn },
       { name: "legacy mismatched group counts", payload: mismatchedCounts },
       { name: "unknown version", payload: { ...workerResult("1.1"), schemaVersion: "1.2" } },
       { name: "missing version", payload: missingVersion },
+      { name: "legacy top-level raw data", payload: legacyWithRawData },
+      { name: "native top-level records", payload: nativeWithRecords },
+      { name: "legacy nested private field", payload: legacyWithNestedPrivateField },
       { name: "non-object JSON", payload: "not-an-open-sna-result" },
     ];
 

@@ -311,3 +311,32 @@ test("the Open SNA 1.1 validator enforces the mandatory two-group NCT contract",
     assert.equal(isOpenSnaResult(invalid), false, name);
   }
 });
+
+test("the Open SNA validator rejects unknown aggregate fields at every schema boundary", () => {
+  const demo = JSON.parse(read("public/open-sna/programming-resilience-demo.json")) as OpenSnaResult;
+  const mutations: Array<{ name: string; mutate: (result: OpenSnaResult) => void }> = [
+    { name: "top-level rawData", mutate: (result) => Object.assign(result, { rawData: [{ respondentId: "private-row" }] }) },
+    { name: "top-level records", mutate: (result) => Object.assign(result, { records: [] }) },
+    { name: "source unknown", mutate: (result) => Object.assign(result.source, { unexpected: true }) },
+    { name: "settings unknown", mutate: (result) => Object.assign(result.settings, { unexpected: true }) },
+    { name: "network model unknown", mutate: (result) => Object.assign(result.models.network, { unexpected: true }) },
+    { name: "predictability model unknown", mutate: (result) => Object.assign(result.models.predictability, { unexpected: true }) },
+    { name: "runtime unknown", mutate: (result) => Object.assign(result.runtime, { unexpected: true }) },
+    { name: "overview unknown", mutate: (result) => Object.assign(result.overview, { unexpected: true }) },
+    { name: "strongest edge unknown", mutate: (result) => Object.assign(result.overview.strongestEdge!, { unexpected: true }) },
+    { name: "node unknown", mutate: (result) => Object.assign(result.nodes[0], { unexpected: true }) },
+    { name: "edge unknown", mutate: (result) => Object.assign(result.edges[0], { unexpected: true }) },
+    { name: "subgroup unknown", mutate: (result) => Object.assign(result.subgroupComparison, { unexpected: true }) },
+    { name: "subgroup edge unknown", mutate: (result) => Object.assign(result.subgroupComparison.strongestEdgeDifferences[0], { unexpected: true }) },
+    { name: "stability unknown", mutate: (result) => Object.assign(result.stability, { unexpected: true }) },
+    { name: "stability metric unknown", mutate: (result) => Object.assign(result.stability.metrics[0], { unexpected: true }) },
+    { name: "interpretation unknown", mutate: (result) => Object.assign(result.interpretation, { unexpected: true }) },
+    { name: "insight unknown", mutate: (result) => Object.assign(result.interpretation.insights[0], { unexpected: true }) },
+    { name: "privacy unknown", mutate: (result) => Object.assign(result.privacy, { unexpected: true }) },
+  ];
+  for (const { name, mutate } of mutations) {
+    const invalid = structuredClone(demo);
+    mutate(invalid);
+    assert.equal(isOpenSnaResult(invalid), false, name);
+  }
+});
