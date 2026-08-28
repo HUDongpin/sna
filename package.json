@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "open-sna:r-preflight": "Rscript --vanilla analysis/open-sna/preflight.R",
+    "open-sna:r-group-regression": "Rscript --vanilla analysis/open-sna/tests/group-selection-regression.R",
     "release:hygiene": "node scripts/check-release.mjs",
     "release:verify": "npm run test && npm run build && npm run typecheck && npm run release:hygiene"
   },

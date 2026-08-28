@@ -339,4 +339,8 @@ test("the Open SNA validator rejects unknown aggregate fields at every schema bo
     mutate(invalid);
     assert.equal(isOpenSnaResult(invalid), false, name);
   }
+
+  const packageExtended = structuredClone(demo);
+  packageExtended.runtime.packages.extraRuntimePackage = "1.0.0";
+  assert.equal(isOpenSnaResult(packageExtended), true, "runtime package names remain dynamic");
 });

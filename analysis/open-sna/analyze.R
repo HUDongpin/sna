@@ -167,6 +167,44 @@ validate_gender_mapping <- function(gender_mapping) {
   gender_mapping
 }
 
+select_group_column <- function(metadata, analyzed_rows, gender_column = NULL) {
+  if (!is.data.frame(metadata) || length(analyzed_rows) != nrow(metadata)) {
+    stop("Metadata and analyzed-row mask must have matching rows.", call. = FALSE)
+  }
+  if (!is.logical(analyzed_rows)) analyzed_rows <- as.logical(analyzed_rows)
+  if (anyNA(analyzed_rows)) stop("Analyzed-row mask must not contain missing values.", call. = FALSE)
+
+  safe_column <- function(column) is.character(column) && length(column) == 1L && nzchar(column) && grepl("^[A-Za-z][A-Za-z0-9 _-]{0,39}$", column)
+  evaluate <- function(column) {
+    if (!safe_column(column) || !(column %in% names(metadata))) return(NULL)
+    values <- trimws(as.character(metadata[[column]]))[analyzed_rows]
+    if (any(is.na(values) | !nzchar(values))) return(NULL)
+    levels <- sort(unique(values))
+    if (length(levels) != 2L || any(!grepl("^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$", levels))) return(NULL)
+    counts <- table(factor(values, levels = levels))
+    if (any(counts < 20L)) return(NULL)
+    list(
+      column = column,
+      values = trimws(as.character(metadata[[column]])),
+      levels = levels,
+      counts = data.frame(group = levels, n = as.integer(counts), stringsAsFactors = FALSE)
+    )
+  }
+
+  gender_matches <- names(metadata)[tolower(names(metadata)) == "gender"]
+  if (length(gender_matches)) {
+    selected <- evaluate(gender_matches[[1]])
+    if (is.null(selected)) stop("The Gender column is invalid for subgroup comparison.", call. = FALSE)
+    return(selected)
+  }
+
+  for (column in names(metadata)) {
+    selected <- evaluate(column)
+    if (!is.null(selected)) return(selected)
+  }
+  stop("Open SNA requires a safe binary metadata column with at least 20 analyzed rows in each group.", call. = FALSE)
+}
+
 read_and_validate_workbook <- function(
     input_path,
     sheet = NULL,
@@ -259,58 +297,26 @@ read_and_validate_workbook <- function(
   }
 
   metadata <- raw[, setdiff(names(raw), item_columns), drop = FALSE]
-  group_column <- names(metadata)[tolower(names(metadata)) == "gender"]
-  if (!length(group_column)) {
-    binary_columns <- names(metadata)[vapply(metadata, function(value) {
-      levels <- unique(trimws(as.character(stats::na.omit(value))))
-      length(levels) == 2L
-    }, logical(1))]
-    group_column <- binary_columns[1]
-  }
-  group_column <- if (length(group_column)) group_column[[1]] else NA_character_
-  group_values <- if (is.na(group_column)) {
-    rep(NA_character_, nrow(raw))
-  } else {
-    trimws(as.character(raw[[group_column]]))
-  }
+  group_selection <- select_group_column(metadata, complete)
+  group_column <- group_selection$column
+  group_values <- group_selection$values
   gender_mapping <- validate_gender_mapping(gender_mapping)
   if (!is.null(gender_mapping)) {
-    if (is.na(group_column) || tolower(group_column) != "gender") {
+    if (tolower(group_column) != "gender") {
       stop("A Gender code mapping was supplied, but no Gender column was found.", call. = FALSE)
     }
-    observed_codes <- sort(unique(group_values[!is.na(group_values) & nzchar(group_values)]))
+  }
+  if (!is.null(gender_mapping)) {
+    observed_codes <- sort(unique(group_values[complete]))
     if (!identical(observed_codes, c("1", "2"))) {
-      stop(
-        "The supplied Gender mapping applies only when the observed Gender codes are exactly 1 and 2.",
-        call. = FALSE
-      )
+      stop("The supplied Gender mapping applies only when the observed Gender codes are exactly 1 and 2.", call. = FALSE)
     }
     group_values <- unname(gender_mapping[group_values])
+    group_selection$levels <- unname(gender_mapping[group_selection$levels])
+    group_selection$counts$group <- group_selection$levels
   }
-  complete_group_values <- group_values[complete]
-  valid_group_values <- complete_group_values[
-    !is.na(complete_group_values) & nzchar(complete_group_values)
-  ]
-  group_counts <- table(valid_group_values)
-  if (
-    is.na(group_column) ||
-      length(valid_group_values) != length(complete_group_values) ||
-      length(group_counts) != 2L ||
-      any(group_counts < 20L) ||
-      !grepl("^[A-Za-z][A-Za-z0-9 _-]{0,39}$", group_column) ||
-      any(!grepl("^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$", names(group_counts)))
-  ) {
-    stop(
-      "Open SNA v1 requires a binary Gender or metadata column with at least 20 complete rows in each group.",
-      call. = FALSE
-    )
-  }
-  group_levels <- names(group_counts)
-  group_count_rows <- data.frame(
-    group = group_levels,
-    n = as.integer(group_counts),
-    stringsAsFactors = FALSE
-  )
+  group_levels <- group_selection$levels
+  group_count_rows <- group_selection$counts
 
   list(
     raw = raw,
