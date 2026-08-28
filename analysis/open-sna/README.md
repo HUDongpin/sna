@@ -10,16 +10,24 @@ Open SNA v1 uses one named profile for every network-based result:
 | --- | --- |
 | Profile | `npn-ebicglasso-v1` |
 | Transformation | `huge::huge.npn(..., npn.func = "shrinkage")` |
-| Correlation | Pearson correlation after NPN transformation |
+| Correlation | Pearson correlation after NPN transformation; deterministic conditional PD conditioning at the versioned `1e-4` eigenvalue floor |
 | Network | `qgraph::EBICglasso`, gamma `0.5` |
 | Centrality | `qgraph::centrality_auto` |
 | Bridge metrics | `networktools::bridge` with declared item communities |
 | Predictability | Separate `mgm` EBIC model with nodewise R-squared |
-| Subgroup comparison | `NetworkComparisonTest::NCT`, independent groups, weighted, all edges, Holm correction |
+| Subgroup comparison | `NetworkComparisonTest::NCT` with the same NPN → Pearson → conditional-PD → EBICglasso estimator, independent groups, weighted, all edges, Holm correction |
 | Stability | `bootnet` case-dropping bootstrap, correlation threshold `0.70`, one core |
 | Seed | `2026` |
 
 Predictability shares the same input and preprocessing provenance but comes from a separate MGM fit. It is not presented as a derivative of the EBICglasso edge matrix. Polychoric and Pearson sensitivity analyses in the research folder are valid reference analyses, but Open SNA does not mix them into this profile.
+
+### Conditional positive-definite conditioning
+
+The versioned constant `NPN_EBICGLASSO_CONDITIONING_FLOOR_V1` is `1e-4`. After shrinkage NPN transformation and Pearson correlation, the engine symmetrizes the correlation matrix. If its minimum eigenvalue is **below `1e-4`**, it clips every eigenvalue to at least `1e-4`, reconstructs the symmetric matrix, renormalizes it to a unit diagonal, and verifies that the result is finite and strictly positive definite before EBICglasso. Correlations at or above the floor are returned unchanged. Non-finite or unrecoverably non-positive-definite inputs fail the analysis; they are never treated as an empty network.
+
+The same internal NPN → Pearson → conditional-PD → EBICglasso helper is used by the pooled network and every original/permuted NCT sample. NCT-local estimator warnings and sparse-model messages are bounded internally so resampling diagnostics do not leak into aggregate result warnings; estimation errors remain fatal. The pooled path keeps ordinary warning capture.
+
+The executable conditioning regression uses a deterministic singular representative to compare the `1e-4` floor with `1e-6`. Its current measured maximum correlation delta is `0.0000989950`, maximum EBICglasso weight delta is `0.0013855080`, and edge topology is unchanged. This bounded sensitivity, together with the strict-PD check required by qgraph, is the current evidence for the `1e-4` floor rather than a claim that the value is inconsequential in every future dataset.
 
 ## Workbook contract
 
@@ -50,6 +58,19 @@ Run the preflight before accepting local jobs:
 Rscript --vanilla analysis/open-sna/preflight.R
 ```
 
+Run the conditioning and empty-network regressions locally:
+
+```bash
+npm run open-sna:r-conditioning-regression
+npm run open-sna:r-regression
+```
+
+The canonical local statistical release gate runs the R preflight, group-selection regression, conditioning regression, and real two-pass empty-network regression:
+
+```bash
+npm run open-sna:r-statistical-release
+```
+
 Run a complete reference analysis with explicit paths:
 
 ```bash
@@ -73,5 +94,9 @@ The R output is aggregate JSON with schema version `1.1`. It contains input dime
 The Vercel adapter requires `OPEN_SNA_R_API_URL` and `OPEN_SNA_R_API_TOKEN` together. Non-loopback worker URLs must use HTTPS. Worker diagnostics are mapped to a small public error contract and are not relayed to the browser. During the schema `1.1` rollout only, this remote boundary can normalize a structurally valid `1.0` worker result to `1.1`; local R output, browser responses, the bundled demo, and AI input are `1.1` only. Legacy results that omit the required two-group/NCT contract still fail closed. After the aggregate R contract is validated, the Vercel adapter can request a strict JSON-schema interpretation from the model pinned as `openai/gpt-5.6-luna`. `request.formData()` is not a streaming transport limit, and a ZIP signature is not an uncompressed-size defense. The production gateway must still enforce request-body, expanded-ZIP, entry-count, memory, CPU, and rate limits before analysis.
 
 Vercel does not provide this repository's R runtime. `Dockerfile.open-sna-worker` therefore defines the separate worker image with R 4.4.2, a complete 159-package `renv.lock`, an R preflight, a non-root runtime user, and a process health check. The current synchronous worker restores the upload-to-result loop with one active job per process. Larger-scale service still requires a durable asynchronous queue, cancellation, bounded object storage, restricted worker egress, and short source-file retention. The bundled Programming Resilience result remains a precomputed aggregate reference and is never a fallback for a failed upload.
+
+## Current synchronous timing boundary
+
+The observed local empty-network regression averages about **193 seconds per analysis**, which is close to the current 255-second synchronous endpoint limit. This synchronous path is therefore transitional and is **not production-qualified**. No release, push, or deployment qualification follows from the local regression or release gate. Production qualification remains blocked until the approved asynchronous job route removes browser/Vercel long-connection dependence and target-container timing is measured against the final worker configuration.
 
 See [WORKER_DEPLOYMENT.md](./WORKER_DEPLOYMENT.md) for the deployment and verification gates.

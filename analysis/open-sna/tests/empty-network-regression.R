@@ -26,23 +26,58 @@ run_analysis <- function() {
     permutations = 1000L,
     seed = 2026L
   )
-  jsonlite::read_json(output_path, simplifyVector = FALSE)
+  list(
+    output_path = output_path,
+    result = jsonlite::read_json(output_path, simplifyVector = FALSE)
+  )
 }
 
-first <- run_analysis()
-second <- run_analysis()
+verify_typescript_contract <- function(output_path) {
+  contract_program <- paste(
+    "import { readFileSync } from 'node:fs';",
+    "import { isOpenSnaResult } from './lib/open-sna.ts';",
+    "const result = JSON.parse(readFileSync(process.argv[1], 'utf8'));",
+    "if (!isOpenSnaResult(result)) process.exit(1);"
+  )
+  status <- system2(
+    file.path(repository_root, "node_modules", ".bin", "tsx"),
+    c("-e", shQuote(contract_program), output_path)
+  )
+  stopifnot(identical(status, 0L))
+}
+
+first_run <- run_analysis()
+verify_typescript_contract(first_run$output_path)
+second_run <- run_analysis()
+first <- first_run$result
+second <- second_run$result
 
 stopifnot(identical(first$schemaVersion, "1.1"))
+stopifnot(identical(first$analysisProfile, "npn-ebicglasso-v1"))
+stopifnot(identical(first$settings$correlationMethod, NPN_EBICGLASSO_CORRELATION_METHOD_V1))
+stopifnot(identical(first$models$network$method, NPN_EBICGLASSO_NETWORK_METHOD_V1))
 expect_number(first$source$originalRows, 80)
 expect_number(first$source$analyzedRows, 80)
+stopifnot(identical(first$source$groupColumn, "Gender"))
+stopifnot(identical(first$source$groupCounts, list(
+  list(group = "1", n = 40L),
+  list(group = "2", n = 40L)
+)))
+expected_item_order <- unname(unlist(lapply(c("AA", "BB", "CC", "DD"), function(prefix) paste0(prefix, 1:10))))
+stopifnot(identical(unlist(first$source$itemColumns, use.names = FALSE), expected_item_order))
 expect_number(length(first$nodes), 40)
+stopifnot(identical(vapply(first$nodes, `[[`, character(1), "id"), expected_item_order))
 expect_number(length(first$edges), 0)
 expect_number(first$overview$nodeCount, 40)
 expect_number(first$overview$edgeCount, 0)
 expect_number(first$overview$density, 0)
+expect_number(first$overview$meanAbsoluteEdgeWeight, 0)
+stopifnot(is.finite(first$overview$meanPredictability), first$overview$meanPredictability >= 0, first$overview$meanPredictability <= 1)
 stopifnot(is.null(first$overview$strongestEdge))
 
 for (node in first$nodes) {
+  stopifnot(is.finite(node$x), node$x >= 0, node$x <= 1)
+  stopifnot(is.finite(node$y), node$y >= 0, node$y <= 1)
   expect_number(node$strength, 0)
   expect_number(node$expectedInfluence, 0)
   expect_number(node$betweenness, 0)
@@ -51,9 +86,27 @@ for (node in first$nodes) {
   expect_number(node$bridgeExpectedInfluence, 0)
   expect_number(node$bridgeBetweenness, 0)
   stopifnot(is.null(node$bridgeCloseness))
+  stopifnot(is.finite(node$predictability), node$predictability >= 0, node$predictability <= 1)
 }
 
 stopifnot(isTRUE(first$subgroupComparison$available))
+stopifnot(identical(
+  first$subgroupComparison$method,
+  NPN_EBICGLASSO_NCT_METHOD_V1
+))
+expect_number(first$subgroupComparison$permutations, 1000)
+expect_number(first$subgroupComparison$nA, 40)
+expect_number(first$subgroupComparison$nB, 40)
+expect_number(first$subgroupComparison$globalStrengthA, 0)
+expect_number(first$subgroupComparison$globalStrengthB, 0)
+expect_number(first$subgroupComparison$globalStrengthDifference, 0)
+expect_number(first$subgroupComparison$networkStructureDifference, 0)
+expect_number(first$subgroupComparison$globalStrengthPValue, 1)
+expect_number(first$subgroupComparison$networkStructurePValue, 1)
+for (edge in first$subgroupComparison$strongestEdgeDifferences) {
+  expect_number(edge$absoluteDifference, 0)
+  expect_number(edge$pValueHolm, 1)
+}
 expect_number(length(first$stability$metrics), 4)
 stopifnot(identical(
   vapply(first$stability$metrics, `[[`, character(1), "id"),

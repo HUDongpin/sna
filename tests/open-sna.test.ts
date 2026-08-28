@@ -88,9 +88,13 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /empty_network_stability\s*<-\s*function/);
   assert.match(engine, /nct_npn_ebicglasso_estimator\s*<-\s*function/);
   assert.match(engine, /stabilize_npn_correlation\s*<-\s*function/);
+  assert.match(engine, /NPN_EBICGLASSO_CONDITIONING_FLOOR_V1\s*<-/);
+  assert.match(engine, /npn_ebicglasso_estimate\s*<-\s*function/);
   assert.match(engine, /estimator\s*=\s*nct_npn_ebicglasso_estimator/);
   assert.match(engine, /estimatorArgs\s*=\s*list\(gamma\s*=\s*gamma\)/);
   assert.match(engine, /conditional positive-definite conditioning/);
+  assert.match(read("package.json"), /open-sna:r-statistical-release/);
+  assert.match(read("package.json"), /release:verify[\s\S]*open-sna:r-statistical-release/);
   assert.match(
     engine,
     /The estimated network contains no nonzero edges; case-dropping centrality stability is not available\./

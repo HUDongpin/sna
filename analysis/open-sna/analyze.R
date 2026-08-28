@@ -26,6 +26,21 @@ required_packages <- c(
   "NetworkComparisonTest"
 )
 
+NPN_EBICGLASSO_CONDITIONING_FLOOR_V1 <- 1e-4
+NPN_EBICGLASSO_CONDITIONING_METHOD_V1 <- "symmetric eigenvalue clipping and unit-diagonal renormalization"
+NPN_EBICGLASSO_CORRELATION_METHOD_V1 <- paste0(
+  "Nonparanormal transformation followed by Pearson correlation with conditional positive-definite conditioning ",
+  "(trigger < 1e-4; ", NPN_EBICGLASSO_CONDITIONING_METHOD_V1, ")"
+)
+NPN_EBICGLASSO_NETWORK_METHOD_V1 <- paste0(
+  "huge.npn plus Pearson correlation, conditional positive-definite conditioning ",
+  "(trigger < 1e-4; ", NPN_EBICGLASSO_CONDITIONING_METHOD_V1, "), and qgraph::EBICglasso"
+)
+NPN_EBICGLASSO_NCT_METHOD_V1 <- paste0(
+  "NetworkComparisonTest::NCT permutation test using NPN EBICglasso with conditional positive-definite conditioning ",
+  "(trigger < 1e-4; ", NPN_EBICGLASSO_CONDITIONING_METHOD_V1, ")"
+)
+
 open_sna_abort <- function(code, ...) {
   condition <- structure(
     list(message = paste0(...), call = NULL, code = code),
@@ -335,34 +350,58 @@ read_and_validate_workbook <- function(
 }
 
 estimate_network <- function(items, gamma = 0.5) {
-  matrix_input <- as.matrix(items)
-  transformed <- huge::huge.npn(
-    matrix_input,
-    npn.func = "shrinkage",
-    verbose = FALSE
-  )
-  correlation <- stabilize_npn_correlation(stats::cor(transformed))
-  weights <- qgraph::EBICglasso(correlation, n = nrow(items), gamma = gamma)
-  rownames(weights) <- colnames(weights) <- colnames(items)
-  diag(weights) <- 0
-  weights[abs(weights) < 1e-6] <- 0
-  list(transformed = transformed, correlation = correlation, weights = weights)
+  npn_ebicglasso_estimate(items, gamma = gamma)
+}
+
+align_metric <- function(values, item_names, label = "Metric") {
+  if (length(values) != length(item_names)) {
+    stop(label, " must contain exactly one value for every item.", call. = FALSE)
+  }
+  value_names <- names(values)
+  if (!is.null(value_names)) {
+    if (anyDuplicated(value_names) || !setequal(value_names, item_names)) {
+      stop(label, " names must match the network item names exactly.", call. = FALSE)
+    }
+    values <- values[item_names]
+  }
+  values <- as.numeric(values)
+  names(values) <- item_names
+  values
 }
 
 extract_metric <- function(values, item_names) {
-  if (!is.null(names(values))) values <- values[item_names]
-  round_metric(values)
+  round_metric(align_metric(values, item_names))
 }
 
-is_empty_network <- function(weights) {
+validate_network_weights <- function(weights, item_names = colnames(weights)) {
+  if (
+    !is.matrix(weights) ||
+      nrow(weights) != ncol(weights) ||
+      is.null(item_names) ||
+      length(item_names) != nrow(weights) ||
+      anyDuplicated(item_names) ||
+      is.null(rownames(weights)) ||
+      is.null(colnames(weights)) ||
+      !identical(rownames(weights), item_names) ||
+      !identical(colnames(weights), item_names) ||
+      any(!is.finite(weights))
+  ) {
+    stop("Network weights must be a finite square matrix with matching item names.", call. = FALSE)
+  }
+  if (!isTRUE(all.equal(weights, t(weights), tolerance = 1e-12, check.attributes = FALSE))) {
+    stop("Network weights must be symmetric.", call. = FALSE)
+  }
+  invisible(weights)
+}
+
+is_empty_network <- function(weights, item_names = colnames(weights)) {
+  validate_network_weights(weights, item_names)
   !any(is.finite(weights) & weights != 0)
 }
 
 named_metric <- function(value, item_names) {
-  if (length(value) == 1L) value <- rep(value, length(item_names))
-  value <- as.numeric(value)
-  names(value) <- item_names
-  value
+  if (length(value) == 1L) return(align_metric(rep(value, length(item_names)), item_names))
+  align_metric(value, item_names)
 }
 
 empty_network_metrics <- function(item_names) {
@@ -381,14 +420,7 @@ empty_network_metrics <- function(item_names) {
 metric_column <- function(table, column, item_names, fallback = NA_real_) {
   values <- named_metric(fallback, item_names)
   if (is.null(table) || !(column %in% colnames(table))) return(values)
-  column_values <- table[, column]
-  if (!is.null(names(column_values))) {
-    shared_names <- intersect(item_names, names(column_values))
-    values[shared_names] <- as.numeric(column_values[shared_names])
-  } else if (length(column_values) == length(item_names)) {
-    values[] <- as.numeric(column_values)
-  }
-  values
+  align_metric(table[, column], item_names, paste0("Centrality column ", column))
 }
 
 deterministic_circle_layout <- function(item_names) {
@@ -529,7 +561,9 @@ network_summary <- function(items, weights, nodes, edges) {
   )
 }
 
-stabilize_npn_correlation <- function(correlation, eigen_floor = 1e-4) {
+stabilize_npn_correlation <- function(
+    correlation,
+    eigen_floor = NPN_EBICGLASSO_CONDITIONING_FLOOR_V1) {
   if (!is.matrix(correlation) || nrow(correlation) != ncol(correlation) || any(!is.finite(correlation))) {
     stop("NPN Pearson correlation matrix must be finite and square.", call. = FALSE)
   }
@@ -543,6 +577,7 @@ stabilize_npn_correlation <- function(correlation, eigen_floor = 1e-4) {
     correlation <- (correlation + t(correlation)) / 2
     scales <- sqrt(diag(correlation))
     correlation <- correlation / outer(scales, scales)
+    diag(correlation) <- 1
   }
   rownames(correlation) <- colnames(correlation) <- item_names
   conditioned_eigenvalues <- eigen(correlation, symmetric = TRUE, only.values = TRUE)$values
@@ -552,25 +587,50 @@ stabilize_npn_correlation <- function(correlation, eigen_floor = 1e-4) {
   correlation
 }
 
+run_ebicglasso_with_messages <- function(expression, suppress_internal_messages) {
+  if (isTRUE(suppress_internal_messages)) return(suppressMessages(expression))
+  expression
+}
+
+npn_ebicglasso_estimate <- function(
+    data,
+    gamma,
+    suppress_internal_messages = FALSE) {
+  matrix_input <- as.matrix(data)
+  item_names <- colnames(matrix_input)
+  if (
+    is.null(item_names) ||
+      anyDuplicated(item_names) ||
+      !is.numeric(matrix_input) ||
+      any(!is.finite(matrix_input))
+  ) {
+    stop("NPN EBICglasso estimation requires finite numeric data with unique item names.", call. = FALSE)
+  }
+  transformed <- huge::huge.npn(
+    matrix_input,
+    npn.func = "shrinkage",
+    verbose = FALSE
+  )
+  correlation <- stabilize_npn_correlation(stats::cor(transformed))
+  weights <- run_ebicglasso_with_messages(
+    qgraph::EBICglasso(correlation, n = nrow(matrix_input), gamma = gamma),
+    suppress_internal_messages
+  )
+  rownames(weights) <- colnames(weights) <- item_names
+  diag(weights) <- 0
+  weights[abs(weights) < 1e-6] <- 0
+  validate_network_weights(weights, item_names)
+  list(transformed = transformed, correlation = correlation, weights = weights)
+}
+
 nct_npn_ebicglasso_estimator <- function(data, gamma) {
   withCallingHandlers(
     {
-      item_names <- colnames(data)
-      transformed <- huge::huge.npn(
-        as.matrix(data),
-        npn.func = "shrinkage",
-        verbose = FALSE
-      )
-      correlation <- stabilize_npn_correlation(stats::cor(transformed))
-      weights <- suppressMessages(qgraph::EBICglasso(
-        correlation,
-        n = nrow(data),
-        gamma = gamma
-      ))
-      rownames(weights) <- colnames(weights) <- item_names
-      diag(weights) <- 0
-      weights[abs(weights) < 1e-6] <- 0
-      weights
+      npn_ebicglasso_estimate(
+        data,
+        gamma = gamma,
+        suppress_internal_messages = TRUE
+      )$weights
     },
     warning = function(condition) invokeRestart("muffleWarning")
   )
@@ -619,7 +679,7 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
 
   list(
     available = TRUE,
-    method = "NetworkComparisonTest::NCT permutation test using NPN EBICglasso with conditional positive-definite conditioning",
+    method = NPN_EBICGLASSO_NCT_METHOD_V1,
     packageVersion = as.character(utils::packageVersion("NetworkComparisonTest")),
     groupColumn = prepared$group_column,
     groupA = levels[[1]],
@@ -955,7 +1015,7 @@ analyze_workbook <- function(
     ),
     settings = list(
       estimator = "EBICglasso Gaussian graphical model",
-      correlationMethod = "Nonparanormal transformation followed by Pearson correlation with conditional positive-definite conditioning",
+      correlationMethod = NPN_EBICGLASSO_CORRELATION_METHOD_V1,
       gamma = gamma,
       missingData = "Listwise deletion across selected network items",
       communityRule = "Item-name prefix before the trailing number",
@@ -968,7 +1028,7 @@ analyze_workbook <- function(
     models = list(
       network = list(
         id = "qgraph-npn-ebicglasso-v1",
-        method = "huge.npn plus qgraph::EBICglasso"
+        method = NPN_EBICGLASSO_NETWORK_METHOD_V1
       ),
       predictability = list(
         id = "mgm-ebic-r2-v1",
