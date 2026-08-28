@@ -1152,7 +1152,7 @@ main <- function(
   gender_two_label <- options[["gender-2-label"]]
   if (!is.null(gender_one_label) || !is.null(gender_two_label)) {
     if (is.null(gender_one_label) || is.null(gender_two_label)) {
-      stop("Both --gender-1-label and --gender-2-label are required together.", call. = FALSE)
+      open_sna_cli_abort()
     }
     gender_mapping <- c("1" = gender_one_label, "2" = gender_two_label)
   }
