@@ -15,10 +15,14 @@ if (dir.exists(local_r_library)) {
   .libPaths(unique(c(normalizePath(local_r_library), .libPaths())))
 }
 
-required_packages <- c(
+validation_required_packages <- c(
   "jsonlite",
   "digest",
-  "readxl",
+  "readxl"
+)
+
+full_analysis_required_packages <- c(
+  validation_required_packages,
   "qgraph",
   "huge",
   "mgm",
@@ -26,6 +30,8 @@ required_packages <- c(
   "networktools",
   "NetworkComparisonTest"
 )
+
+required_packages <- full_analysis_required_packages
 
 NPN_EBICGLASSO_CONDITIONING_FLOOR_V1 <- 1e-4
 NPN_EBICGLASSO_CONDITIONING_METHOD_V1 <- "symmetric eigenvalue clipping and unit-diagonal renormalization"
@@ -50,9 +56,13 @@ open_sna_abort <- function(code, ...) {
   stop(condition)
 }
 
-assert_packages <- function() {
-  missing <- required_packages[
-    !vapply(required_packages, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))
+package_available <- function(package) requireNamespace(package, quietly = TRUE)
+
+assert_packages <- function(
+    packages = full_analysis_required_packages,
+    availability = package_available) {
+  missing <- packages[
+    !vapply(packages, availability, FUN.VALUE = logical(1))
   ]
   if (length(missing)) {
     open_sna_abort(
@@ -919,8 +929,9 @@ analyze_workbook <- function(
     seed = 2026L,
     data_source = "uploaded-workbook",
     sheet = NULL,
-    gender_mapping = NULL) {
-  assert_packages()
+    gender_mapping = NULL,
+    availability = package_available) {
+  assert_packages(full_analysis_required_packages, availability = availability)
   if (!(data_source %in% c("uploaded-workbook", "aggregate-demo"))) {
     stop("Data source must be uploaded-workbook or aggregate-demo.", call. = FALSE)
   }
@@ -1094,8 +1105,13 @@ workbook_validation_result <- function(prepared, input_path) {
   )
 }
 
-validate_workbook <- function(input_path, output_path, sheet = NULL, gender_mapping = NULL) {
-  assert_packages()
+validate_workbook <- function(
+    input_path,
+    output_path,
+    sheet = NULL,
+    gender_mapping = NULL,
+    availability = package_available) {
+  assert_packages(validation_required_packages, availability = availability)
   prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
   result <- workbook_validation_result(prepared, input_path)
   dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
