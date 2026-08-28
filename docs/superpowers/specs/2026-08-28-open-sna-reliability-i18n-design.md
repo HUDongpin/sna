@@ -1,6 +1,6 @@
 # Open SNA Reliability, Asynchronous Analysis, and Localization Design
 
-**Status:** Approved in principle on 2026-08-28. This written specification is awaiting final user review before implementation planning.
+**Status:** Approved by the user on 2026-08-28. The single-writer finalization wording was clarified during implementation-plan self-review without changing the approved product behavior.
 
 **Decision:** Use 方案一. Open SNA requires one valid binary subgroup column. Production analysis uses a durable asynchronous job workflow. LUNA remains optional, and deterministic R interpretation is a normal supported result.
 
@@ -275,7 +275,8 @@ jobs/<job-id>/result.json
 - input SHA-256 fingerprint;
 - attempt count and lease expiry;
 - bounded failure code;
-- boolean flags indicating which aggregate result objects exist.
+- boolean flags indicating which aggregate result objects exist;
+- finalization status and a bounded finalization lease expiry.
 
 It does not contain source file names, sheet names, row data, item values, respondent identifiers, group labels, node labels, raw stderr, secrets, or signed URLs.
 
@@ -337,19 +338,21 @@ The setup and interpretation panels state that:
 - deterministic R interpretation is shown when AI is unconfigured or unavailable;
 - AI availability does not affect statistical job success.
 
-### 7.2 Exactly-once finalization per job
+### 7.2 Single-writer finalization per job
 
 The Cloud Task stores a strict aggregate R result as `result-r.json`, deletes the input, and marks the statistical job succeeded. The first public result retrieval then performs finalization through Vercel:
 
-1. Vercel obtains the strict R result from the authenticated worker.
-2. Vercel calls `withLunaInterpretation` using the job locale when an API key is configured.
-3. Missing or unavailable LUNA produces the deterministic result plus one bounded warning.
-4. Vercel sends the strict finalized aggregate result back to the authenticated worker.
-5. The worker verifies the result contract, input fingerprint, settings, privacy fields, and job identity before conditionally writing `result.json`.
-6. Concurrent first reads race safely; only one conditional write wins, and all callers then receive the persisted finalized result.
-7. Later reads return `result.json` without calling LUNA again.
+1. Vercel atomically claims a bounded finalization lease through the authenticated worker.
+2. The lease winner obtains the strict R result from the worker.
+3. Vercel calls `withLunaInterpretation` using the job locale when an API key is configured.
+4. Missing or unavailable LUNA produces the deterministic result plus one bounded warning.
+5. Vercel sends the strict finalized aggregate result back to the worker.
+6. The worker verifies the result contract, input fingerprint, settings, privacy fields, and job identity before conditionally writing `result.json` and marking finalization complete.
+7. Concurrent non-winners receive a bounded `RESULT_FINALIZING` response with `Retry-After`; they do not call LUNA.
+8. If the lease owner disappears, another request may reclaim only an expired lease. A provider call interrupted after upstream completion but before local persistence may be retried, but persisted aggregate output remains single-writer.
+9. Later reads return `result.json` without calling LUNA again.
 
-This keeps the OpenRouter credential in Vercel, preserves the current aggregate-only AI boundary, and prevents repeated AI calls when users reread a result.
+This keeps the OpenRouter credential in Vercel, preserves the current aggregate-only AI boundary, prevents concurrent duplicate calls, and prevents any new AI call after a finalized result has been persisted.
 
 ### 7.3 Language behavior
 
@@ -674,6 +677,6 @@ After this specification is approved in written form:
 7. Implement Cloud Storage, Cloud Tasks, leases, retention, and deployment assets.
 8. Migrate the browser to asynchronous jobs and recovery.
 9. Implement complete localized copy and component boundaries.
-10. Implement exactly-once optional interpretation finalization.
+10. Implement single-writer optional interpretation finalization.
 11. Run focused tests after each slice and the full acceptance audit at the end.
 12. Commit only reviewed, verified paths. Do not push or deploy without separate authorization.
