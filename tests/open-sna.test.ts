@@ -83,6 +83,13 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /gender-1-label/);
   assert.match(engine, /schemaVersion\s*=\s*"1\.1"/);
   assert.match(engine, /groupCounts\s*=\s*prepared\$group_counts/);
+  assert.match(engine, /empty_network_metrics\s*<-\s*function/);
+  assert.match(engine, /deterministic_circle_layout\s*<-\s*function/);
+  assert.match(engine, /empty_network_stability\s*<-\s*function/);
+  assert.match(
+    engine,
+    /The estimated network contains no nonzero edges; case-dropping centrality stability is not available\./
+  );
   assert.doesNotMatch(engine, /available\s*=\s*FALSE/);
   assert.doesNotMatch(engine, /Desktop\/New Programming Resilience/);
   assert.doesNotMatch(engine, /install\.packages\(/);

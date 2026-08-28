@@ -167,7 +167,7 @@ validate_gender_mapping <- function(gender_mapping) {
   gender_mapping
 }
 
-select_group_column <- function(metadata, analyzed_rows, gender_column = NULL) {
+select_group_column <- function(metadata, analyzed_rows) {
   if (!is.data.frame(metadata) || length(analyzed_rows) != nrow(metadata)) {
     stop("Metadata and analyzed-row mask must have matching rows.", call. = FALSE)
   }
@@ -354,19 +354,92 @@ extract_metric <- function(values, item_names) {
   round_metric(values)
 }
 
+is_empty_network <- function(weights) {
+  !any(is.finite(weights) & weights != 0)
+}
+
+named_metric <- function(value, item_names) {
+  if (length(value) == 1L) value <- rep(value, length(item_names))
+  value <- as.numeric(value)
+  names(value) <- item_names
+  value
+}
+
+empty_network_metrics <- function(item_names) {
+  list(
+    strength = named_metric(0, item_names),
+    expectedInfluence = named_metric(0, item_names),
+    betweenness = named_metric(0, item_names),
+    closeness = named_metric(NA_real_, item_names),
+    bridgeStrength = named_metric(0, item_names),
+    bridgeExpectedInfluence = named_metric(0, item_names),
+    bridgeBetweenness = named_metric(0, item_names),
+    bridgeCloseness = named_metric(NA_real_, item_names)
+  )
+}
+
+metric_column <- function(table, column, item_names, fallback = NA_real_) {
+  values <- named_metric(fallback, item_names)
+  if (is.null(table) || !(column %in% colnames(table))) return(values)
+  column_values <- table[, column]
+  if (!is.null(names(column_values))) {
+    shared_names <- intersect(item_names, names(column_values))
+    values[shared_names] <- as.numeric(column_values[shared_names])
+  } else if (length(column_values) == length(item_names)) {
+    values[] <- as.numeric(column_values)
+  }
+  values
+}
+
+deterministic_circle_layout <- function(item_names) {
+  angles <- seq(0, 2 * pi, length.out = length(item_names) + 1L)[seq_along(item_names)]
+  coordinates <- data.frame(
+    x = normalize_coordinate(cos(angles)),
+    y = normalize_coordinate(sin(angles)),
+    stringsAsFactors = FALSE
+  )
+  rownames(coordinates) <- item_names
+  coordinates
+}
+
 network_metrics <- function(items, network, communities, seed, layout_name = "spring") {
   item_names <- colnames(items)
   weights <- network$weights
+  empty_network <- is_empty_network(weights)
 
-  graph <- qgraph::qgraph(weights, DoNotPlot = TRUE, labels = item_names)
-  centrality <- qgraph::centrality_auto(graph)$node.centrality
-  centrality <- centrality[item_names, , drop = FALSE]
-
-  bridge_values <- networktools::bridge(
-    weights,
-    communities = communities,
-    directed = FALSE
-  )
+  if (empty_network) {
+    centrality_metrics <- empty_network_metrics(item_names)
+    coordinates <- deterministic_circle_layout(item_names)
+  } else {
+    graph <- qgraph::qgraph(weights, DoNotPlot = TRUE, labels = item_names)
+    centrality <- qgraph::centrality_auto(graph)$node.centrality
+    centrality <- centrality[item_names, , drop = FALSE]
+    bridge_values <- networktools::bridge(
+      weights,
+      communities = communities,
+      directed = FALSE
+    )
+    centrality_metrics <- list(
+      strength = metric_column(centrality, "Strength", item_names),
+      expectedInfluence = metric_column(centrality, "ExpectedInfluence", item_names),
+      betweenness = metric_column(centrality, "Betweenness", item_names),
+      closeness = metric_column(centrality, "Closeness", item_names),
+      bridgeStrength = named_metric(bridge_values[["Bridge Strength"]], item_names),
+      bridgeExpectedInfluence = named_metric(
+        bridge_values[["Bridge Expected Influence (1-step)"]],
+        item_names
+      ),
+      bridgeBetweenness = named_metric(bridge_values[["Bridge Betweenness"]], item_names),
+      bridgeCloseness = named_metric(bridge_values[["Bridge Closeness"]], item_names)
+    )
+    set.seed(seed + 17L)
+    coordinates <- qgraph::qgraph(
+      weights,
+      layout = layout_name,
+      repulsion = 0.65,
+      DoNotPlot = TRUE
+    )$layout
+  }
 
   fit <- mgm::mgm(
     data = network$transformed,
@@ -383,31 +456,20 @@ network_metrics <- function(items, network, communities, seed, layout_name = "sp
     stats::predict(fit, data = network$transformed, errorCon = "R2")$errors$R2
   )
 
-  set.seed(seed + 17L)
-  coordinates <- qgraph::qgraph(
-    weights,
-    layout = layout_name,
-    repulsion = 0.65,
-    DoNotPlot = TRUE
-  )$layout
-
   nodes <- data.frame(
     id = item_names,
     label = item_names,
     community = unname(communities[item_names]),
     x = round_metric(normalize_coordinate(coordinates[, 1L])),
     y = round_metric(normalize_coordinate(coordinates[, 2L])),
-    strength = extract_metric(centrality[, "Strength"], item_names),
-    expectedInfluence = extract_metric(centrality[, "ExpectedInfluence"], item_names),
-    betweenness = extract_metric(centrality[, "Betweenness"], item_names),
-    closeness = extract_metric(centrality[, "Closeness"], item_names),
-    bridgeStrength = extract_metric(bridge_values[["Bridge Strength"]], item_names),
-    bridgeExpectedInfluence = extract_metric(
-      bridge_values[["Bridge Expected Influence (1-step)"]],
-      item_names
-    ),
-    bridgeBetweenness = extract_metric(bridge_values[["Bridge Betweenness"]], item_names),
-    bridgeCloseness = extract_metric(bridge_values[["Bridge Closeness"]], item_names),
+    strength = extract_metric(centrality_metrics$strength, item_names),
+    expectedInfluence = extract_metric(centrality_metrics$expectedInfluence, item_names),
+    betweenness = extract_metric(centrality_metrics$betweenness, item_names),
+    closeness = extract_metric(centrality_metrics$closeness, item_names),
+    bridgeStrength = extract_metric(centrality_metrics$bridgeStrength, item_names),
+    bridgeExpectedInfluence = extract_metric(centrality_metrics$bridgeExpectedInfluence, item_names),
+    bridgeBetweenness = extract_metric(centrality_metrics$bridgeBetweenness, item_names),
+    bridgeCloseness = extract_metric(centrality_metrics$bridgeCloseness, item_names),
     predictability = round_metric(predictability),
     stringsAsFactors = FALSE,
     check.names = FALSE
@@ -467,7 +529,7 @@ network_summary <- function(items, weights, nodes, edges) {
   )
 }
 
-subgroup_comparison <- function(prepared, gamma, permutations, seed) {
+subgroup_comparison <- function(prepared, gamma, permutations, seed, weights) {
   group_values <- prepared$group_values[prepared$complete]
   levels <- prepared$group_levels
   first_index <- which(group_values == levels[[1]])
@@ -476,35 +538,53 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
   items <- prepared$items
   first_data <- items[first_index, , drop = FALSE]
   second_data <- items[second_index, , drop = FALSE]
-  set.seed(seed)
-  first_network <- bootnet::estimateNetwork(
-    first_data,
-    default = "EBICglasso",
-    corMethod = "npn",
-    tuning = gamma,
-    verbose = FALSE
-  )
-  second_network <- bootnet::estimateNetwork(
-    second_data,
-    default = "EBICglasso",
-    corMethod = "npn",
-    tuning = gamma,
-    verbose = FALSE
-  )
-  set.seed(seed + 101L)
-  nct_result <- NetworkComparisonTest::NCT(
-    first_network,
-    second_network,
-    it = permutations,
-    paired = FALSE,
-    weighted = TRUE,
-    abs = TRUE,
-    test.edges = TRUE,
-    edges = "all",
-    progressbar = FALSE,
-    p.adjust.methods = "holm",
-    verbose = FALSE
-  )
+  if (is_empty_network(weights)) {
+    set.seed(seed + 101L)
+    nct_result <- NetworkComparisonTest::NCT(
+      first_data,
+      second_data,
+      gamma = gamma,
+      it = permutations,
+      paired = FALSE,
+      weighted = TRUE,
+      abs = TRUE,
+      test.edges = TRUE,
+      edges = "all",
+      progressbar = FALSE,
+      p.adjust.methods = "holm",
+      verbose = FALSE
+    )
+  } else {
+    set.seed(seed)
+    first_network <- bootnet::estimateNetwork(
+      first_data,
+      default = "EBICglasso",
+      corMethod = "npn",
+      tuning = gamma,
+      verbose = FALSE
+    )
+    second_network <- bootnet::estimateNetwork(
+      second_data,
+      default = "EBICglasso",
+      corMethod = "npn",
+      tuning = gamma,
+      verbose = FALSE
+    )
+    set.seed(seed + 101L)
+    nct_result <- NetworkComparisonTest::NCT(
+      first_network,
+      second_network,
+      it = permutations,
+      paired = FALSE,
+      weighted = TRUE,
+      abs = TRUE,
+      test.edges = TRUE,
+      edges = "all",
+      progressbar = FALSE,
+      p.adjust.methods = "holm",
+      verbose = FALSE
+    )
+  }
 
   edge_p_values <- nct_result$einv.pvals
   edge_table <- data.frame(
@@ -548,7 +628,45 @@ stability_label <- function(value) {
   "Desirable"
 }
 
-stability_analysis <- function(items, communities, gamma, bootstraps, seed) {
+empty_network_stability <- function(bootstraps) {
+  statistics <- c(
+    "strength",
+    "bridgeStrength",
+    "bridgeCloseness",
+    "bridgeBetweenness"
+  )
+  labels <- c(
+    strength = "Strength",
+    bridgeStrength = "Bridge strength",
+    bridgeCloseness = "Bridge closeness",
+    bridgeBetweenness = "Bridge betweenness"
+  )
+  list(
+    available = TRUE,
+    method = "Case-dropping bootstrap",
+    bootstraps = bootstraps,
+    cores = 1L,
+    correlationThreshold = 0.70,
+    acceptableThreshold = 0.25,
+    desirableThreshold = 0.50,
+    metrics = data.frame(
+      id = statistics,
+      metric = unname(labels[statistics]),
+      coefficient = rep(NA_real_, length(statistics)),
+      interpretation = rep("Not available", length(statistics)),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+stability_analysis <- function(items, communities, gamma, bootstraps, seed, weights) {
+  if (is_empty_network(weights)) {
+    warning(
+      "The estimated network contains no nonzero edges; case-dropping centrality stability is not available.",
+      call. = FALSE
+    )
+    return(empty_network_stability(bootstraps))
+  }
   statistics <- c(
     "strength",
     "bridgeStrength",
@@ -777,14 +895,16 @@ analyze_workbook <- function(
     prepared,
     gamma = gamma,
     permutations = permutations,
-    seed = seed
+    seed = seed,
+    weights = network$weights
   ))
   stability <- record_warnings(stability_analysis(
     prepared$items,
     prepared$communities,
     gamma = gamma,
     bootstraps = bootstraps,
-    seed = seed
+    seed = seed,
+    weights = network$weights
   ))
   analysis_warnings <- unique(trimws(analysis_warnings[nzchar(trimws(analysis_warnings))]))
   interpretation <- build_interpretation(

@@ -22,9 +22,6 @@ stopifnot(select_group_column(metadata, complete)$column == "Cohort")
 metadata$First <- c(rep("A", 19), rep("B", 19), "", "")
 stopifnot(select_group_column(metadata, complete)$column == "Cohort")
 
-metadata$First <- c(rep("A", 19), rep("B", 19), "", "")
-stopifnot(select_group_column(metadata, complete)$column == "Cohort")
-
 metadata_excluded <- data.frame(
   First = c(rep("A", 20), rep("B", 20), "<raw-extra>"),
   Cohort = c(rep(c("A", "B"), 20), "A"),
@@ -35,8 +32,8 @@ excluded <- c(rep(TRUE, 40), FALSE)
 stopifnot(select_group_column(metadata_excluded, excluded)$column == "First")
 
 gender_metadata <- data.frame(Gender = rep(c("<bad>", "also bad"), 20), Cohort = rep(c("A", "B"), 20), stringsAsFactors = FALSE)
-expect_error(select_group_column(gender_metadata, complete, gender_column = "Gender"))
+expect_error(select_group_column(gender_metadata, complete))
 gender_metadata$Gender <- rep(c("Male", "Female"), 20)
-stopifnot(select_group_column(gender_metadata, complete, gender_column = "Gender")$column == "Gender")
+stopifnot(select_group_column(gender_metadata, complete)$column == "Gender")
 
 cat("group-selection-regression: PASS\n")
