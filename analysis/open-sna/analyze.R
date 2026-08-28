@@ -17,6 +17,7 @@ if (dir.exists(local_r_library)) {
 
 required_packages <- c(
   "jsonlite",
+  "digest",
   "readxl",
   "qgraph",
   "huge",
@@ -929,17 +930,7 @@ analyze_workbook <- function(
   if (permutations != 1000L) {
     stop("Permutation count must be exactly 1000.", call. = FALSE)
   }
-  prepared <- tryCatch(
-    read_and_validate_workbook(
-      input_path,
-      sheet = sheet,
-      gender_mapping = gender_mapping
-    ),
-    error = function(error) {
-      if (inherits(error, "open_sna_error")) stop(error)
-      open_sna_abort("WORKBOOK_INVALID", conditionMessage(error))
-    }
-  )
+  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
   gamma <- 0.5
   layout_name <- "spring"
   analysis_warnings <- character()
@@ -1072,10 +1063,63 @@ analyze_workbook <- function(
   invisible(result)
 }
 
+validated_workbook <- function(input_path, sheet = NULL, gender_mapping = NULL) {
+  tryCatch(
+    read_and_validate_workbook(
+      input_path,
+      sheet = sheet,
+      gender_mapping = gender_mapping
+    ),
+    error = function(error) {
+      if (inherits(error, "open_sna_error")) stop(error)
+      open_sna_abort("WORKBOOK_INVALID", conditionMessage(error))
+    }
+  )
+}
+
+workbook_validation_result <- function(prepared, input_path) {
+  list(
+    schemaVersion = "1.0",
+    valid = TRUE,
+    inputFingerprint = paste0("sha256:", digest::digest(file = input_path, algo = "sha256")),
+    summary = list(
+      originalRows = prepared$original_rows,
+      analyzedRows = nrow(prepared$items),
+      droppedRows = prepared$dropped_rows,
+      itemCount = length(prepared$item_columns),
+      communityCount = length(unique(unname(prepared$communities))),
+      groupColumn = prepared$group_column,
+      groupCounts = prepared$group_counts
+    )
+  )
+}
+
+validate_workbook <- function(input_path, output_path, sheet = NULL, gender_mapping = NULL) {
+  assert_packages()
+  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
+  result <- workbook_validation_result(prepared, input_path)
+  dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(
+    result,
+    path = output_path,
+    auto_unbox = TRUE,
+    dataframe = "rows",
+    digits = 8,
+    pretty = TRUE,
+    null = "null",
+    na = "null"
+  )
+  invisible(result)
+}
+
 main <- function() {
   options <- parse_cli_args(commandArgs(trailingOnly = TRUE))
   if (is.null(options$input) || is.null(options$output)) {
-    stop("Usage: analyze.R --input workbook.xlsx --output result.json", call. = FALSE)
+    stop("Usage: analyze.R --input workbook.xlsx --output result.json [--mode validate]", call. = FALSE)
+  }
+  mode <- if (is.null(options$mode)) "analyze" else options$mode
+  if (!(mode %in% c("analyze", "validate"))) {
+    stop("Mode must be analyze or validate.", call. = FALSE)
   }
   bootstraps <- integer_option(
     options$bootstraps,
@@ -1106,6 +1150,16 @@ main <- function() {
       stop("Both --gender-1-label and --gender-2-label are required together.", call. = FALSE)
     }
     gender_mapping <- c("1" = gender_one_label, "2" = gender_two_label)
+  }
+  if (identical(mode, "validate")) {
+    validate_workbook(
+      input_path = options$input,
+      output_path = options$output,
+      sheet = options$sheet,
+      gender_mapping = gender_mapping
+    )
+    cat("Open SNA workbook validation completed.\n")
+    return(invisible(NULL))
   }
   analyze_workbook(
     input_path = options$input,
