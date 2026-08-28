@@ -161,6 +161,14 @@ test("the bundled demonstration is aggregate output and matches the public contr
   const demo = unknownDemo as OpenSnaResult;
   assert.equal(demo.schemaVersion, "1.1");
   assert.equal(demo.analysisProfile, "npn-ebicglasso-v1");
+  assert.equal(
+    demo.settings.correlationMethod,
+    "Nonparanormal transformation followed by Pearson correlation with conditional positive-definite conditioning (trigger < 1e-4; symmetric eigenvalue clipping and unit-diagonal renormalization)"
+  );
+  assert.equal(
+    demo.models.network.method,
+    "huge.npn plus Pearson correlation, conditional positive-definite conditioning (trigger < 1e-4; symmetric eigenvalue clipping and unit-diagonal renormalization), and qgraph::EBICglasso"
+  );
   assert.equal(demo.dataSource, "aggregate-demo");
   assert.equal(demo.source.fileName, "Programming Resilience aggregate reference");
   assert.equal(demo.source.originalRows, 811);
@@ -173,6 +181,10 @@ test("the bundled demonstration is aggregate output and matches the public contr
   assert.equal(demo.settings.bootstrapReplicates, 1000);
   assert.equal(demo.settings.nctPermutations, 1000);
   assert.equal(demo.subgroupComparison.available, true);
+  assert.equal(
+    demo.subgroupComparison.method,
+    "NetworkComparisonTest::NCT permutation test using NPN EBICglasso with conditional positive-definite conditioning (trigger < 1e-4; symmetric eigenvalue clipping and unit-diagonal renormalization)"
+  );
   assert.equal(demo.subgroupComparison.packageVersion, "2.2.3");
   assert.equal(demo.subgroupComparison.permutations, 1000);
   assert.deepEqual(
@@ -184,7 +196,13 @@ test("the bundled demonstration is aggregate output and matches the public contr
       { id: "bridgeBetweenness", coefficient: 0, interpretation: "Do not interpret" },
     ]
   );
-  assert.equal(demo.warnings.length, 1);
+  assert.deepEqual(demo.warnings, []);
+  assert.deepEqual(demo.interpretation.cautions, [
+    "Edges are regularized partial correlations and do not establish causal direction.",
+    "Centrality and bridge rankings should be interpreted only when their stability is adequate.",
+    "Subgroup permutation tests depend on the selected model, grouping variable, and resampling count.",
+    "Review the workbook schema, missing-data exclusions, and method settings before publication.",
+  ]);
   assert.equal(demo.privacy.rawRowsIncluded, false);
   assert.equal(demo.privacy.thirdPartyAiUsed, false);
   assert.ok(!("records" in demo));

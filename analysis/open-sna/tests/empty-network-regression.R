@@ -17,6 +17,10 @@ expect_number <- function(actual, expected) {
   stopifnot(is.numeric(actual), length(actual) == 1L, !is.na(actual), actual == expected)
 }
 
+expect_approximately <- function(actual, expected, tolerance = 1e-6) {
+  stopifnot(is.numeric(actual), length(actual) == 1L, !is.na(actual), abs(actual - expected) <= tolerance)
+}
+
 run_analysis <- function() {
   output_path <- tempfile(fileext = ".json")
   analyze_workbook(
@@ -73,7 +77,23 @@ expect_number(first$overview$edgeCount, 0)
 expect_number(first$overview$density, 0)
 expect_number(first$overview$meanAbsoluteEdgeWeight, 0)
 stopifnot(is.finite(first$overview$meanPredictability), first$overview$meanPredictability >= 0, first$overview$meanPredictability <= 1)
+expect_number(first$overview$meanPredictability, 0)
 stopifnot(is.null(first$overview$strongestEdge))
+
+expected_node_anchors <- list(
+  list(id = "AA1", x = 0.92, y = 0.5, predictability = 0),
+  list(id = "AA2", x = 0.914829, y = 0.565702, predictability = 0),
+  list(id = "AA3", x = 0.899444, y = 0.629787, predictability = 0),
+  list(id = "AA4", x = 0.874223, y = 0.690676, predictability = 0)
+)
+for (index in seq_along(expected_node_anchors)) {
+  anchor <- expected_node_anchors[[index]]
+  node <- first$nodes[[index]]
+  stopifnot(identical(node$id, anchor$id))
+  expect_approximately(node$x, anchor$x)
+  expect_approximately(node$y, anchor$y)
+  expect_number(node$predictability, anchor$predictability)
+}
 
 for (node in first$nodes) {
   stopifnot(is.finite(node$x), node$x >= 0, node$x <= 1)
@@ -103,6 +123,17 @@ expect_number(first$subgroupComparison$globalStrengthDifference, 0)
 expect_number(first$subgroupComparison$networkStructureDifference, 0)
 expect_number(first$subgroupComparison$globalStrengthPValue, 1)
 expect_number(first$subgroupComparison$networkStructurePValue, 1)
+expect_number(length(first$subgroupComparison$strongestEdgeDifferences), 8)
+expected_edge_difference_anchors <- list(
+  list(source = "AA1", target = "AA10"),
+  list(source = "AA1", target = "AA2"),
+  list(source = "AA1", target = "AA3")
+)
+for (index in seq_along(expected_edge_difference_anchors)) {
+  anchor <- expected_edge_difference_anchors[[index]]
+  edge <- first$subgroupComparison$strongestEdgeDifferences[[index]]
+  stopifnot(identical(edge$source, anchor$source), identical(edge$target, anchor$target))
+}
 for (edge in first$subgroupComparison$strongestEdgeDifferences) {
   expect_number(edge$absoluteDifference, 0)
   expect_number(edge$pValueHolm, 1)

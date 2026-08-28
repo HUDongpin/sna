@@ -2,7 +2,7 @@
   "schemaVersion": "1.1",
   "analysisProfile": "npn-ebicglasso-v1",
   "dataSource": "aggregate-demo",
-  "generatedAt": "2026-08-20T07:40:22Z",
+  "generatedAt": "2026-08-28T10:16:41Z",
   "source": {
     "fileName": "Programming Resilience aggregate reference",
     "sheet": "Data worksheet",
@@ -24,7 +24,7 @@
   },
   "settings": {
     "estimator": "EBICglasso Gaussian graphical model",
-    "correlationMethod": "Nonparanormal transformation followed by Pearson correlation",
+    "correlationMethod": "Nonparanormal transformation followed by Pearson correlation with conditional positive-definite conditioning (trigger < 1e-4; symmetric eigenvalue clipping and unit-diagonal renormalization)",
     "gamma": 0.5,
     "missingData": "Listwise deletion across selected network items",
     "communityRule": "Item-name prefix before the trailing number",
@@ -37,7 +37,7 @@
   "models": {
     "network": {
       "id": "qgraph-npn-ebicglasso-v1",
-      "method": "huge.npn plus qgraph::EBICglasso"
+      "method": "huge.npn plus Pearson correlation, conditional positive-definite conditioning (trigger < 1e-4; symmetric eigenvalue clipping and unit-diagonal renormalization), and qgraph::EBICglasso"
     },
     "predictability": {
       "id": "mgm-ebic-r2-v1",
@@ -703,7 +703,7 @@
   ],
   "subgroupComparison": {
     "available": true,
-    "method": "NetworkComparisonTest::NCT permutation test",
+    "method": "NetworkComparisonTest::NCT permutation test using NPN EBICglasso with conditional positive-definite conditioning (trigger < 1e-4; symmetric eigenvalue clipping and unit-diagonal renormalization)",
     "packageVersion": "2.2.3",
     "groupColumn": "Gender",
     "groupA": "F",
@@ -803,9 +803,7 @@
       }
     ]
   },
-  "warnings": [
-    "A dense regularized network was selected (lambda < 0.1 * lambda.max). Recent work indicates a possible drop in specificity. Interpret the presence of the smallest edges with care. Setting threshold = TRUE will enforce higher specificity, at the cost of sensitivity."
-  ],
+  "warnings": [],
   "interpretation": {
     "generator": "Deterministic evidence-bound rules implemented in R",
     "thirdPartyAiUsed": false,
@@ -841,7 +839,7 @@
         "evidence": "Subgroup Comparison: permutation test"
       }
     ],
-    "cautions": ["Edges are regularized partial correlations and do not establish causal direction.", "Centrality and bridge rankings should be interpreted only when their stability is adequate.", "Subgroup permutation tests depend on the selected model, grouping variable, and resampling count.", "Review the workbook schema, missing-data exclusions, and method settings before publication.", "Runtime warning: A dense regularized network was selected (lambda < 0.1 * lambda.max). Recent work indicates a possible drop in specificity. Interpret the presence of the smallest edges with care. Setting threshold = TRUE will enforce higher specificity, at the cost of sensitivity."]
+    "cautions": ["Edges are regularized partial correlations and do not establish causal direction.", "Centrality and bridge rankings should be interpreted only when their stability is adequate.", "Subgroup permutation tests depend on the selected model, grouping variable, and resampling count.", "Review the workbook schema, missing-data exclusions, and method settings before publication."]
   },
   "privacy": {
     "rawRowsIncluded": false,

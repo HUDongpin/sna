@@ -76,6 +76,9 @@ sensitivity_max_correlation_delta <- max(abs(
 sensitivity_max_weight_delta <- max(abs(weights_1e4 - weights_1e6))
 sensitivity_topology_equal <- identical(weights_1e4 != 0, weights_1e6 != 0)
 stopifnot(is.finite(sensitivity_max_correlation_delta), is.finite(sensitivity_max_weight_delta))
+stopifnot(sensitivity_topology_equal)
+stopifnot(sensitivity_max_correlation_delta <= 1.1e-4)
+stopifnot(sensitivity_max_weight_delta <= 0.002)
 cat(sprintf(
   "conditioning-sensitivity: floor_1e-4_vs_1e-6 maxCorrelationDelta=%.10f maxWeightDelta=%.10f topologyEqual=%s\n",
   sensitivity_max_correlation_delta,
@@ -83,7 +86,13 @@ cat(sprintf(
   sensitivity_topology_equal
 ))
 
-expect_error(is_empty_network(matrix(c(0, NA_real_, NA_real_, 0), nrow = 2L)))
+named_non_finite_weights <- matrix(
+  c(0, NA_real_, NA_real_, 0),
+  nrow = 2L,
+  dimnames = list(c("V1", "V2"), c("V1", "V2"))
+)
+expect_error(is_empty_network(named_non_finite_weights))
+expect_error(is_empty_network(matrix(c(0, 0, 0, 0), nrow = 2L)))
 expect_error(extract_metric(c(V1 = 1, V2 = 2), c("V1", "V3")))
 
 cat("conditioning-regression: PASS\n")
