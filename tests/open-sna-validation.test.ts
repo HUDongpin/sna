@@ -46,6 +46,9 @@ test("Open SNA validation rejects invalid aggregate values", () => {
     { name: "too many items", mutate: (result) => { result.summary.itemCount = 41; } },
     { name: "too few communities", mutate: (result) => { result.summary.communityCount = 1; } },
     { name: "too many communities", mutate: (result) => { result.summary.communityCount = 9; } },
+    { name: "40 items cannot form two communities of at most 12", mutate: (result) => { result.summary.communityCount = 2; } },
+    { name: "6 items cannot form three communities of at least 3", mutate: (result) => { result.summary.itemCount = 6; result.summary.communityCount = 3; } },
+    { name: "25 items cannot form two communities of at most 12", mutate: (result) => { result.summary.itemCount = 25; result.summary.communityCount = 2; } },
     { name: "more communities than items", mutate: (result) => { result.summary.itemCount = 6; result.summary.communityCount = 7; } },
     { name: "unsafe group column", mutate: (result) => { result.summary.groupColumn = "<Gender>"; } },
     { name: "missing group column", mutate: (result) => { delete (result.summary as Record<string, unknown>).groupColumn; } },
@@ -56,6 +59,18 @@ test("Open SNA validation rejects invalid aggregate values", () => {
     mutate(invalid);
     assert.equal(isOpenSnaValidationResult(invalid), false, name);
   }
+});
+
+test("Open SNA validation accepts feasible community boundaries", () => {
+  const minimum = cloneSafeResult();
+  minimum.summary.itemCount = 6;
+  minimum.summary.communityCount = 2;
+  assert.equal(isOpenSnaValidationResult(minimum), true);
+
+  const maximum = cloneSafeResult();
+  maximum.summary.itemCount = 24;
+  maximum.summary.communityCount = 2;
+  assert.equal(isOpenSnaValidationResult(maximum), true);
 });
 
 test("Open SNA validation rejects unknown and row-level-shaped fields at every fixed object", () => {
@@ -74,4 +89,45 @@ test("Open SNA validation rejects unknown and row-level-shaped fields at every f
       assert.equal(isOpenSnaValidationResult(invalid), false, `${location} ${key}`);
     }
   }
+});
+
+test("Open SNA validation accepts null-prototype data records and rejects hostile values without throwing", () => {
+  const toNullPrototype = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(toNullPrototype);
+    if (value !== null && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, toNullPrototype(entry)]));
+    }
+    return value;
+  };
+  const nullPrototype = toNullPrototype(cloneSafeResult()) as Record<string, unknown>;
+  Object.setPrototypeOf(nullPrototype, null);
+  Object.setPrototypeOf(nullPrototype.summary as object, null);
+  for (const group of (nullPrototype.summary as { groupCounts: object[] }).groupCounts) Object.setPrototypeOf(group, null);
+  assert.equal(isOpenSnaValidationResult(nullPrototype), true, "null-prototype records are valid data records");
+
+  class ResultEnvelope {}
+  const classPrototype = Object.assign(new ResultEnvelope(), cloneSafeResult());
+  assert.equal(isOpenSnaValidationResult(classPrototype), false, "class instances are rejected");
+
+  const inherited = Object.create(cloneSafeResult());
+  assert.equal(isOpenSnaValidationResult(inherited), false, "inherited required fields are rejected");
+
+  const nonEnumerable = cloneSafeResult() as Record<string, unknown>;
+  Object.defineProperty(nonEnumerable, "private", { value: "hidden", enumerable: false });
+  assert.equal(isOpenSnaValidationResult(nonEnumerable), false, "non-enumerable extras are rejected");
+
+  const symbolExtra = cloneSafeResult() as Record<PropertyKey, unknown>;
+  symbolExtra[Symbol("private")] = "hidden";
+  assert.equal(isOpenSnaValidationResult(symbolExtra), false, "symbol extras are rejected");
+
+  const getter = cloneSafeResult();
+  Object.defineProperty(getter.summary, "groupColumn", { enumerable: true, get: () => { throw new Error("must not read getter"); } });
+  assert.doesNotThrow(() => assert.equal(isOpenSnaValidationResult(getter), false), "accessors are rejected without invocation");
+
+  const sparse = cloneSafeResult();
+  delete sparse.summary.groupCounts[1];
+  assert.doesNotThrow(() => assert.equal(isOpenSnaValidationResult(sparse), false), "sparse tuples are rejected without throwing");
+
+  const throwingProxy = new Proxy({}, { ownKeys: () => { throw new Error("hostile ownKeys"); } });
+  assert.doesNotThrow(() => assert.equal(isOpenSnaValidationResult(throwingProxy), false), "hostile proxies return false");
 });

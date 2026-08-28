@@ -57,7 +57,7 @@ The build must finish the following gates:
 
 - Next.js Webpack production build;
 - restoration of all 159 locked R packages;
-- `analysis/open-sna/preflight.R` with R 4.4.2 and the eight verified direct package versions;
+- `analysis/open-sna/preflight.R` with R 4.4.2 and the nine verified direct package versions: `jsonlite` 2.0.0, `digest` 0.6.39, `readxl` 1.4.5, `qgraph` 1.9.8, `huge` 1.5, `mgm` 1.2.15, `bootnet` 1.8, `networktools` 1.6.0, and `NetworkComparisonTest` 2.2.3;
 - creation of the non-root `open-sna` runtime user.
 
 Do not push an image that has not completed all four gates.
@@ -136,13 +136,15 @@ Complete every gate before describing the production loop as working:
 1. Worker image build succeeds on the target architecture.
 2. Container health becomes `healthy` while an unauthenticated POST returns `401 WORKER_UNAUTHORIZED`.
 3. R preflight passes inside the final runtime image.
-4. A valid synthetic XLSX with one binary grouping column and at least 20 analyzed rows per group returns HTTP 200 through the public Vercel endpoint.
-5. The browser changes from the reference result to `Uploaded workbook` and renders all eight panels.
-6. The response uses schema `1.1`, contains exactly two source group counts and an available NCT result, contains `rawRowsIncluded: false` and `uploadedWorkbookRetainedByEngine: false`, and contains no `records` or `rawData`.
-7. The worker job directory is empty after the response.
-8. A second simultaneous analysis returns `429 WORKER_BUSY`.
-9. Invalid workbooks return the bounded `422 WORKBOOK_INVALID` response without worker diagnostics.
-10. Production logs, screenshots, and reports contain no workbook rows, tokens, identifiers, or raw R stderr.
+4. The validation-runtime isolation and cross-language golden gate pass: the real XLSX validation JSON is accepted by the strict TypeScript guard and its Node SHA-256 matches the R fingerprint.
+5. The strict CLI regression rejects unknown, duplicate, and mode-incompatible flags before analysis.
+6. A valid synthetic XLSX with one binary grouping column and at least 20 analyzed rows per group returns HTTP 200 through the public Vercel endpoint.
+7. The browser changes from the reference result to `Uploaded workbook` and renders all eight panels.
+8. The response uses schema `1.1`, contains exactly two source group counts and an available NCT result, contains `rawRowsIncluded: false` and `uploadedWorkbookRetainedByEngine: false`, and contains no `records` or `rawData`.
+9. The worker job directory is empty after the response.
+10. A second simultaneous analysis returns `429 WORKER_BUSY`.
+11. Invalid workbooks return the bounded `422 WORKBOOK_INVALID` response without worker diagnostics.
+12. Production logs, screenshots, and reports contain no workbook rows, tokens, identifiers, or raw R stderr.
 
 ## Rollback
 

@@ -44,6 +44,7 @@ The runner fails closed when the worksheet, columns, value range, variability, c
 The verified development runtime is R 4.4.2 with the following exact direct-package versions. The preflight rejects drift from this verified set:
 
 - `jsonlite` 2.0.0
+- `digest` 0.6.39
 - `readxl` 1.4.5
 - `qgraph` 1.9.8
 - `huge` 1.5
@@ -58,14 +59,16 @@ Run the preflight before accepting local jobs:
 Rscript --vanilla analysis/open-sna/preflight.R
 ```
 
-Run the conditioning and empty-network regressions locally:
+Run the validation contract, CLI, conditioning, and empty-network regressions locally:
 
 ```bash
+npm run open-sna:r-validation-runtime-isolation-regression
+npm run open-sna:r-validation-cli-regression
 npm run open-sna:r-conditioning-regression
 npm run open-sna:r-regression
 ```
 
-The canonical local statistical release gate runs the R preflight, group-selection regression, conditioning regression, and real two-pass empty-network regression:
+The validation-runtime isolation regression also forms the cross-language golden gate: it runs a real XLSX through R `--mode validate`, verifies the bounded JSON and R fingerprint, then invokes the strict TypeScript guard and an independent Node SHA-256 calculation. The canonical local statistical release gate runs that gate, the strict CLI regression, R preflight, group-selection regression, conditioning regression, and the real two-pass empty-network regression:
 
 ```bash
 npm run open-sna:r-statistical-release
@@ -86,6 +89,8 @@ Rscript --vanilla analysis/open-sna/analyze.R \
 ```
 
 The R output is aggregate JSON with schema version `1.1`. It contains input dimensions, settings, package versions, nodes, nonzero edges, the required two-group source counts, NCT results, CS coefficients, and a deterministic evidence-bound interpretation. It contains no source rows or respondent IDs. After the R contract is validated, the web adapter can replace only the interpretation section with GPT-5.6 Luna output. That server-side request is built from a smaller bounded aggregate payload, requires OpenRouter zero-data-retention and no-data-collection routing, and never includes the workbook, row-level responses, file or sheet names, respondent IDs, the input fingerprint, or R runtime details. If LUNA is unconfigured or unavailable, the deterministic R interpretation remains visible and is labeled as the fallback.
+
+For a bounded validation-only preflight, pass `--mode validate` with `--input` and `--output`. This mode accepts only `input`, `output`, optional `sheet`, and the paired Gender labels; it rejects analysis settings and unknown or duplicate flags before loading the workbook. It needs only the three direct validation packages (`jsonlite`, `digest`, `readxl`) and emits schema `1.0` with only `schemaVersion`, `valid`, the workbook SHA-256 fingerprint, and aggregate dimensions/group counts. Full analysis remains the default mode and requires all nine direct packages.
 
 ## Web adapter and deployment boundary
 

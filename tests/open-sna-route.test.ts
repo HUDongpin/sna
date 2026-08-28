@@ -37,9 +37,10 @@ function workerResult(schemaVersion: "1.0" | "1.1") {
 }
 
 function isolateRouteEnvironment(keys: readonly string[]) {
-  const allKeys = Array.from(new Set([...keys, "OPENROUTER_API_KEY"]));
+  const allKeys = Array.from(new Set([...keys, "OPENROUTER_API_KEY", "OPEN_SNA_TEST_OUTPUT_JSON"]));
   const originalEnvironment = Object.fromEntries(allKeys.map((key) => [key, process.env[key]]));
   delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPEN_SNA_TEST_OUTPUT_JSON;
   return originalEnvironment;
 }
 
@@ -78,6 +79,18 @@ test("the upload route distinguishes R runtime, workbook, and analysis failures"
     assert.equal(localLibraryResponse.status, 422);
     assert.equal(localLibraryPayload.code, "WORKBOOK_INVALID");
     delete process.env.OPEN_SNA_TEST_EXPECT_R_LIBS_USER;
+
+    process.env.OPEN_SNA_TEST_OUTPUT_JSON = JSON.stringify(workerResult("1.1"));
+    const successResponse = await POST(analysisRequest());
+    assert.equal(successResponse.status, 200);
+
+    process.env.OPEN_SNA_TEST_EXPECT_R_LIBS_USER = "/tmp/open-sna-unavailable-r-library";
+    const mismatchResponse = await POST(analysisRequest());
+    const mismatchPayload = await mismatchResponse.json() as { code?: string };
+    assert.equal(mismatchResponse.status, 500);
+    assert.equal(mismatchPayload.code, "R_ANALYSIS_FAILED");
+    delete process.env.OPEN_SNA_TEST_EXPECT_R_LIBS_USER;
+    delete process.env.OPEN_SNA_TEST_OUTPUT_JSON;
 
     const cases = [
       {

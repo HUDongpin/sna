@@ -14,7 +14,8 @@
     "open-sna:r-group-regression": "Rscript --vanilla analysis/open-sna/tests/group-selection-regression.R",
     "open-sna:r-conditioning-regression": "Rscript --vanilla analysis/open-sna/tests/conditioning-regression.R",
     "open-sna:r-validation-runtime-isolation-regression": "Rscript --vanilla analysis/open-sna/tests/validation-runtime-isolation-regression.R",
-    "open-sna:r-statistical-release": "npm run open-sna:r-preflight && npm run open-sna:r-validation-runtime-isolation-regression && npm run open-sna:r-group-regression && npm run open-sna:r-conditioning-regression && npm run open-sna:r-regression",
+    "open-sna:r-validation-cli-regression": "Rscript --vanilla analysis/open-sna/tests/validation-cli-regression.R",
+    "open-sna:r-statistical-release": "npm run open-sna:r-preflight && npm run open-sna:r-validation-runtime-isolation-regression && npm run open-sna:r-validation-cli-regression && npm run open-sna:r-group-regression && npm run open-sna:r-conditioning-regression && npm run open-sna:r-regression",
     "release:hygiene": "node scripts/check-release.mjs",
     "release:verify": "npm run open-sna:r-statistical-release && npm run test && npm run build -- --webpack && npm run typecheck && npm run release:hygiene"
   },

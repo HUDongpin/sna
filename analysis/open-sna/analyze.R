@@ -56,6 +56,10 @@ open_sna_abort <- function(code, ...) {
   stop(condition)
 }
 
+open_sna_cli_abort <- function() {
+  open_sna_abort("R_ANALYSIS_FAILED", "Open SNA command-line options are invalid.")
+}
+
 package_available <- function(package) requireNamespace(package, quietly = TRUE)
 
 assert_packages <- function(
@@ -79,33 +83,42 @@ parse_cli_args <- function(args) {
   index <- 1L
   while (index <= length(args)) {
     key <- args[[index]]
-    if (!startsWith(key, "--")) {
-      stop("Unexpected command-line argument: ", key, call. = FALSE)
+    if (!is.character(key) || length(key) != 1L || !grepl("^--[A-Za-z][A-Za-z0-9-]*$", key)) {
+      open_sna_cli_abort()
     }
-    if (index == length(args)) {
-      stop("Missing value for command-line argument: ", key, call. = FALSE)
+    name <- substring(key, 3L)
+    if (name %in% names(output) || index == length(args)) {
+      open_sna_cli_abort()
     }
-    output[[substring(key, 3L)]] <- args[[index + 1L]]
+    value <- args[[index + 1L]]
+    if (!is.character(value) || length(value) != 1L || startsWith(value, "--")) {
+      open_sna_cli_abort()
+    }
+    output[[name]] <- value
     index <- index + 2L
   }
   output
 }
 
+validated_cli_options <- function(args) {
+  options <- parse_cli_args(args)
+  mode <- if (is.null(options$mode)) "analyze" else options$mode
+  if (!identical(mode, "analyze") && !identical(mode, "validate")) open_sna_cli_abort()
+  common_options <- c("input", "output", "mode", "sheet", "gender-1-label", "gender-2-label")
+  analysis_options <- c("bootstraps", "permutations", "seed", "data-source")
+  allowed_options <- if (identical(mode, "validate")) common_options else c(common_options, analysis_options)
+  if (length(setdiff(names(options), allowed_options))) open_sna_cli_abort()
+  if (is.null(options$input) || is.null(options$output)) open_sna_cli_abort()
+  options$mode <- mode
+  options
+}
+
 integer_option <- function(value, default, minimum, maximum, label) {
   if (is.null(value) || !nzchar(value)) return(as.integer(default))
-  parsed <- suppressWarnings(as.integer(value))
-  if (is.na(parsed) || parsed < minimum || parsed > maximum) {
-    stop(
-      label,
-      " must be an integer between ",
-      minimum,
-      " and ",
-      maximum,
-      ".",
-      call. = FALSE
-    )
-  }
-  parsed
+  if (!is.character(value) || length(value) != 1L || !grepl("^(0|[1-9][0-9]*)$", value)) open_sna_cli_abort()
+  parsed <- suppressWarnings(as.numeric(value))
+  if (!is.finite(parsed) || parsed > .Machine$integer.max || parsed < minimum || parsed > maximum) open_sna_cli_abort()
+  as.integer(parsed)
 }
 
 finite_or_na <- function(value) {
@@ -1128,14 +1141,30 @@ validate_workbook <- function(
   invisible(result)
 }
 
-main <- function() {
-  options <- parse_cli_args(commandArgs(trailingOnly = TRUE))
-  if (is.null(options$input) || is.null(options$output)) {
-    stop("Usage: analyze.R --input workbook.xlsx --output result.json [--mode validate]", call. = FALSE)
+main <- function(
+    args = commandArgs(trailingOnly = TRUE),
+    validate_runner = validate_workbook,
+    analyze_runner = analyze_workbook) {
+  options <- validated_cli_options(args)
+  mode <- options$mode
+  gender_mapping <- NULL
+  gender_one_label <- options[["gender-1-label"]]
+  gender_two_label <- options[["gender-2-label"]]
+  if (!is.null(gender_one_label) || !is.null(gender_two_label)) {
+    if (is.null(gender_one_label) || is.null(gender_two_label)) {
+      stop("Both --gender-1-label and --gender-2-label are required together.", call. = FALSE)
+    }
+    gender_mapping <- c("1" = gender_one_label, "2" = gender_two_label)
   }
-  mode <- if (is.null(options$mode)) "analyze" else options$mode
-  if (!(mode %in% c("analyze", "validate"))) {
-    stop("Mode must be analyze or validate.", call. = FALSE)
+  if (identical(mode, "validate")) {
+    validate_runner(
+      input_path = options$input,
+      output_path = options$output,
+      sheet = options$sheet,
+      gender_mapping = gender_mapping
+    )
+    cat("Open SNA workbook validation completed.\n")
+    return(invisible(NULL))
   }
   bootstraps <- integer_option(
     options$bootstraps,
@@ -1158,26 +1187,7 @@ main <- function() {
     maximum = .Machine$integer.max,
     label = "Seed"
   )
-  gender_mapping <- NULL
-  gender_one_label <- options[["gender-1-label"]]
-  gender_two_label <- options[["gender-2-label"]]
-  if (!is.null(gender_one_label) || !is.null(gender_two_label)) {
-    if (is.null(gender_one_label) || is.null(gender_two_label)) {
-      stop("Both --gender-1-label and --gender-2-label are required together.", call. = FALSE)
-    }
-    gender_mapping <- c("1" = gender_one_label, "2" = gender_two_label)
-  }
-  if (identical(mode, "validate")) {
-    validate_workbook(
-      input_path = options$input,
-      output_path = options$output,
-      sheet = options$sheet,
-      gender_mapping = gender_mapping
-    )
-    cat("Open SNA workbook validation completed.\n")
-    return(invisible(NULL))
-  }
-  analyze_workbook(
+  analyze_runner(
     input_path = options$input,
     output_path = options$output,
     bootstraps = bootstraps,
