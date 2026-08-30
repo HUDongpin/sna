@@ -31,6 +31,17 @@ jobs:
           test "$(git rev-parse --verify HEAD^{commit})" = "${{ inputs.release_sha }}"
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
+      - name: Node source gate
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run source gate
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build -- --webpack
+          npm run release:hygiene
       - name: Build worker verify stage
         uses: docker/build-push-action@v6
         with:
@@ -43,6 +54,36 @@ jobs:
           sbom: false
           build-args: |
             VCS_REF=${{ inputs.release_sha }}
+      - name: Build web final image
+        uses: docker/build-push-action@v6
+        id: web_prebuild
+        with:
+          context: .
+          file: Dockerfile.web
+          platforms: linux/amd64
+          push: false
+          provenance: true
+          sbom: true
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.release_sha }}
+          tags: ghcr.io/hudongpin/sna-web:${{ inputs.release_sha }}
+      - name: Build worker final image
+        uses: docker/build-push-action@v6
+        id: worker_prebuild
+        with:
+          context: .
+          file: Dockerfile.open-sna-worker
+          platforms: linux/amd64
+          push: false
+          provenance: true
+          sbom: true
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.release_sha }}
+          tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:

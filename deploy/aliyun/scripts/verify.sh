@@ -69,16 +69,12 @@ if [[ ! "$apex_status" =~ ^(301|308)$ ]]; then
 fi
 grep -Eiq '^location: https://www\.sna\.hk(/|/.*)$' "$apex_headers"
 
-if [[ ! "$root_status" =~ ^(200|301|302|307|308)$ ]]; then
-  echo "www root status error: expected 200 or a supported redirect (301, 302, 307, 308); got $root_status" >&2
+if [[ "$root_status" != "307" ]]; then
+  echo "www root status error: expected 307 redirect; got $root_status" >&2
   exit 1
 fi
-if [[ "$root_status" = "200" ]]; then
-  grep -Eiq '<!doctype html|<html' "$root_body"
-else
-  if ! grep -Eqi '^location: (/?en/?|https://www\.sna\.hk/en/?)(\?.*)?$' "$root_headers"; then
-    echo "www root redirect must stay on /en when it redirects" >&2
-    exit 1
-  fi
+if ! grep -Eqi '^location: (/?en/?|https://www\.sna\.hk/en/?)(\?.*)?$' "$root_headers"; then
+  echo "www root redirect must point to /en" >&2
+  exit 1
 fi
 grep -Eqi '^strict-transport-security:' "$root_headers"

@@ -188,9 +188,9 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /https:\/\/sna\.hk/, "verify must support the apex redirect check");
   expectContains(verify, /(301|308)/, "verify must allow apex 301 or 308 redirects");
   assert.ok(
-    verify.includes("grep -Eqi '^location: (/?en/?|https://www\\.sna\\.hk/en/?)(\\?.*)?$'") &&
-      verify.includes("root status error: expected 200 or a supported redirect (301, 302, 307, 308)"),
-    "verify must allow www root redirects to /en",
+    verify.includes("root status error: expected 307 redirect; got") &&
+      verify.includes("grep -Eqi '^location: (/?en/?|https://www\\.sna\\.hk/en/?)(\\?.*)?$'"),
+    "verify must pin the www root redirect to /en with HTTP 307",
   );
   expectContains(verify, /no-store/i, "verify must check cache headers");
   expectContains(verify, /worker network request failed/, "verify must separate worker network failures");
@@ -276,8 +276,11 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /release-digests\.json/, "release workflow must emit a digest manifest");
   expectContains(workflow, /upload-artifact/i, "release workflow must upload the digest manifest");
   assert.ok(stepIndex(workflow, "Set up Buildx") < stepIndex(workflow, "Build worker verify stage"), "buildx must be ready before verify builds");
-  assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build and push web image"), "worker verify must happen before any push:true image build");
-  assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build and push worker image"), "worker verify must happen before worker push");
+  assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build web final image"), "worker verify must happen before the final prebuilds");
+  assert.ok(stepIndex(workflow, "Build web final image") < stepIndex(workflow, "Build worker final image"), "web final prebuild must happen before worker final prebuild");
+  assert.ok(stepIndex(workflow, "Build worker final image") < stepIndex(workflow, "Log in to GHCR"), "both final prebuilds must complete before registry login");
+  assert.ok(stepIndex(workflow, "Log in to GHCR") < stepIndex(workflow, "Build and push web image"), "push steps must wait for registry login");
+  assert.ok(stepIndex(workflow, "Build and push web image") < stepIndex(workflow, "Build and push worker image"), "web push must stay before worker push");
 
   expectContains(ci, /pull_request:/, "CI workflow must run on pull requests");
   expectContains(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, "CI workflow must run on push to main");

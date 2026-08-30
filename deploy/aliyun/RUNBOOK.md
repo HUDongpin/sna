@@ -56,9 +56,9 @@ The compose file enforces:
 1. Confirm `GET /api/health` returns HTTP 200 and reports the expected SHA and role.
 1. Confirm `POST /api/open-sna/analyze` without credentials returns HTTP 401 on the worker.
 1. Confirm `sna.hk` on HTTP goes directly to `https://www.sna.hk$request_uri` in one hop.
-1. Confirm `www.sna.hk` on HTTP either returns 200 or redirects to `/en`.
+1. Confirm `www.sna.hk` on HTTP returns HTTP 307 and redirects to `/en`, not a 200 response.
 1. Confirm the worker response body includes `WORKER_UNAUTHORIZED` and does not disclose secrets.
-1. Confirm `origin.sna.hk` returns `X-Robots-Tag: noindex,nofollow`.
+1. Confirm `origin.sna.hk` returns `X-Robots-Tag: noindex,nofollow` and that the origin root is the endpoint you use for the public health and root checks.
 
 ## Nginx and TLS
 
@@ -66,6 +66,7 @@ The compose file enforces:
 - `sna.hk` should redirect to `https://www.sna.hk$request_uri` on HTTP and to `https://www.sna.hk$request_uri` on HTTPS.
 - `origin.sna.hk` is the pre-acceptance host and should expose the web container only.
 - `worker.sna.hk` must proxy only the exact `/api/open-sna/analyze` route.
+- `worker.sna.hk` must return HTTP 404 on non-target paths such as `/`.
 - Keep request body and authorization logging disabled.
 - Keep `Authorization` forwarding limited to `worker.sna.hk`.
 - Keep TLS at 1.2/1.3, `client_max_body_size` at `6m`, and upstream read/send timeouts at `300s`.
