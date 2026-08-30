@@ -119,6 +119,12 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerDockerfile, /CMD \["sh", "-c", "Rscript --vanilla \/app\/analysis\/preflight\.R && exec node \/app\/server\.js"\]/, "worker Dockerfile must healthcheck and start through the standalone server");
   const workerFinalStage = workerDockerfile.slice(workerDockerfile.indexOf("FROM worker-base AS final"));
   expectNotContains(workerFinalStage, /analysis\/open-sna\/tests|fixture|test harness/i, "worker final stage should not retain tests or harness text");
+  const webRuntimeStage = webDockerfile.slice(webDockerfile.indexOf("FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS runtime"));
+  expectContains(webRuntimeStage, /apt-get update[\s\S]*apt-get upgrade/, "web runtime must refresh Debian security packages");
+  expectContains(webRuntimeStage, /rm -rf[\s\S]*\/usr\/local\/lib\/node_modules\/npm[\s\S]*\/usr\/local\/lib\/node_modules\/corepack[\s\S]*\/usr\/local\/bin\/npm[\s\S]*\/usr\/local\/bin\/npx[\s\S]*\/usr\/local\/bin\/corepack/, "web runtime must explicitly remove npm/npx/corepack tooling");
+  expectNotContains(webRuntimeStage, /(?:^|\n)\s*RUN\b[^\n]*(?:npm ci|npm install|corepack prepare)\b/i, "web runtime must not install or reintroduce npm tooling");
+  const workerBaseStage = workerDockerfile.slice(workerDockerfile.indexOf("FROM rocker/r-ver:4.4.2@sha256:df26749182af64d5263bf64149d51a427b476ed28c4e046997143be3f97fdd7c AS worker-base"));
+  expectContains(workerBaseStage, /apt-get update[\s\S]*apt-get upgrade/, "worker base must refresh Debian security packages");
   expectContains(dockerignore, /\*\.md/, "Docker build context must exclude repository Markdown and internal reports");
   expectContains(dockerignore, /!analysis\/open-sna\/tests\/conditioning-regression\.R/, "Docker context must retain the conditioning regression source");
   expectContains(dockerignore, /!analysis\/open-sna\/tests\/group-selection-regression\.R/, "Docker context must retain the group selection regression source");
