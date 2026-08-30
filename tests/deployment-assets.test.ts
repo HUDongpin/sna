@@ -185,15 +185,18 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /rAnalysis/, "verify must check the health payload");
   expectContains(verify, /401/, "verify must check unauthorized worker access");
   expectContains(verify, /WORKER_UNAUTHORIZED/, "verify must check the worker unauthorized body");
+  expectContains(verify, /X-Robots-Tag/i, "verify must check the origin robots header");
+  expectContains(verify, /404/, "verify must check the worker root 404");
   expectContains(verify, /https:\/\/sna\.hk/, "verify must support the apex redirect check");
   expectContains(verify, /(301|308)/, "verify must allow apex 301 or 308 redirects");
   assert.ok(
-    verify.includes("root status error: expected 307 redirect; got") &&
+    verify.includes("root status error: expected 307, got") &&
       verify.includes("grep -Eqi '^location: (/?en/?|https://www\\.sna\\.hk/en/?)(\\?.*)?$'"),
     "verify must pin the www root redirect to /en with HTTP 307",
   );
   expectContains(verify, /no-store/i, "verify must check cache headers");
   expectContains(verify, /worker network request failed/, "verify must separate worker network failures");
+  expectContains(verify, /worker root network request failed/, "verify must separate worker root network failures");
   expectContains(verify, /apex network request failed/, "verify must separate apex network failures");
   expectContains(verify, /www root network request failed/, "verify must separate www network failures");
   expectContains(verify, /strict-transport-security/i, "verify must check HSTS when the config emits it");
@@ -268,19 +271,26 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /org\.opencontainers\.image\.revision/, "release workflow must annotate OCI revision");
   expectContains(workflow, /sbom|provenance/i, "release workflow must generate SBOM/provenance");
   expectContains(workflow, /cosign|sign/i, "release workflow must sign releases");
+  expectContains(workflow, /Node source gate/, "release workflow must gate with Node checks before pushes");
   expectContains(workflow, /steps\.web_build\.outputs\.digest/, "release workflow must work with web digests");
   expectContains(workflow, /steps\.worker_build\.outputs\.digest/, "release workflow must work with worker digests");
   expectContains(workflow, /file: Dockerfile\.web/, "release workflow must use the root web Dockerfile");
   expectContains(workflow, /file: Dockerfile\.open-sna-worker/, "release workflow must use the root worker Dockerfile");
   expectContains(workflow, /target:\s*verify/, "release workflow must build the worker verify stage");
+  expectContains(workflow, /npm ci/, "release workflow must install dependencies in the source gate");
+  expectContains(workflow, /npm run release:hygiene/, "release workflow must run release hygiene in the source gate");
   expectContains(workflow, /release-digests\.json/, "release workflow must emit a digest manifest");
   expectContains(workflow, /upload-artifact/i, "release workflow must upload the digest manifest");
-  assert.ok(stepIndex(workflow, "Set up Buildx") < stepIndex(workflow, "Build worker verify stage"), "buildx must be ready before verify builds");
-  assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build web final image"), "worker verify must happen before the final prebuilds");
-  assert.ok(stepIndex(workflow, "Build web final image") < stepIndex(workflow, "Build worker final image"), "web final prebuild must happen before worker final prebuild");
-  assert.ok(stepIndex(workflow, "Build worker final image") < stepIndex(workflow, "Log in to GHCR"), "both final prebuilds must complete before registry login");
-  assert.ok(stepIndex(workflow, "Log in to GHCR") < stepIndex(workflow, "Build and push web image"), "push steps must wait for registry login");
-  assert.ok(stepIndex(workflow, "Build and push web image") < stepIndex(workflow, "Build and push worker image"), "web push must stay before worker push");
+  assert.ok(
+    stepIndex(workflow, "Set up Buildx") < stepIndex(workflow, "Node source gate") &&
+      stepIndex(workflow, "Node source gate") < stepIndex(workflow, "Build worker verify stage") &&
+      stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build web final image") &&
+      stepIndex(workflow, "Build web final image") < stepIndex(workflow, "Build worker final image") &&
+      stepIndex(workflow, "Build worker final image") < stepIndex(workflow, "Log in to GHCR") &&
+      stepIndex(workflow, "Log in to GHCR") < stepIndex(workflow, "Build and push web image") &&
+      stepIndex(workflow, "Build and push web image") < stepIndex(workflow, "Build and push worker image"),
+    "release workflow must keep buildx first, then source/verify gates, then final builds, then login and pushes",
+  );
 
   expectContains(ci, /pull_request:/, "CI workflow must run on pull requests");
   expectContains(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, "CI workflow must run on push to main");
