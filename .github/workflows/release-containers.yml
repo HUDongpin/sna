@@ -1,0 +1,144 @@
+name: release-containers
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main branch commit SHA to release
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+      - name: Guard exact SHA
+        run: |
+          [[ "${{ inputs.release_sha }}" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main
+          git rev-parse --verify HEAD
+          test "$(git rev-parse --verify HEAD)" = "${{ inputs.release_sha }}"
+          git merge-base --is-ancestor HEAD origin/main
+          test "$(git rev-parse --verify HEAD^{commit})" = "${{ inputs.release_sha }}"
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Node source gate
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run source gate
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build -- --webpack
+          npm run release:hygiene
+      - name: Build worker verify stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.open-sna-worker
+          target: verify
+          platforms: linux/amd64
+          push: false
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+      - name: Build web final image
+        uses: docker/build-push-action@v6
+        id: web_prebuild
+        with:
+          context: .
+          file: Dockerfile.web
+          platforms: linux/amd64
+          push: false
+          provenance: true
+          sbom: true
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.release_sha }}
+          tags: ghcr.io/hudongpin/sna-web:${{ inputs.release_sha }}
+      - name: Build worker final image
+        uses: docker/build-push-action@v6
+        id: worker_prebuild
+        with:
+          context: .
+          file: Dockerfile.open-sna-worker
+          platforms: linux/amd64
+          push: false
+          provenance: true
+          sbom: true
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.release_sha }}
+          tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        id: web_build
+        with:
+          context: .
+          file: Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          provenance: true
+          sbom: true
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.release_sha }}
+          tags: ghcr.io/hudongpin/sna-web:${{ inputs.release_sha }}
+      - name: Build and push worker image
+        uses: docker/build-push-action@v6
+        id: worker_build
+        with:
+          context: .
+          file: Dockerfile.open-sna-worker
+          platforms: linux/amd64
+          push: true
+          provenance: true
+          sbom: true
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.release_sha }}
+          tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
+      - name: Write digest manifest
+        run: |
+          cat > release-digests.json <<'JSON'
+          {
+            "release_sha": "${{ inputs.release_sha }}",
+            "web_image": "ghcr.io/hudongpin/sna-web@${{ steps.web_build.outputs.digest }}",
+            "worker_image": "ghcr.io/hudongpin/sna-worker@${{ steps.worker_build.outputs.digest }}"
+          }
+          JSON
+      - name: Upload digest manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-digests-${{ inputs.release_sha }}
+          path: release-digests.json
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign images
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes ghcr.io/hudongpin/sna-web@${{ steps.web_build.outputs.digest }}
+          cosign sign --yes ghcr.io/hudongpin/sna-worker@${{ steps.worker_build.outputs.digest }}

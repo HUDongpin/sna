@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
+import { readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +52,7 @@ async function readBoundedResult(outputPath: string) {
 
 type RProcessResult = { exitCode: number; timedOut: boolean; stderr: string };
 type RFailureCode = "R_RUNTIME_NOT_READY" | "WORKBOOK_INVALID" | "R_ANALYSIS_FAILED";
-type RemoteFailureCode = RFailureCode | "WORKER_BUSY";
+type RemoteFailureCode = RFailureCode | "WORKER_BUSY" | "R_ANALYSIS_TIMEOUT";
 
 class RemoteEngineError extends Error {
   constructor(
@@ -68,6 +70,13 @@ function parseRFailureCode(stderr: string): RFailureCode {
 
 function workerModeEnabled() {
   return process.env.OPEN_SNA_R_WORKER_MODE === "1";
+}
+
+function isTestSystemTemporaryRoot(temporaryRoot: string) {
+  if (process.env.NODE_ENV !== "test") return false;
+  const systemTemporaryRoot = path.resolve(tmpdir());
+  const relative = path.relative(systemTemporaryRoot, temporaryRoot);
+  return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function safeTokenMatches(actualHeader: string | null, expectedToken: string) {
@@ -108,6 +117,7 @@ function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError 
   if (code === "R_RUNTIME_NOT_READY" && status === 503) return new RemoteEngineError(code, 503);
   if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502);
   if (code === "WORKER_BUSY" && status === 429) return new RemoteEngineError(code, 429);
+  if (code === "R_ANALYSIS_TIMEOUT" && status === 504) return new RemoteEngineError(code, 504);
   return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
 }
 
@@ -124,7 +134,7 @@ function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "WORKBOOK_INVALID") {
     return noStoreJson(
       {
-        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column.",
+        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
         code: error.code,
       },
       error.status,
@@ -139,6 +149,12 @@ function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "WORKER_BUSY") {
     return noStoreJson(
       { error: "The production R analysis service is busy. Wait for the current analysis to finish and try again.", code: error.code },
+      error.status,
+    );
+  }
+  if (error.code === "R_ANALYSIS_TIMEOUT") {
+    return noStoreJson(
+      { error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.", code: error.code },
       error.status,
     );
   }
@@ -239,23 +255,20 @@ function runRAnalysis(options: {
   });
 }
 
+function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const version = (payload as { schemaVersion?: unknown }).schemaVersion;
+  if (version === "1.1") return isOpenSnaResult(payload) ? payload : null;
+  if (version !== "1.0") return null;
+
+  const candidate = { ...payload, schemaVersion: "1.1" };
+  return isOpenSnaResult(candidate) ? candidate : null;
+}
+
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
-  const engineUrl = process.env.OPEN_SNA_R_API_URL;
-  if (!engineUrl) return null;
-  const engineToken = process.env.OPEN_SNA_R_API_TOKEN || "";
-  let parsedEngineUrl: URL;
-  try {
-    parsedEngineUrl = new URL(engineUrl);
-  } catch {
-    throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
-  }
-  const loopbackHost = ["localhost", "127.0.0.1", "[::1]"].includes(parsedEngineUrl.hostname);
-  if (
-    engineToken.length < 32 ||
-    parsedEngineUrl.username ||
-    parsedEngineUrl.password ||
-    (parsedEngineUrl.protocol !== "https:" && !loopbackHost)
-  ) {
+  const engineConfiguration = readOpenSnaEngineConfigurationStatus();
+  if (!engineConfiguration.configured) {
+    if (engineConfiguration.reason === "missing") return null;
     throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
   }
   try {
@@ -265,8 +278,8 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     outgoing.set("permutations", permutations);
 
     const headers = new Headers({ Accept: "application/json" });
-    headers.set("Authorization", `Bearer ${engineToken}`);
-    const response = await fetch(engineUrl, {
+    headers.set("Authorization", `Bearer ${engineConfiguration.apiToken}`);
+    const response = await fetch(engineConfiguration.apiUrl, {
       method: "POST",
       body: outgoing,
       headers,
@@ -284,17 +297,30 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     }
     const payload: unknown = JSON.parse(responseText);
     if (!response.ok) throw safeRemoteFailure(payload, response.status);
-    if (!isOpenSnaResult(payload) || !matchesOpenSnaRequest(payload, bootstraps, permutations)) {
+    const normalizedResult = normalizeRemoteResult(payload);
+    if (!normalizedResult || !matchesOpenSnaRequest(normalizedResult, bootstraps, permutations)) {
       throw new Error("REMOTE_ENGINE_CONTRACT_FAILED");
     }
-    return payload;
+    return normalizedResult;
   } catch (error) {
     if (error instanceof RemoteEngineError) throw error;
+    if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new RemoteEngineError("R_ANALYSIS_TIMEOUT", 504);
+    }
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }
 }
 
 export async function POST(request: Request) {
+  if (process.env.OPEN_SNA_R_DISABLED === "1") {
+    return noStoreJson(
+      {
+        error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
+        code: "R_ENGINE_DISABLED",
+      },
+      503,
+    );
+  }
   let jobDirectory: string | null = null;
   let claimedWorkerSlot = false;
   try {
@@ -383,7 +409,7 @@ export async function POST(request: Request) {
     );
     const validWorkerRoot = workerMode &&
       (temporaryRoot.startsWith("/tmp/open-sna-") || temporaryRoot.startsWith("/var/tmp/open-sna-"));
-    if (!validWorkerRoot && !temporaryRoot.startsWith("/Volumes/Starship/")) {
+    if (!validWorkerRoot && !temporaryRoot.startsWith("/Volumes/Starship/") && !isTestSystemTemporaryRoot(temporaryRoot)) {
       return noStoreJson(
         {
           error: workerMode
@@ -402,7 +428,13 @@ export async function POST(request: Request) {
 
     const processResult = await runRAnalysis({ inputPath, outputPath, bootstraps, permutations });
     if (processResult.timedOut) {
-      return noStoreJson({ error: "The R analysis exceeded the local five-minute execution limit." }, 504);
+      return noStoreJson(
+        {
+          error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.",
+          code: "R_ANALYSIS_TIMEOUT",
+        },
+        504,
+      );
     }
     if (processResult.exitCode !== 0) {
       const failureCode = parseRFailureCode(processResult.stderr);
@@ -426,7 +458,7 @@ export async function POST(request: Request) {
       }
       return noStoreJson(
         {
-          error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column.",
+          error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
           code: failureCode,
         },
         422

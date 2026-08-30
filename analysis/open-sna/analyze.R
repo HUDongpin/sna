@@ -15,15 +15,37 @@ if (dir.exists(local_r_library)) {
   .libPaths(unique(c(normalizePath(local_r_library), .libPaths())))
 }
 
-required_packages <- c(
+validation_required_packages <- c(
   "jsonlite",
-  "readxl",
+  "digest",
+  "readxl"
+)
+
+full_analysis_required_packages <- c(
+  validation_required_packages,
   "qgraph",
   "huge",
   "mgm",
   "bootnet",
   "networktools",
   "NetworkComparisonTest"
+)
+
+required_packages <- full_analysis_required_packages
+
+NPN_EBICGLASSO_CONDITIONING_FLOOR_V1 <- 1e-4
+NPN_EBICGLASSO_CONDITIONING_METHOD_V1 <- "symmetric eigenvalue clipping and unit-diagonal renormalization"
+NPN_EBICGLASSO_CORRELATION_METHOD_V1 <- paste0(
+  "Nonparanormal transformation followed by Pearson correlation with conditional positive-definite conditioning ",
+  "(trigger < 1e-4; ", NPN_EBICGLASSO_CONDITIONING_METHOD_V1, ")"
+)
+NPN_EBICGLASSO_NETWORK_METHOD_V1 <- paste0(
+  "huge.npn plus Pearson correlation, conditional positive-definite conditioning ",
+  "(trigger < 1e-4; ", NPN_EBICGLASSO_CONDITIONING_METHOD_V1, "), and qgraph::EBICglasso"
+)
+NPN_EBICGLASSO_NCT_METHOD_V1 <- paste0(
+  "NetworkComparisonTest::NCT permutation test using NPN EBICglasso with conditional positive-definite conditioning ",
+  "(trigger < 1e-4; ", NPN_EBICGLASSO_CONDITIONING_METHOD_V1, ")"
 )
 
 open_sna_abort <- function(code, ...) {
@@ -34,9 +56,17 @@ open_sna_abort <- function(code, ...) {
   stop(condition)
 }
 
-assert_packages <- function() {
-  missing <- required_packages[
-    !vapply(required_packages, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))
+open_sna_cli_abort <- function() {
+  open_sna_abort("R_ANALYSIS_FAILED", "Open SNA command-line options are invalid.")
+}
+
+package_available <- function(package) requireNamespace(package, quietly = TRUE)
+
+assert_packages <- function(
+    packages = full_analysis_required_packages,
+    availability = package_available) {
+  missing <- packages[
+    !vapply(packages, availability, FUN.VALUE = logical(1))
   ]
   if (length(missing)) {
     open_sna_abort(
@@ -53,33 +83,42 @@ parse_cli_args <- function(args) {
   index <- 1L
   while (index <= length(args)) {
     key <- args[[index]]
-    if (!startsWith(key, "--")) {
-      stop("Unexpected command-line argument: ", key, call. = FALSE)
+    if (!is.character(key) || length(key) != 1L || !grepl("^--[A-Za-z][A-Za-z0-9-]*$", key)) {
+      open_sna_cli_abort()
     }
-    if (index == length(args)) {
-      stop("Missing value for command-line argument: ", key, call. = FALSE)
+    name <- substring(key, 3L)
+    if (name %in% names(output) || index == length(args)) {
+      open_sna_cli_abort()
     }
-    output[[substring(key, 3L)]] <- args[[index + 1L]]
+    value <- args[[index + 1L]]
+    if (!is.character(value) || length(value) != 1L || startsWith(value, "--")) {
+      open_sna_cli_abort()
+    }
+    output[[name]] <- value
     index <- index + 2L
   }
   output
 }
 
+validated_cli_options <- function(args) {
+  options <- parse_cli_args(args)
+  mode <- if (is.null(options$mode)) "analyze" else options$mode
+  if (!identical(mode, "analyze") && !identical(mode, "validate")) open_sna_cli_abort()
+  common_options <- c("input", "output", "mode", "sheet", "gender-1-label", "gender-2-label")
+  analysis_options <- c("bootstraps", "permutations", "seed", "data-source")
+  allowed_options <- if (identical(mode, "validate")) common_options else c(common_options, analysis_options)
+  if (length(setdiff(names(options), allowed_options))) open_sna_cli_abort()
+  if (is.null(options$input) || is.null(options$output)) open_sna_cli_abort()
+  options$mode <- mode
+  options
+}
+
 integer_option <- function(value, default, minimum, maximum, label) {
   if (is.null(value) || !nzchar(value)) return(as.integer(default))
-  parsed <- suppressWarnings(as.integer(value))
-  if (is.na(parsed) || parsed < minimum || parsed > maximum) {
-    stop(
-      label,
-      " must be an integer between ",
-      minimum,
-      " and ",
-      maximum,
-      ".",
-      call. = FALSE
-    )
-  }
-  parsed
+  if (!is.character(value) || length(value) != 1L || !grepl("^(0|[1-9][0-9]*)$", value)) open_sna_cli_abort()
+  parsed <- suppressWarnings(as.numeric(value))
+  if (!is.finite(parsed) || parsed > .Machine$integer.max || parsed < minimum || parsed > maximum) open_sna_cli_abort()
+  as.integer(parsed)
 }
 
 finite_or_na <- function(value) {
@@ -165,6 +204,44 @@ validate_gender_mapping <- function(gender_mapping) {
     )
   }
   gender_mapping
+}
+
+select_group_column <- function(metadata, analyzed_rows) {
+  if (!is.data.frame(metadata) || length(analyzed_rows) != nrow(metadata)) {
+    stop("Metadata and analyzed-row mask must have matching rows.", call. = FALSE)
+  }
+  if (!is.logical(analyzed_rows)) analyzed_rows <- as.logical(analyzed_rows)
+  if (anyNA(analyzed_rows)) stop("Analyzed-row mask must not contain missing values.", call. = FALSE)
+
+  safe_column <- function(column) is.character(column) && length(column) == 1L && nzchar(column) && grepl("^[A-Za-z][A-Za-z0-9 _-]{0,39}$", column)
+  evaluate <- function(column) {
+    if (!safe_column(column) || !(column %in% names(metadata))) return(NULL)
+    values <- trimws(as.character(metadata[[column]]))[analyzed_rows]
+    if (any(is.na(values) | !nzchar(values))) return(NULL)
+    levels <- sort(unique(values))
+    if (length(levels) != 2L || any(!grepl("^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$", levels))) return(NULL)
+    counts <- table(factor(values, levels = levels))
+    if (any(counts < 20L)) return(NULL)
+    list(
+      column = column,
+      values = trimws(as.character(metadata[[column]])),
+      levels = levels,
+      counts = data.frame(group = levels, n = as.integer(counts), stringsAsFactors = FALSE)
+    )
+  }
+
+  gender_matches <- names(metadata)[tolower(names(metadata)) == "gender"]
+  if (length(gender_matches)) {
+    selected <- evaluate(gender_matches[[1]])
+    if (is.null(selected)) stop("The Gender column is invalid for subgroup comparison.", call. = FALSE)
+    return(selected)
+  }
+
+  for (column in names(metadata)) {
+    selected <- evaluate(column)
+    if (!is.null(selected)) return(selected)
+  }
+  stop("Open SNA requires a safe binary metadata column with at least 20 analyzed rows in each group.", call. = FALSE)
 }
 
 read_and_validate_workbook <- function(
@@ -259,52 +336,26 @@ read_and_validate_workbook <- function(
   }
 
   metadata <- raw[, setdiff(names(raw), item_columns), drop = FALSE]
-  group_column <- names(metadata)[tolower(names(metadata)) == "gender"]
-  if (!length(group_column)) {
-    binary_columns <- names(metadata)[vapply(metadata, function(value) {
-      levels <- unique(trimws(as.character(stats::na.omit(value))))
-      length(levels) == 2L
-    }, logical(1))]
-    group_column <- binary_columns[1]
-  }
-  group_column <- if (length(group_column)) group_column[[1]] else NA_character_
-  group_values <- if (is.na(group_column)) {
-    rep(NA_character_, nrow(raw))
-  } else {
-    trimws(as.character(raw[[group_column]]))
-  }
+  group_selection <- select_group_column(metadata, complete)
+  group_column <- group_selection$column
+  group_values <- group_selection$values
   gender_mapping <- validate_gender_mapping(gender_mapping)
   if (!is.null(gender_mapping)) {
-    if (is.na(group_column) || tolower(group_column) != "gender") {
+    if (tolower(group_column) != "gender") {
       stop("A Gender code mapping was supplied, but no Gender column was found.", call. = FALSE)
     }
-    observed_codes <- sort(unique(group_values[!is.na(group_values) & nzchar(group_values)]))
+  }
+  if (!is.null(gender_mapping)) {
+    observed_codes <- sort(unique(group_values[complete]))
     if (!identical(observed_codes, c("1", "2"))) {
-      stop(
-        "The supplied Gender mapping applies only when the observed Gender codes are exactly 1 and 2.",
-        call. = FALSE
-      )
+      stop("The supplied Gender mapping applies only when the observed Gender codes are exactly 1 and 2.", call. = FALSE)
     }
     group_values <- unname(gender_mapping[group_values])
+    group_selection$levels <- unname(gender_mapping[group_selection$levels])
+    group_selection$counts$group <- group_selection$levels
   }
-  complete_group_values <- group_values[complete]
-  valid_group_values <- complete_group_values[
-    !is.na(complete_group_values) & nzchar(complete_group_values)
-  ]
-  group_counts <- table(valid_group_values)
-  if (
-    is.na(group_column) ||
-      length(valid_group_values) != length(complete_group_values) ||
-      length(group_counts) != 2L ||
-      any(group_counts < 20L) ||
-      !grepl("^[A-Za-z][A-Za-z0-9 _-]{0,39}$", group_column) ||
-      any(!grepl("^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$", names(group_counts)))
-  ) {
-    stop(
-      "Open SNA v1 requires a binary Gender or metadata column with at least 20 complete rows in each group.",
-      call. = FALSE
-    )
-  }
+  group_levels <- group_selection$levels
+  group_count_rows <- group_selection$counts
 
   list(
     raw = raw,
@@ -314,6 +365,8 @@ read_and_validate_workbook <- function(
     communities = stats::setNames(community_from_item(item_columns), item_columns),
     group_column = group_column,
     group_values = group_values,
+    group_levels = group_levels,
+    group_counts = group_count_rows,
     sheet = selected_sheet,
     original_rows = nrow(raw),
     dropped_rows = sum(!complete)
@@ -321,38 +374,128 @@ read_and_validate_workbook <- function(
 }
 
 estimate_network <- function(items, gamma = 0.5) {
-  matrix_input <- as.matrix(items)
-  transformed <- huge::huge.npn(
-    matrix_input,
-    npn.func = "shrinkage",
-    verbose = FALSE
-  )
-  correlation <- stats::cor(transformed)
-  weights <- qgraph::EBICglasso(correlation, n = nrow(items), gamma = gamma)
-  rownames(weights) <- colnames(weights) <- colnames(items)
-  diag(weights) <- 0
-  weights[abs(weights) < 1e-6] <- 0
-  list(transformed = transformed, correlation = correlation, weights = weights)
+  npn_ebicglasso_estimate(items, gamma = gamma)
+}
+
+align_metric <- function(values, item_names, label = "Metric") {
+  if (length(values) != length(item_names)) {
+    stop(label, " must contain exactly one value for every item.", call. = FALSE)
+  }
+  value_names <- names(values)
+  if (!is.null(value_names)) {
+    if (anyDuplicated(value_names) || !setequal(value_names, item_names)) {
+      stop(label, " names must match the network item names exactly.", call. = FALSE)
+    }
+    values <- values[item_names]
+  }
+  values <- as.numeric(values)
+  names(values) <- item_names
+  values
 }
 
 extract_metric <- function(values, item_names) {
-  if (!is.null(names(values))) values <- values[item_names]
-  round_metric(values)
+  round_metric(align_metric(values, item_names))
+}
+
+validate_network_weights <- function(weights, item_names = colnames(weights)) {
+  if (
+    !is.matrix(weights) ||
+      nrow(weights) != ncol(weights) ||
+      is.null(item_names) ||
+      length(item_names) != nrow(weights) ||
+      anyDuplicated(item_names) ||
+      is.null(rownames(weights)) ||
+      is.null(colnames(weights)) ||
+      !identical(rownames(weights), item_names) ||
+      !identical(colnames(weights), item_names) ||
+      any(!is.finite(weights))
+  ) {
+    stop("Network weights must be a finite square matrix with matching item names.", call. = FALSE)
+  }
+  if (!isTRUE(all.equal(weights, t(weights), tolerance = 1e-12, check.attributes = FALSE))) {
+    stop("Network weights must be symmetric.", call. = FALSE)
+  }
+  invisible(weights)
+}
+
+is_empty_network <- function(weights, item_names = colnames(weights)) {
+  validate_network_weights(weights, item_names)
+  !any(is.finite(weights) & weights != 0)
+}
+
+named_metric <- function(value, item_names) {
+  if (length(value) == 1L) return(align_metric(rep(value, length(item_names)), item_names))
+  align_metric(value, item_names)
+}
+
+empty_network_metrics <- function(item_names) {
+  list(
+    strength = named_metric(0, item_names),
+    expectedInfluence = named_metric(0, item_names),
+    betweenness = named_metric(0, item_names),
+    closeness = named_metric(NA_real_, item_names),
+    bridgeStrength = named_metric(0, item_names),
+    bridgeExpectedInfluence = named_metric(0, item_names),
+    bridgeBetweenness = named_metric(0, item_names),
+    bridgeCloseness = named_metric(NA_real_, item_names)
+  )
+}
+
+metric_column <- function(table, column, item_names, fallback = NA_real_) {
+  values <- named_metric(fallback, item_names)
+  if (is.null(table) || !(column %in% colnames(table))) return(values)
+  align_metric(table[, column], item_names, paste0("Centrality column ", column))
+}
+
+deterministic_circle_layout <- function(item_names) {
+  angles <- seq(0, 2 * pi, length.out = length(item_names) + 1L)[seq_along(item_names)]
+  coordinates <- data.frame(
+    x = normalize_coordinate(cos(angles)),
+    y = normalize_coordinate(sin(angles)),
+    stringsAsFactors = FALSE
+  )
+  rownames(coordinates) <- item_names
+  coordinates
 }
 
 network_metrics <- function(items, network, communities, seed, layout_name = "spring") {
   item_names <- colnames(items)
   weights <- network$weights
+  empty_network <- is_empty_network(weights)
 
-  graph <- qgraph::qgraph(weights, DoNotPlot = TRUE, labels = item_names)
-  centrality <- qgraph::centrality_auto(graph)$node.centrality
-  centrality <- centrality[item_names, , drop = FALSE]
-
-  bridge_values <- networktools::bridge(
-    weights,
-    communities = communities,
-    directed = FALSE
-  )
+  if (empty_network) {
+    centrality_metrics <- empty_network_metrics(item_names)
+    coordinates <- deterministic_circle_layout(item_names)
+  } else {
+    graph <- qgraph::qgraph(weights, DoNotPlot = TRUE, labels = item_names)
+    centrality <- qgraph::centrality_auto(graph)$node.centrality
+    centrality <- centrality[item_names, , drop = FALSE]
+    bridge_values <- networktools::bridge(
+      weights,
+      communities = communities,
+      directed = FALSE
+    )
+    centrality_metrics <- list(
+      strength = metric_column(centrality, "Strength", item_names),
+      expectedInfluence = metric_column(centrality, "ExpectedInfluence", item_names),
+      betweenness = metric_column(centrality, "Betweenness", item_names),
+      closeness = metric_column(centrality, "Closeness", item_names),
+      bridgeStrength = named_metric(bridge_values[["Bridge Strength"]], item_names),
+      bridgeExpectedInfluence = named_metric(
+        bridge_values[["Bridge Expected Influence (1-step)"]],
+        item_names
+      ),
+      bridgeBetweenness = named_metric(bridge_values[["Bridge Betweenness"]], item_names),
+      bridgeCloseness = named_metric(bridge_values[["Bridge Closeness"]], item_names)
+    )
+    set.seed(seed + 17L)
+    coordinates <- qgraph::qgraph(
+      weights,
+      layout = layout_name,
+      repulsion = 0.65,
+      DoNotPlot = TRUE
+    )$layout
+  }
 
   fit <- mgm::mgm(
     data = network$transformed,
@@ -369,31 +512,20 @@ network_metrics <- function(items, network, communities, seed, layout_name = "sp
     stats::predict(fit, data = network$transformed, errorCon = "R2")$errors$R2
   )
 
-  set.seed(seed + 17L)
-  coordinates <- qgraph::qgraph(
-    weights,
-    layout = layout_name,
-    repulsion = 0.65,
-    DoNotPlot = TRUE
-  )$layout
-
   nodes <- data.frame(
     id = item_names,
     label = item_names,
     community = unname(communities[item_names]),
     x = round_metric(normalize_coordinate(coordinates[, 1L])),
     y = round_metric(normalize_coordinate(coordinates[, 2L])),
-    strength = extract_metric(centrality[, "Strength"], item_names),
-    expectedInfluence = extract_metric(centrality[, "ExpectedInfluence"], item_names),
-    betweenness = extract_metric(centrality[, "Betweenness"], item_names),
-    closeness = extract_metric(centrality[, "Closeness"], item_names),
-    bridgeStrength = extract_metric(bridge_values[["Bridge Strength"]], item_names),
-    bridgeExpectedInfluence = extract_metric(
-      bridge_values[["Bridge Expected Influence (1-step)"]],
-      item_names
-    ),
-    bridgeBetweenness = extract_metric(bridge_values[["Bridge Betweenness"]], item_names),
-    bridgeCloseness = extract_metric(bridge_values[["Bridge Closeness"]], item_names),
+    strength = extract_metric(centrality_metrics$strength, item_names),
+    expectedInfluence = extract_metric(centrality_metrics$expectedInfluence, item_names),
+    betweenness = extract_metric(centrality_metrics$betweenness, item_names),
+    closeness = extract_metric(centrality_metrics$closeness, item_names),
+    bridgeStrength = extract_metric(centrality_metrics$bridgeStrength, item_names),
+    bridgeExpectedInfluence = extract_metric(centrality_metrics$bridgeExpectedInfluence, item_names),
+    bridgeBetweenness = extract_metric(centrality_metrics$bridgeBetweenness, item_names),
+    bridgeCloseness = extract_metric(centrality_metrics$bridgeCloseness, item_names),
     predictability = round_metric(predictability),
     stringsAsFactors = FALSE,
     check.names = FALSE
@@ -453,54 +585,94 @@ network_summary <- function(items, weights, nodes, edges) {
   )
 }
 
+stabilize_npn_correlation <- function(
+    correlation,
+    eigen_floor = NPN_EBICGLASSO_CONDITIONING_FLOOR_V1) {
+  if (!is.matrix(correlation) || nrow(correlation) != ncol(correlation) || any(!is.finite(correlation))) {
+    stop("NPN Pearson correlation matrix must be finite and square.", call. = FALSE)
+  }
+  item_names <- colnames(correlation)
+  correlation <- (correlation + t(correlation)) / 2
+  decomposition <- eigen(correlation, symmetric = TRUE)
+  if (min(decomposition$values) < eigen_floor) {
+    conditioned_values <- pmax(decomposition$values, eigen_floor)
+    correlation <- sweep(decomposition$vectors, 2L, conditioned_values, `*`) %*%
+      t(decomposition$vectors)
+    correlation <- (correlation + t(correlation)) / 2
+    scales <- sqrt(diag(correlation))
+    correlation <- correlation / outer(scales, scales)
+    diag(correlation) <- 1
+  }
+  rownames(correlation) <- colnames(correlation) <- item_names
+  conditioned_eigenvalues <- eigen(correlation, symmetric = TRUE, only.values = TRUE)$values
+  if (any(!is.finite(conditioned_eigenvalues)) || min(conditioned_eigenvalues) <= 0) {
+    stop("NPN Pearson correlation conditioning did not produce a positive-definite matrix.", call. = FALSE)
+  }
+  correlation
+}
+
+run_ebicglasso_with_messages <- function(expression, suppress_internal_messages) {
+  if (isTRUE(suppress_internal_messages)) return(suppressMessages(expression))
+  expression
+}
+
+npn_ebicglasso_estimate <- function(
+    data,
+    gamma,
+    suppress_internal_messages = FALSE) {
+  matrix_input <- as.matrix(data)
+  item_names <- colnames(matrix_input)
+  if (
+    is.null(item_names) ||
+      anyDuplicated(item_names) ||
+      !is.numeric(matrix_input) ||
+      any(!is.finite(matrix_input))
+  ) {
+    stop("NPN EBICglasso estimation requires finite numeric data with unique item names.", call. = FALSE)
+  }
+  transformed <- huge::huge.npn(
+    matrix_input,
+    npn.func = "shrinkage",
+    verbose = FALSE
+  )
+  correlation <- stabilize_npn_correlation(stats::cor(transformed))
+  weights <- run_ebicglasso_with_messages(
+    qgraph::EBICglasso(correlation, n = nrow(matrix_input), gamma = gamma),
+    suppress_internal_messages
+  )
+  rownames(weights) <- colnames(weights) <- item_names
+  diag(weights) <- 0
+  weights[abs(weights) < 1e-6] <- 0
+  validate_network_weights(weights, item_names)
+  list(transformed = transformed, correlation = correlation, weights = weights)
+}
+
+nct_npn_ebicglasso_estimator <- function(data, gamma) {
+  withCallingHandlers(
+    {
+      npn_ebicglasso_estimate(
+        data,
+        gamma = gamma,
+        suppress_internal_messages = TRUE
+      )$weights
+    },
+    warning = function(condition) invokeRestart("muffleWarning")
+  )
+}
+
 subgroup_comparison <- function(prepared, gamma, permutations, seed) {
-  if (is.na(prepared$group_column)) {
-    return(list(
-      available = FALSE,
-      reason = "No two-level subgroup column was found."
-    ))
-  }
-
   group_values <- prepared$group_values[prepared$complete]
-  levels <- sort(unique(stats::na.omit(group_values)))
-  if (length(levels) != 2L) {
-    return(list(
-      available = FALSE,
-      reason = "Subgroup comparison requires exactly two non-empty group levels."
-    ))
-  }
-
+  levels <- prepared$group_levels
   first_index <- which(group_values == levels[[1]])
   second_index <- which(group_values == levels[[2]])
-  if (min(length(first_index), length(second_index)) < 20L) {
-    return(list(
-      available = FALSE,
-      reason = "Each subgroup needs at least 20 complete rows."
-    ))
-  }
 
   items <- prepared$items
   first_data <- items[first_index, , drop = FALSE]
   second_data <- items[second_index, , drop = FALSE]
-  set.seed(seed)
-  first_network <- bootnet::estimateNetwork(
-    first_data,
-    default = "EBICglasso",
-    corMethod = "npn",
-    tuning = gamma,
-    verbose = FALSE
-  )
-  second_network <- bootnet::estimateNetwork(
-    second_data,
-    default = "EBICglasso",
-    corMethod = "npn",
-    tuning = gamma,
-    verbose = FALSE
-  )
   set.seed(seed + 101L)
   nct_result <- NetworkComparisonTest::NCT(
-    first_network,
-    second_network,
+    first_data,
+    second_data,
     it = permutations,
     paired = FALSE,
     weighted = TRUE,
@@ -509,6 +681,8 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
     edges = "all",
     progressbar = FALSE,
     p.adjust.methods = "holm",
+    estimator = nct_npn_ebicglasso_estimator,
+    estimatorArgs = list(gamma = gamma),
     verbose = FALSE
   )
 
@@ -529,13 +703,13 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
 
   list(
     available = TRUE,
-    method = "NetworkComparisonTest::NCT permutation test",
+    method = NPN_EBICGLASSO_NCT_METHOD_V1,
     packageVersion = as.character(utils::packageVersion("NetworkComparisonTest")),
     groupColumn = prepared$group_column,
     groupA = levels[[1]],
     groupB = levels[[2]],
-    nA = length(first_index),
-    nB = length(second_index),
+    nA = prepared$group_counts$n[[1]],
+    nB = prepared$group_counts$n[[2]],
     permutations = permutations,
     globalStrengthA = round_metric(nct_result$glstrinv.sep[[1]]),
     globalStrengthB = round_metric(nct_result$glstrinv.sep[[2]]),
@@ -554,7 +728,45 @@ stability_label <- function(value) {
   "Desirable"
 }
 
-stability_analysis <- function(items, communities, gamma, bootstraps, seed) {
+empty_network_stability <- function(bootstraps) {
+  statistics <- c(
+    "strength",
+    "bridgeStrength",
+    "bridgeCloseness",
+    "bridgeBetweenness"
+  )
+  labels <- c(
+    strength = "Strength",
+    bridgeStrength = "Bridge strength",
+    bridgeCloseness = "Bridge closeness",
+    bridgeBetweenness = "Bridge betweenness"
+  )
+  list(
+    available = TRUE,
+    method = "Case-dropping bootstrap",
+    bootstraps = bootstraps,
+    cores = 1L,
+    correlationThreshold = 0.70,
+    acceptableThreshold = 0.25,
+    desirableThreshold = 0.50,
+    metrics = data.frame(
+      id = statistics,
+      metric = unname(labels[statistics]),
+      coefficient = rep(NA_real_, length(statistics)),
+      interpretation = rep("Not available", length(statistics)),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+stability_analysis <- function(items, communities, gamma, bootstraps, seed, weights) {
+  if (is_empty_network(weights)) {
+    warning(
+      "The estimated network contains no nonzero edges; case-dropping centrality stability is not available.",
+      call. = FALSE
+    )
+    return(empty_network_stability(bootstraps))
+  }
   statistics <- c(
     "strength",
     "bridgeStrength",
@@ -688,27 +900,25 @@ build_interpretation <- function(overview, nodes, comparison, stability, runtime
     )
   }
 
-  if (isTRUE(comparison$available)) {
-    significant <- comparison$networkStructurePValue < 0.05
-    insights[[length(insights) + 1L]] <- list(
-      id = "subgroup-comparison",
-      title = "Subgroup comparison",
-      text = if (significant) {
-        paste0(
-          "The permutation test detects a subgroup difference in network structure (p = ",
-          format(round(comparison$networkStructurePValue, 3), nsmall = 3),
-          "). Inspect corrected edge tests before drawing item-level conclusions."
-        )
-      } else {
-        paste0(
-          "The permutation test does not detect a subgroup difference in network structure at alpha .05 (p = ",
-          format(round(comparison$networkStructurePValue, 3), nsmall = 3),
-          "). This is not evidence that the networks are identical."
-        )
-      },
-      evidence = "Subgroup Comparison: permutation test"
-    )
-  }
+  significant <- comparison$networkStructurePValue < 0.05
+  insights[[length(insights) + 1L]] <- list(
+    id = "subgroup-comparison",
+    title = "Subgroup comparison",
+    text = if (significant) {
+      paste0(
+        "The permutation test detects a subgroup difference in network structure (p = ",
+        format(round(comparison$networkStructurePValue, 3), nsmall = 3),
+        "). Inspect corrected edge tests before drawing item-level conclusions."
+      )
+    } else {
+      paste0(
+        "The permutation test does not detect a subgroup difference in network structure at alpha .05 (p = ",
+        format(round(comparison$networkStructurePValue, 3), nsmall = 3),
+        "). This is not evidence that the networks are identical."
+      )
+    },
+    evidence = "Subgroup Comparison: permutation test"
+  )
 
   list(
     generator = "Deterministic evidence-bound rules implemented in R",
@@ -732,8 +942,9 @@ analyze_workbook <- function(
     seed = 2026L,
     data_source = "uploaded-workbook",
     sheet = NULL,
-    gender_mapping = NULL) {
-  assert_packages()
+    gender_mapping = NULL,
+    availability = package_available) {
+  assert_packages(full_analysis_required_packages, availability = availability)
   if (!(data_source %in% c("uploaded-workbook", "aggregate-demo"))) {
     stop("Data source must be uploaded-workbook or aggregate-demo.", call. = FALSE)
   }
@@ -743,17 +954,7 @@ analyze_workbook <- function(
   if (permutations != 1000L) {
     stop("Permutation count must be exactly 1000.", call. = FALSE)
   }
-  prepared <- tryCatch(
-    read_and_validate_workbook(
-      input_path,
-      sheet = sheet,
-      gender_mapping = gender_mapping
-    ),
-    error = function(error) {
-      if (inherits(error, "open_sna_error")) stop(error)
-      open_sna_abort("WORKBOOK_INVALID", conditionMessage(error))
-    }
-  )
+  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
   gamma <- 0.5
   layout_name <- "spring"
   analysis_warnings <- character()
@@ -792,7 +993,8 @@ analyze_workbook <- function(
     prepared$communities,
     gamma = gamma,
     bootstraps = bootstraps,
-    seed = seed
+    seed = seed,
+    weights = network$weights
   ))
   analysis_warnings <- unique(trimws(analysis_warnings[nzchar(trimws(analysis_warnings))]))
   interpretation <- build_interpretation(
@@ -803,20 +1005,8 @@ analyze_workbook <- function(
     analysis_warnings
   )
 
-  complete_group_values <- prepared$group_values[prepared$complete]
-  group_counts <- if (is.na(prepared$group_column)) {
-    data.frame(group = character(), n = integer(), stringsAsFactors = FALSE)
-  } else {
-    counts <- table(complete_group_values, useNA = "no")
-    data.frame(
-      group = names(counts),
-      n = as.integer(counts),
-      stringsAsFactors = FALSE
-    )
-  }
-
   result <- list(
-    schemaVersion = "1.0",
+    schemaVersion = "1.1",
     analysisProfile = "npn-ebicglasso-v1",
     dataSource = data_source,
     generatedAt = format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ"),
@@ -834,13 +1024,13 @@ analyze_workbook <- function(
       originalRows = prepared$original_rows,
       analyzedRows = nrow(prepared$items),
       droppedRows = prepared$dropped_rows,
-      groupColumn = if (is.na(prepared$group_column)) NULL else prepared$group_column,
-      groupCounts = group_counts,
+      groupColumn = prepared$group_column,
+      groupCounts = prepared$group_counts,
       itemColumns = prepared$item_columns
     ),
     settings = list(
       estimator = "EBICglasso Gaussian graphical model",
-      correlationMethod = "Nonparanormal transformation followed by Pearson correlation",
+      correlationMethod = NPN_EBICGLASSO_CORRELATION_METHOD_V1,
       gamma = gamma,
       missingData = "Listwise deletion across selected network items",
       communityRule = "Item-name prefix before the trailing number",
@@ -853,7 +1043,7 @@ analyze_workbook <- function(
     models = list(
       network = list(
         id = "qgraph-npn-ebicglasso-v1",
-        method = "huge.npn plus qgraph::EBICglasso"
+        method = NPN_EBICGLASSO_NETWORK_METHOD_V1
       ),
       predictability = list(
         id = "mgm-ebic-r2-v1",
@@ -897,10 +1087,84 @@ analyze_workbook <- function(
   invisible(result)
 }
 
-main <- function() {
-  options <- parse_cli_args(commandArgs(trailingOnly = TRUE))
-  if (is.null(options$input) || is.null(options$output)) {
-    stop("Usage: analyze.R --input workbook.xlsx --output result.json", call. = FALSE)
+validated_workbook <- function(input_path, sheet = NULL, gender_mapping = NULL) {
+  tryCatch(
+    read_and_validate_workbook(
+      input_path,
+      sheet = sheet,
+      gender_mapping = gender_mapping
+    ),
+    error = function(error) {
+      if (inherits(error, "open_sna_error")) stop(error)
+      open_sna_abort("WORKBOOK_INVALID", conditionMessage(error))
+    }
+  )
+}
+
+workbook_validation_result <- function(prepared, input_path) {
+  list(
+    schemaVersion = "1.0",
+    valid = TRUE,
+    inputFingerprint = paste0("sha256:", digest::digest(file = input_path, algo = "sha256")),
+    summary = list(
+      originalRows = prepared$original_rows,
+      analyzedRows = nrow(prepared$items),
+      droppedRows = prepared$dropped_rows,
+      itemCount = length(prepared$item_columns),
+      communityCount = length(unique(unname(prepared$communities))),
+      groupColumn = prepared$group_column,
+      groupCounts = prepared$group_counts
+    )
+  )
+}
+
+validate_workbook <- function(
+    input_path,
+    output_path,
+    sheet = NULL,
+    gender_mapping = NULL,
+    availability = package_available) {
+  assert_packages(validation_required_packages, availability = availability)
+  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
+  result <- workbook_validation_result(prepared, input_path)
+  dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(
+    result,
+    path = output_path,
+    auto_unbox = TRUE,
+    dataframe = "rows",
+    digits = 8,
+    pretty = TRUE,
+    null = "null",
+    na = "null"
+  )
+  invisible(result)
+}
+
+main <- function(
+    args = commandArgs(trailingOnly = TRUE),
+    validate_runner = validate_workbook,
+    analyze_runner = analyze_workbook) {
+  options <- validated_cli_options(args)
+  mode <- options$mode
+  gender_mapping <- NULL
+  gender_one_label <- options[["gender-1-label"]]
+  gender_two_label <- options[["gender-2-label"]]
+  if (!is.null(gender_one_label) || !is.null(gender_two_label)) {
+    if (is.null(gender_one_label) || is.null(gender_two_label)) {
+      open_sna_cli_abort()
+    }
+    gender_mapping <- c("1" = gender_one_label, "2" = gender_two_label)
+  }
+  if (identical(mode, "validate")) {
+    validate_runner(
+      input_path = options$input,
+      output_path = options$output,
+      sheet = options$sheet,
+      gender_mapping = gender_mapping
+    )
+    cat("Open SNA workbook validation completed.\n")
+    return(invisible(NULL))
   }
   bootstraps <- integer_option(
     options$bootstraps,
@@ -923,16 +1187,7 @@ main <- function() {
     maximum = .Machine$integer.max,
     label = "Seed"
   )
-  gender_mapping <- NULL
-  gender_one_label <- options[["gender-1-label"]]
-  gender_two_label <- options[["gender-2-label"]]
-  if (!is.null(gender_one_label) || !is.null(gender_two_label)) {
-    if (is.null(gender_one_label) || is.null(gender_two_label)) {
-      stop("Both --gender-1-label and --gender-2-label are required together.", call. = FALSE)
-    }
-    gender_mapping <- c("1" = gender_one_label, "2" = gender_two_label)
-  }
-  analyze_workbook(
+  analyze_runner(
     input_path = options$input,
     output_path = options$output,
     bootstraps = bootstraps,

@@ -12,6 +12,10 @@ import {
 } from "react";
 import NetworkGraph from "@/components/open-sna/NetworkGraph";
 import {
+  decodeOpenSnaAnalysisResponse,
+  OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE,
+} from "@/lib/open-sna-errors";
+import {
   formatOpenSnaNumber,
   isOpenSnaResult,
   openSnaNodesCsv,
@@ -33,6 +37,11 @@ const panelHeadings: Array<{ id: OpenSnaTabId; label: string; shortLabel: string
 ];
 
 const MAX_WORKBOOK_BYTES = 5 * 1024 * 1024;
+const OPEN_SNA_REFERENCE_ERROR_MESSAGE = "The reference result could not be loaded.";
+
+export function openSnaReferenceErrorMessage(_caught: unknown) {
+  return OPEN_SNA_REFERENCE_ERROR_MESSAGE;
+}
 
 type IconName = "arrow" | "check" | "chevron" | "close" | "download" | "info" | "search" | "upload";
 
@@ -215,16 +224,14 @@ function OverviewPanel({ result }: { result: OpenSnaResult }) {
         </section>
         <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
           <h3 className="text-lg font-black text-[var(--ink)]">Subgroup counts</h3>
-          {result.source.groupCounts.length ? (
-            <ul className="mt-4 space-y-3">
-              {result.source.groupCounts.map((entry) => (
-                <li key={entry.group} className="flex items-center justify-between rounded-xl bg-[var(--surface)] px-4 py-3">
-                  <span className="font-bold text-[var(--ink)]">{entry.group}</span>
-                  <span className="tabular-nums text-[var(--muted)]">n = {entry.n.toLocaleString("en")}</span>
-                </li>
-              ))}
-            </ul>
-          ) : <p className="mt-4 text-sm text-[var(--muted)]">No binary subgroup column was detected.</p>}
+          <ul className="mt-4 space-y-3">
+            {result.source.groupCounts.map((entry) => (
+              <li key={entry.group} className="flex items-center justify-between rounded-xl bg-[var(--surface)] px-4 py-3">
+                <span className="font-bold text-[var(--ink)]">{entry.group}</span>
+                <span className="tabular-nums text-[var(--muted)]">n = {entry.n.toLocaleString("en")}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       </div>
       <MethodNote>
@@ -338,9 +345,6 @@ function PredictabilityPanel({ result }: { result: OpenSnaResult }) {
 
 function ComparisonPanel({ result }: { result: OpenSnaResult }) {
   const comparison = result.subgroupComparison;
-  if (!comparison.available) {
-    return <div className="rounded-2xl border border-[var(--line)] bg-[var(--page)] p-6"><h3 className="text-lg font-black">NCT unavailable</h3><p className="mt-2 text-[var(--muted)]">{comparison.reason}</p></div>;
-  }
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -479,7 +483,7 @@ export default function OpenSnaWorkbench() {
       if (options.scroll) scrollToResults();
     } catch (caught) {
       setResult(null);
-      setError(caught instanceof Error ? caught.message : "The reference result could not be loaded.");
+      setError(openSnaReferenceErrorMessage(caught));
     } finally {
       setBusySource(null);
     }
@@ -547,12 +551,20 @@ export default function OpenSnaWorkbench() {
       formData.set("bootstraps", bootstraps);
       formData.set("permutations", "1000");
       const response = await fetch("/api/open-sna/analyze", { method: "POST", body: formData });
-      const payload: unknown = await response.json();
-      if (!response.ok) {
-        const reason = typeof payload === "object" && payload && "error" in payload && typeof payload.error === "string" ? payload.error : "The analysis engine rejected this workbook.";
-        throw new Error(reason);
+      const decoded = await decodeOpenSnaAnalysisResponse(response);
+      if (!decoded.ok) {
+        setError(decoded.message);
+        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setSetupOpen(true);
+        return;
       }
-      if (!isOpenSnaResult(payload)) throw new Error("The analysis engine returned an invalid result.");
+      const payload = decoded.payload;
+      if (!isOpenSnaResult(payload)) {
+        setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
+        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setSetupOpen(true);
+        return;
+      }
       setResult(payload);
       setMessage(payload.interpretation.thirdPartyAiUsed
         ? "Workbook analysis and LUNA interpretation complete. Temporary source data was removed."
@@ -560,8 +572,8 @@ export default function OpenSnaWorkbench() {
       selectPanel("overview");
       setSetupOpen(false);
       scrollToResults();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The workbook could not be analyzed.");
+    } catch {
+      setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
       setMessage("No uploaded-workbook result was substituted with reference data.");
       setSetupOpen(true);
     } finally {
@@ -600,6 +612,17 @@ export default function OpenSnaWorkbench() {
           </button>
         </div>
 
+        <aside className="m-4 mb-0 rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-4 sm:m-5 sm:mb-0" aria-label="Open SNA Public Beta notice">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--teal-ink)]">Public Beta</p>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-[var(--ink)]">
+            <li>The service processes one analysis at a time.</li>
+            <li>A second concurrent request may return WORKER_BUSY.</li>
+            <li>Large workbooks or analyses with 1,000 bootstrap replicates may time out.</li>
+            <li>Uploaded workbooks and row-level data are not retained.</li>
+            <li>This Public Beta has no high-availability or availability commitment.</li>
+          </ul>
+        </aside>
+
         <div id="open-sna-setup-controls" className={cn("space-y-5 p-4 sm:p-5", setupOpen ? "block" : "hidden", "xl:block")}>
           <div>
             <div className="flex items-center justify-between gap-3">
@@ -627,7 +650,7 @@ export default function OpenSnaWorkbench() {
                 {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />Remove</button> : null}
               </div>
             </div>
-            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and an optional valid two-level Gender or metadata column.</p>
+            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.</p>
           </div>
 
           <div>

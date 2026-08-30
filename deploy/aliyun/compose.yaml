@@ -1,0 +1,75 @@
+services:
+  sna-web:
+    image: ghcr.io/hudongpin/sna-web@sha256:${SNA_WEB_IMAGE_DIGEST:?set a 64-character image digest}
+    container_name: sna-web
+    restart: unless-stopped
+    read_only: true
+    cpus: "0.50"
+    mem_limit: 512m
+    pids_limit: 128
+    ports:
+      - "127.0.0.1:3100:3000"
+    env_file:
+      - /opt/sna/secrets/web.env
+    environment:
+      SNA_RELEASE_SHA: ${SNA_RELEASE_SHA:?set the release SHA for this deployment}
+      # SNA_DEPLOYMENT_ROLE=aliyun-primary
+      SNA_DEPLOYMENT_ROLE: aliyun-primary
+      OPEN_SNA_R_DISABLED: "0"
+      OPEN_SNA_R_API_URL: https://worker.sna.hk/api/open-sna/analyze
+      NEXT_PUBLIC_SITE_URL: https://www.sna.hk
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => { if (r.status !== 200) throw new Error('bad status'); }).catch(err => { console.error(err.message); process.exit(1); })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  sna-r-worker:
+    image: ghcr.io/hudongpin/sna-worker@sha256:${SNA_WORKER_IMAGE_DIGEST:?set a 64-character image digest}
+    container_name: sna-r-worker
+    restart: unless-stopped
+    read_only: true
+    cpus: "1.50"
+    mem_limit: 2560m
+    pids_limit: 256
+    ports:
+      - "127.0.0.1:3101:3000"
+    env_file:
+      - /opt/sna/secrets/worker.env
+    environment:
+      SNA_RELEASE_SHA: ${SNA_RELEASE_SHA:?set the release SHA for this deployment}
+      # SNA_DEPLOYMENT_ROLE=aliyun-primary
+      SNA_DEPLOYMENT_ROLE: aliyun-primary
+      OPEN_SNA_R_WORKER_MODE: "1"
+      OPEN_SNA_R_WORKER_TMP_ROOT: /tmp/open-sna-jobs
+      R_LIBS_USER: /opt/open-sna/r-library
+      OPEN_SNA_R_LIBS_USER: /opt/open-sna/r-library
+    tmpfs:
+      - /tmp/open-sna-jobs:mode=1777,size=1024m
+      - /app/.next/cache:mode=1777,size=128m
+      - /tmp:mode=1777,size=128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/open-sna/analyze',{method:'POST',headers:{Authorization:'Bearer healthcheck'}}).then(r => { if (r.status !== 401) throw new Error('expected 401'); }).catch(err => { console.error(err.message); process.exit(1); })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

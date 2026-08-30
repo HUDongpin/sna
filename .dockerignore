@@ -7,9 +7,13 @@ tmp
 OPEN_SNA_FUNCTIONAL_QA_REPORT_*.md
 New Programming Resilience
 tests
+!analysis/open-sna/tests/
+!analysis/open-sna/tests/conditioning-regression.R
+!analysis/open-sna/tests/group-selection-regression.R
 *.docx
 *.xlsx
 *.csv
 *.pdf
+*.md
 *.log
 *.tsbuildinfo

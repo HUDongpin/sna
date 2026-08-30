@@ -10,6 +10,7 @@ if (dir.exists(local_r_library)) {
 
 required_versions <- c(
   jsonlite = "2.0.0",
+  digest = "0.6.39",
   readxl = "1.4.5",
   qgraph = "1.9.8",
   huge = "1.5",

@@ -78,6 +78,10 @@ test("the LUNA integration module exposes the aggregate-only interpretation boun
   result.stability.metrics[0].metric = `strength-${"y".repeat(1_000)}`;
   const input = ai.buildOpenSnaInterpretationInput(result);
   const serialized = JSON.stringify(input);
+  const aggregateInput = input as {
+    contract: { schemaVersion: string };
+    subgroupComparison: { available: boolean; groups: Array<{ group: string; n: number }>; reason?: string };
+  };
 
   assert.doesNotMatch(serialized, /private-participant-workbook/i);
   assert.doesNotMatch(serialized, /private-sheet-name/i);
@@ -87,6 +91,10 @@ test("the LUNA integration module exposes the aggregate-only interpretation boun
   assert.match(serialized, /stability/);
   assert.match(serialized, /subgroupComparison/);
   assert.doesNotMatch(serialized, /x{401}|y{401}/);
+  assert.equal(aggregateInput.contract.schemaVersion, "1.1");
+  assert.equal(aggregateInput.subgroupComparison.available, true);
+  assert.equal(aggregateInput.subgroupComparison.groups.length, 2);
+  assert.equal(aggregateInput.subgroupComparison.reason, undefined);
 });
 
 test("LUNA is called through OpenRouter with strict structured output and zero data retention", async () => {

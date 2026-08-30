@@ -91,31 +91,26 @@ function topNodes(result: OpenSnaResult, metric: keyof OpenSnaNode) {
 }
 
 export function buildOpenSnaInterpretationInput(result: OpenSnaResult) {
-  const subgroupComparison = result.subgroupComparison.available
-    ? {
-        available: true,
-        groups: [
-          { group: compactText(result.subgroupComparison.groupA, 80), n: result.subgroupComparison.nA },
-          { group: compactText(result.subgroupComparison.groupB, 80), n: result.subgroupComparison.nB },
-        ],
-        permutations: result.subgroupComparison.permutations,
-        globalStrengthDifference: result.subgroupComparison.globalStrengthDifference,
-        globalStrengthPValue: result.subgroupComparison.globalStrengthPValue,
-        networkStructureDifference: result.subgroupComparison.networkStructureDifference,
-        networkStructurePValue: result.subgroupComparison.networkStructurePValue,
-        strongestEdgeDifferences: result.subgroupComparison.strongestEdgeDifferences
-          .slice(0, 10)
-          .map((edge) => ({
-            source: compactText(edge.source, 80),
-            target: compactText(edge.target, 80),
-            absoluteDifference: edge.absoluteDifference,
-            pValueHolm: edge.pValueHolm,
-          })),
-      }
-    : {
-        available: false,
-        reason: compactText(result.subgroupComparison.reason, 240),
-      };
+  const subgroupComparison = {
+    available: true,
+    groups: [
+      { group: compactText(result.subgroupComparison.groupA, 80), n: result.subgroupComparison.nA },
+      { group: compactText(result.subgroupComparison.groupB, 80), n: result.subgroupComparison.nB },
+    ],
+    permutations: result.subgroupComparison.permutations,
+    globalStrengthDifference: result.subgroupComparison.globalStrengthDifference,
+    globalStrengthPValue: result.subgroupComparison.globalStrengthPValue,
+    networkStructureDifference: result.subgroupComparison.networkStructureDifference,
+    networkStructurePValue: result.subgroupComparison.networkStructurePValue,
+    strongestEdgeDifferences: result.subgroupComparison.strongestEdgeDifferences
+      .slice(0, 10)
+      .map((edge) => ({
+        source: compactText(edge.source, 80),
+        target: compactText(edge.target, 80),
+        absoluteDifference: edge.absoluteDifference,
+        pValueHolm: edge.pValueHolm,
+      })),
+  };
 
   return {
     contract: {
