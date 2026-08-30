@@ -101,8 +101,13 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerDockerfile, /COPY analysis\/open-sna\/renv\.lock/, "worker Dockerfile must copy the exact lockfile");
   expectContains(workerDockerfile, /renv::restore/, "worker Dockerfile must restore renv");
   expectContains(workerDockerfile, /OPEN_SNA_R_LIBS_USER=\/opt\/open-sna\/r-library/, "worker Dockerfile must lock the R library path for runtime and preflight");
+  expectContains(workerDockerfile, /FROM worker-base AS verify[\s\S]*WORKDIR \/app/, "worker verify stage must set an explicit working directory");
+  expectContains(workerDockerfile, /Rscript --vanilla \/app\/analysis\/open-sna\/verify-conditioning\.R/, "worker verify stage must invoke regression scripts by absolute path");
+  expectContains(workerDockerfile, /Rscript --vanilla \/app\/analysis\/open-sna\/verify-group-selection\.R/, "worker verify stage must invoke group selection by absolute path");
   expectContains(workerDockerfile, /COPY analysis\/open-sna\/tests\/conditioning-regression\.R/, "worker verify stage must copy the conditioning regression harness");
   expectContains(workerDockerfile, /COPY analysis\/open-sna\/tests\/group-selection-regression\.R/, "worker verify stage must copy the group-selection regression harness");
+  expectContains(read("analysis/open-sna/verify-conditioning.R"), /system2\(rscript_bin/, "conditioning wrapper must execute the direct regression script");
+  expectContains(read("analysis/open-sna/verify-group-selection.R"), /system2\(rscript_bin/, "group-selection wrapper must execute the direct regression script");
   expectContains(workerDockerfile, /preflight\.R/, "worker Dockerfile must run the preflight fixture");
   expectContains(workerDockerfile, /verify-conditioning\.R/, "worker Dockerfile must run the conditioning regression via the wrapper");
   expectContains(workerDockerfile, /verify-group-selection\.R/, "worker Dockerfile must run the group-selection regression via the wrapper");
@@ -111,7 +116,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerDockerfile, /COPY --from=web-build \/app\/\.next\/static/, "worker Dockerfile must include static assets");
   expectContains(workerDockerfile, /COPY --from=web-build \/app\/public/, "worker Dockerfile must include public assets");
   expectContains(workerDockerfile, /USER open-sna/, "worker Dockerfile must run as non-root");
-  expectContains(workerDockerfile, /CMD \["sh", "-c", "Rscript --vanilla analysis\/preflight\.R && exec node server\.js"\]/, "worker Dockerfile must healthcheck and start through the standalone server");
+  expectContains(workerDockerfile, /CMD \["sh", "-c", "Rscript --vanilla \/app\/analysis\/preflight\.R && exec node \/app\/server\.js"\]/, "worker Dockerfile must healthcheck and start through the standalone server");
   const workerFinalStage = workerDockerfile.slice(workerDockerfile.indexOf("FROM worker-base AS final"));
   expectNotContains(workerFinalStage, /analysis\/open-sna\/tests|fixture|test harness/i, "worker final stage should not retain tests or harness text");
   expectContains(dockerignore, /\*\.md/, "Docker build context must exclude repository Markdown and internal reports");
