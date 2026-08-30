@@ -40,6 +40,12 @@ function workflowTriggerBlock(source: string) {
   return match ? match[0] : source;
 }
 
+function stepIndex(source: string, label: string) {
+  const index = source.indexOf(label);
+  assert.ok(index >= 0, `${label} step must exist`);
+  return index;
+}
+
 function runShell(scriptPath: string, env: Record<string, string | undefined>) {
   return spawnSync("bash", [scriptPath], {
     cwd: repositoryRoot,
@@ -163,8 +169,12 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(preflight, /OPEN_SNA_WORKER_IMAGE_DIGEST|SNA_WORKER_IMAGE_DIGEST/, "preflight must inspect the worker digest");
   expectContains(preflight, /docker compose/, "preflight must inspect compose");
   expectContains(preflight, /read-only/i, "preflight must be read-only");
+  expectContains(preflight, /stat -c '%U'/, "preflight must check secret file ownership");
+  expectContains(preflight, /stat -c '%a'/, "preflight must check secret file mode");
   expectContains(preflight, /\/opt\/sna\/\.env/, "preflight must validate the non-secret compose env file");
-  expectContains(preflight, /127\\.0\\.0\\.1:3100|127\\.0\\.0\\.1:3101/, "preflight must check loopback bindings");
+  expectContains(preflight, /127\.0\.0\.1:3100/, "preflight must check the web loopback binding");
+  expectContains(preflight, /127\.0\.0\.1:3101/, "preflight must check the worker loopback binding");
+  expectContains(preflight, /port must bind on 127\.0\.0\.1 only/, "preflight must reject public binds");
   expectNotContains(preflight, /docker run|systemctl|apt-get|rm -rf|stop|start|kill/i, "preflight must not mutate the host");
 
   expectContains(verify, /set -euo pipefail/, "verify must use strict shell mode");
@@ -174,6 +184,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /401/, "verify must check unauthorized worker access");
   expectContains(verify, /WORKER_UNAUTHORIZED/, "verify must check the worker unauthorized body");
   expectContains(verify, /https:\/\/sna\.hk/, "verify must support the apex redirect check");
+  expectContains(verify, /(301|308)/, "verify must allow apex 301 or 308 redirects");
+  expectContains(verify, /location: \/en\/?/, "verify must allow www root redirects to /en");
   expectContains(verify, /no-store/i, "verify must check cache headers");
   expectContains(verify, /https/i, "verify must check HTTPS or redirects");
   expectNotContains(verify, /printenv|cat .*env|echo .*token/i, "verify must not print secrets");
@@ -186,6 +198,12 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(rollback, /worker first/i, "rollback must update the worker before the web service");
   expectContains(rollback, /--no-deps/, "rollback must avoid cascading restarts");
   expectContains(rollback, /healthy 401 response/i, "rollback must wait for the worker health check");
+  expectContains(rollback, /export SNA_WEB_IMAGE_DIGEST/, "rollback must override the web digest in the compose environment");
+  expectContains(rollback, /export SNA_WORKER_IMAGE_DIGEST/, "rollback must override the worker digest in the compose environment");
+  expectContains(rollback, /export SNA_RELEASE_SHA/, "rollback must override the release SHA in the compose environment");
+  expectContains(rollback, /docker compose --env-file .* pull --no-parallel sna-r-worker/, "rollback must pull the worker first");
+  expectContains(rollback, /docker compose --env-file .* up -d --no-deps --force-recreate sna-r-worker/, "rollback must recreate the worker before web");
+  expectContains(rollback, /docker compose --env-file .* pull --no-parallel sna-web/, "rollback must only touch web after the worker check");
   expectNotContains(rollback, /docker system prune|rm -rf|reset --hard|down\b|delete\b/i, "rollback must avoid destructive resets");
 
   expectContains(runbook, /4vCPU\/8GiB/i, "runbook must warn about current capacity");
@@ -234,6 +252,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /target:\s*verify/, "release workflow must build the worker verify stage");
   expectContains(workflow, /release-digests\.json/, "release workflow must emit a digest manifest");
   expectContains(workflow, /upload-artifact/i, "release workflow must upload the digest manifest");
+  assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build and push web image"), "worker verify must happen before any push:true image build");
+  assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build and push worker image"), "worker verify must happen before worker push");
 
   expectContains(ci, /pull_request:/, "CI workflow must run on pull requests");
   expectContains(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, "CI workflow must run on push to main");

@@ -17,22 +17,43 @@ worker_digest="${SNA_WORKER_IMAGE_DIGEST:-${OPEN_SNA_WORKER_IMAGE_DIGEST:-}}"
   exit 2
 }
 
-[[ -r "$web_env_file" ]] || { echo "missing web env file: $web_env_file" >&2; exit 2; }
-[[ -r "$worker_env_file" ]] || { echo "missing worker env file: $worker_env_file" >&2; exit 2; }
+check_secret_env_file() {
+  local env_file="$1"
+  local label="$2"
+  local owner mode
+
+  [[ -e "$env_file" ]] || { echo "missing $label env file: $env_file" >&2; exit 2; }
+  [[ -r "$env_file" ]] || { echo "$label env file must be readable: $env_file" >&2; exit 2; }
+
+  owner="$(stat -c '%U' "$env_file")"
+  mode="$(stat -c '%a' "$env_file")"
+  [[ "$owner" == "root" ]] || { echo "$label env file must be owned by root: $env_file" >&2; exit 2; }
+  [[ "$mode" == "600" ]] || { echo "$label env file must have mode 0600: $env_file" >&2; exit 2; }
+}
+
+check_secret_env_file "$web_env_file" "web"
+check_secret_env_file "$worker_env_file" "worker"
+
+if [[ ! -e "$compose_env_file" ]]; then
+  echo "missing compose env file: $compose_env_file" >&2
+  exit 2
+fi
 
 echo "Preflight is read-only."
 command -v docker >/dev/null
 docker compose version >/dev/null
 docker compose --env-file "$compose_env_file" -f "$compose_file" config >/dev/null
 
-if [ -e /opt/sna/secrets/web.env ]; then
-  stat -c '%U %a %n' /opt/sna/secrets/web.env
-fi
-if [ -e /opt/sna/secrets/worker.env ]; then
-  stat -c '%U %a %n' /opt/sna/secrets/worker.env
-fi
-
 df -h / /opt /tmp || true
 free -h || true
-ss -ltnp | awk '$4 ~ /127\.0\.0\.1:3100$/ || $4 ~ /127\.0\.0\.1:3101$/'
-docker ps --format '{{.Names}} {{.Image}} {{.Status}}'
+
+if command -v ss >/dev/null; then
+  while read -r local_address _; do
+    if [[ "$local_address" == *:3100 || "$local_address" == *:3101 ]]; then
+      if [[ "$local_address" != 127.0.0.1:3100 && "$local_address" != 127.0.0.1:3101 ]]; then
+        echo "port must bind on 127.0.0.1 only: $local_address" >&2
+        exit 2
+      fi
+    fi
+  done < <(ss -ltnH | awk '$4 ~ /:3100$/ || $4 ~ /:3101$/ {print $4, $1}')
+fi

@@ -19,6 +19,16 @@ re_sha='^[0-9a-f]{40}$'
 
 compose_file="${OPEN_SNA_COMPOSE_FILE:-$(dirname "$0")/../compose.yaml}"
 compose_env_file="${OPEN_SNA_COMPOSE_ENV_FILE:-/opt/sna/.env}"
+
+[[ -r "$compose_file" ]] || { echo "missing compose file: $compose_file" >&2; exit 2; }
+[[ -e "$compose_env_file" ]] || { echo "missing compose env file: $compose_env_file" >&2; exit 2; }
+[[ "$(stat -c '%U' "$compose_env_file")" == "root" ]] || { echo "compose env file must be owned by root: $compose_env_file" >&2; exit 2; }
+[[ "$(stat -c '%a' "$compose_env_file")" == "600" ]] || { echo "compose env file must have mode 0600: $compose_env_file" >&2; exit 2; }
+
+export SNA_WEB_IMAGE_DIGEST="$previous_web_digest"
+export SNA_WORKER_IMAGE_DIGEST="$previous_worker_digest"
+export SNA_RELEASE_SHA="$previous_release_sha"
+
 docker compose --env-file "$compose_env_file" -f "$compose_file" config >/dev/null
 
 echo "Rolling back worker first, then web."
@@ -31,5 +41,3 @@ docker compose --env-file "$compose_env_file" -f "$compose_file" pull --no-paral
 docker compose --env-file "$compose_env_file" -f "$compose_file" up -d --no-deps --force-recreate sna-web
 
 echo "Rollback completed for release SHA: $previous_release_sha"
-echo "Worker digest: $previous_worker_digest"
-echo "Web digest: $previous_web_digest"

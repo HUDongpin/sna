@@ -29,6 +29,18 @@ jobs:
           test "$(git rev-parse --verify HEAD)" = "${{ inputs.release_sha }}"
           git merge-base --is-ancestor HEAD origin/main
           test "$(git rev-parse --verify HEAD^{commit})" = "${{ inputs.release_sha }}"
+      - name: Build worker verify stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.open-sna-worker
+          target: verify
+          platforms: linux/amd64
+          push: false
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -67,18 +79,6 @@ jobs:
           labels: |
             org.opencontainers.image.revision=${{ inputs.release_sha }}
           tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
-      - name: Build worker verify stage
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.open-sna-worker
-          target: verify
-          platforms: linux/amd64
-          push: false
-          provenance: false
-          sbom: false
-          build-args: |
-            VCS_REF=${{ inputs.release_sha }}
       - name: Write digest manifest
         run: |
           cat > release-digests.json <<'JSON'
