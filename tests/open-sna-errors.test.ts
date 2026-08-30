@@ -37,6 +37,20 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   assert.match(messages[5], /workbook/i);
 });
 
+test("Open SNA maps the engine configuration invalid code to a bounded user message", async () => {
+  assert.ok(existsSync(errorModulePath), "the bounded Open SNA UI error mapper must exist");
+  const { openSnaAnalysisErrorMessage } = await import("../lib/open-sna-errors");
+
+  const message = openSnaAnalysisErrorMessage(503, {
+    code: "R_ENGINE_CONFIGURATION_INVALID",
+    error: "private worker url https://worker.invalid/api/open-sna/analyze token=raw-secret diagnostics=trace",
+  });
+
+  assert.ok(message.length > 0 && message.length <= 240);
+  assert.match(message, /configured/i);
+  assert.doesNotMatch(message, /https?:\/\/|token|trace|diagnostic|worker\.invalid|raw-secret/i);
+});
+
 test("Open SNA uses a bounded generic message for unknown or mismatched failures", async () => {
   assert.ok(existsSync(errorModulePath), "the bounded Open SNA UI error mapper must exist");
   const { openSnaAnalysisErrorMessage } = await import("../lib/open-sna-errors");

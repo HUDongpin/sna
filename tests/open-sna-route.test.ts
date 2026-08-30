@@ -501,3 +501,16 @@ test("the web adapter refuses an unauthenticated remote worker configuration", a
     restoreEnvironment(originalEnvironment);
   }
 });
+
+test("the Open SNA engine config requires the exact planned analyze endpoint path", async () => {
+  const { readOpenSnaEngineConfigurationStatus } = await import("../lib/open-sna-config");
+
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze/health";
+  process.env.OPEN_SNA_R_API_TOKEN = "x".repeat(32);
+
+  const status = readOpenSnaEngineConfigurationStatus();
+
+  assert.equal(status.configured, false);
+  if (status.configured) assert.fail("unexpectedly accepted a non-exact endpoint path");
+  assert.equal(status.reason, "invalid");
+});

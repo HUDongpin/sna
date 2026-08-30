@@ -105,7 +105,7 @@ test("health fails closed for missing or invalid deployment and R configuration"
       {
         SNA_RELEASE_SHA: "3".repeat(40),
         SNA_DEPLOYMENT_ROLE: "aliyun-primary",
-        OPEN_SNA_R_API_URL: "http://worker.example.com/path",
+        OPEN_SNA_R_API_URL: "http://worker.example.com/api/open-sna/analyze",
         OPEN_SNA_R_API_TOKEN: "z".repeat(32),
       },
       {
@@ -117,7 +117,7 @@ test("health fails closed for missing or invalid deployment and R configuration"
       {
         SNA_RELEASE_SHA: "5".repeat(40),
         SNA_DEPLOYMENT_ROLE: "aliyun-primary",
-        OPEN_SNA_R_API_URL: "http://127.0.0.1:1234/path",
+        OPEN_SNA_R_API_URL: "http://127.0.0.1:1234/api/open-sna/analyze",
         OPEN_SNA_R_API_TOKEN: "q".repeat(32),
       },
     ] as const;

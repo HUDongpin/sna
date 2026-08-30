@@ -22,6 +22,9 @@ export function openSnaAnalysisErrorMessage(status: number, payload: unknown) {
   if (status === 503 && code === "R_ENGINE_NOT_CONFIGURED") {
     return "Public workbook analysis is not configured on this deployment. You can still inspect the aggregate reference result. (R_ENGINE_NOT_CONFIGURED)";
   }
+  if (status === 503 && code === "R_ENGINE_CONFIGURATION_INVALID") {
+    return "The production R analysis service is configured incorrectly. You can still inspect the aggregate reference result. (R_ENGINE_CONFIGURATION_INVALID)";
+  }
   if (status === 504 && code === "R_ANALYSIS_TIMEOUT") {
     return "The analysis exceeded the service time limit. Try fewer bootstrap replicates, a smaller workbook, or retry later. (R_ANALYSIS_TIMEOUT)";
   }

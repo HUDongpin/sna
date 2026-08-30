@@ -30,11 +30,13 @@ export function readOpenSnaEngineConfigurationStatus(): OpenSnaEngineConfigurati
   }
 
   const isLoopbackHost = ["localhost", "127.0.0.1", "[::1]"].includes(parsedUrl.hostname);
+  const hasExactAnalyzePath = parsedUrl.pathname === "/api/open-sna/analyze";
   if (
     apiToken.length < 32 ||
     parsedUrl.username ||
     parsedUrl.password ||
-    (parsedUrl.protocol !== "https:" && !isLoopbackHost)
+    (parsedUrl.protocol !== "https:" && !isLoopbackHost) ||
+    !hasExactAnalyzePath
   ) {
     return { configured: false, reason: "invalid" };
   }
