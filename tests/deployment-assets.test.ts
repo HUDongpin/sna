@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { existsSync, readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -248,7 +249,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(runbook, /Authorization` forwarding limited to `worker\.sna\.hk`/, "runbook must document authorization scoping");
   expectContains(runbook, /Baota|nginx -t|reload/i, "runbook must describe the safe Nginx update sequence");
 
-  const preflightTemp = mkdtempSync(path.join(repositoryRoot, "tmp", "deployment-assets-"));
+  const preflightTemp = mkdtempSync(path.join(tmpdir(), "sna-deployment-assets-"));
   const preflightFailure = runShell("deploy/aliyun/scripts/preflight.sh", {
     SNA_WEB_IMAGE_DIGEST: "short",
     SNA_WORKER_IMAGE_DIGEST: "short",

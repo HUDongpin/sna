@@ -38,7 +38,7 @@ function workerResult(schemaVersion: "1.0" | "1.1") {
 }
 
 function isolateRouteEnvironment(keys: readonly string[]) {
-  const allKeys = Array.from(new Set([...keys, "OPENROUTER_API_KEY", "OPEN_SNA_TEST_OUTPUT_JSON", "OPEN_SNA_R_DISABLED"]));
+  const allKeys = Array.from(new Set([...keys, "NODE_ENV", "OPENROUTER_API_KEY", "OPEN_SNA_TEST_OUTPUT_JSON", "OPEN_SNA_R_DISABLED"]));
   const originalEnvironment = Object.fromEntries(allKeys.map((key) => [key, process.env[key]]));
   delete process.env.OPENROUTER_API_KEY;
   delete process.env.OPEN_SNA_TEST_OUTPUT_JSON;
@@ -84,7 +84,8 @@ test("local R timeout responses use the bounded public timeout code", async () =
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const originalSetTimeout = globalThis.setTimeout;
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
-  process.env.OPEN_SNA_TMP_ROOT = path.join(repositoryRoot, "tmp", "open-sna-route-timeout-tests");
+  process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-route-timeout-tests");
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
   process.env.OPEN_SNA_TEST_DELAY_MS = "250";
   process.env.OPEN_SNA_TEST_FAILURE_CODE = "R_ANALYSIS_FAILED";
   delete process.env.OPEN_SNA_R_API_URL;
@@ -129,7 +130,7 @@ test("the upload route distinguishes R runtime, workbook, and analysis failures"
 
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
   process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-route-tests");
-  process.env.NODE_ENV = "test";
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
   delete process.env.OPEN_SNA_R_API_URL;
   delete process.env.OPEN_SNA_R_LIBS_USER;
   delete process.env.R_LIBS_USER;
