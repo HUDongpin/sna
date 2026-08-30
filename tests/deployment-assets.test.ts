@@ -189,7 +189,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /(301|308)/, "verify must allow apex 301 or 308 redirects");
   assert.ok(
     verify.includes("grep -Eqi '^location: (/?en/?|https://www\\.sna\\.hk/en/?)(\\?.*)?$'") &&
-      verify.includes("root status error: expected 200, 301, or 308"),
+      verify.includes("root status error: expected 200 or a supported redirect (301, 302, 307, 308)"),
     "verify must allow www root redirects to /en",
   );
   expectContains(verify, /no-store/i, "verify must check cache headers");

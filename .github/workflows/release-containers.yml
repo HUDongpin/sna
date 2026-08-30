@@ -29,6 +29,8 @@ jobs:
           test "$(git rev-parse --verify HEAD)" = "${{ inputs.release_sha }}"
           git merge-base --is-ancestor HEAD origin/main
           test "$(git rev-parse --verify HEAD^{commit})" = "${{ inputs.release_sha }}"
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build worker verify stage
         uses: docker/build-push-action@v6
         with:
@@ -47,8 +49,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
       - name: Build and push web image
         uses: docker/build-push-action@v6
         id: web_build

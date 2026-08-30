@@ -5,17 +5,6 @@ web_env_file="${OPEN_SNA_WEB_ENV_FILE:-/opt/sna/secrets/web.env}"
 worker_env_file="${OPEN_SNA_WORKER_ENV_FILE:-/opt/sna/secrets/worker.env}"
 compose_file="${OPEN_SNA_COMPOSE_FILE:-$(dirname "$0")/../compose.yaml}"
 compose_env_file="${OPEN_SNA_COMPOSE_ENV_FILE:-/opt/sna/.env}"
-web_digest="${SNA_WEB_IMAGE_DIGEST:-${OPEN_SNA_WEB_IMAGE_DIGEST:-}}"
-worker_digest="${SNA_WORKER_IMAGE_DIGEST:-${OPEN_SNA_WORKER_IMAGE_DIGEST:-}}"
-
-[[ ${#web_digest} -eq 64 && $web_digest =~ ^[0-9a-f]{64}$ ]] || {
-  echo "web digest must be a 64-character lowercase hex value" >&2
-  exit 2
-}
-[[ ${#worker_digest} -eq 64 && $worker_digest =~ ^[0-9a-f]{64}$ ]] || {
-  echo "worker digest must be a 64-character lowercase hex value" >&2
-  exit 2
-}
 
 check_secret_env_file() {
   local env_file="$1"
@@ -38,6 +27,25 @@ if [[ ! -e "$compose_env_file" ]]; then
   echo "missing compose env file: $compose_env_file" >&2
   exit 2
 fi
+[[ "$(stat -c '%U' "$compose_env_file")" == "root" ]] || { echo "compose env file must be owned by root: $compose_env_file" >&2; exit 2; }
+[[ "$(stat -c '%a' "$compose_env_file")" == "600" ]] || { echo "compose env file must have mode 0600: $compose_env_file" >&2; exit 2; }
+
+read_compose_value() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$compose_env_file"
+}
+
+web_digest="${SNA_WEB_IMAGE_DIGEST:-${OPEN_SNA_WEB_IMAGE_DIGEST:-$(read_compose_value SNA_WEB_IMAGE_DIGEST)}}"
+worker_digest="${SNA_WORKER_IMAGE_DIGEST:-${OPEN_SNA_WORKER_IMAGE_DIGEST:-$(read_compose_value SNA_WORKER_IMAGE_DIGEST)}}"
+
+[[ ${#web_digest} -eq 64 && $web_digest =~ ^[0-9a-f]{64}$ ]] || {
+  echo "web digest must be a 64-character lowercase hex value" >&2
+  exit 2
+}
+[[ ${#worker_digest} -eq 64 && $worker_digest =~ ^[0-9a-f]{64}$ ]] || {
+  echo "worker digest must be a 64-character lowercase hex value" >&2
+  exit 2
+}
 
 echo "Preflight is read-only."
 command -v docker >/dev/null

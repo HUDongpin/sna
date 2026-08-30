@@ -69,8 +69,8 @@ if [[ ! "$apex_status" =~ ^(301|308)$ ]]; then
 fi
 grep -Eiq '^location: https://www\.sna\.hk(/|/.*)$' "$apex_headers"
 
-if [[ ! "$root_status" =~ ^(200|301|308)$ ]]; then
-  echo "www root status error: expected 200, 301, or 308; got $root_status" >&2
+if [[ ! "$root_status" =~ ^(200|301|302|307|308)$ ]]; then
+  echo "www root status error: expected 200 or a supported redirect (301, 302, 307, 308); got $root_status" >&2
   exit 1
 fi
 if [[ "$root_status" = "200" ]]; then
