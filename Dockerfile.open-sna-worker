@@ -11,7 +11,15 @@ RUN npm ci
 COPY . .
 RUN npm run build -- --webpack
 
-FROM rocker/r-ver:4.4.2@sha256:df26749182af64d5263bf64149d51a427b476ed28c4e046997143be3f97fdd7c AS worker
+FROM rocker/r-ver:4.4.2@sha256:df26749182af64d5263bf64149d51a427b476ed28c4e046997143be3f97fdd7c AS worker-base
+
+ARG VCS_REF=unknown
+
+LABEL org.opencontainers.image.title="SNA worker" \
+      org.opencontainers.image.description="SNA.HK Open SNA analysis worker for the primary Aliyun deployment." \
+      org.opencontainers.image.source="https://github.com/HUDongpin/sna" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="UNLICENSED"
 
 ARG RENV_VERSION=1.1.8
 ARG RENV_SHA256=141b3a77a9e405eb1b586db7bda43088825b955ceacc1a2de0322a4fcf78ae08
@@ -61,17 +69,29 @@ RUN mkdir -p "${R_LIBS_USER}" \
   && rm /tmp/renv.tar.gz \
   && Rscript --vanilla -e 'renv::restore(lockfile = "analysis/open-sna/renv.lock", library = Sys.getenv("R_LIBS_USER"), prompt = FALSE)'
 
+FROM worker-base AS verify
+
+COPY analysis/open-sna ./analysis/open-sna
+
+RUN Rscript --vanilla analysis/open-sna/preflight.R \
+  && Rscript --vanilla analysis/open-sna/verify-conditioning.R \
+  && Rscript --vanilla analysis/open-sna/verify-group-selection.R
+
+FROM worker-base AS final
+
 COPY --from=web-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=web-build /app/.next/standalone ./
 COPY --from=web-build /app/.next/static ./.next/static
 COPY --from=web-build /app/public ./public
-COPY analysis/open-sna ./analysis/open-sna
+COPY analysis/open-sna/analyze.R ./analysis/open-sna/analyze.R
+COPY analysis/open-sna/preflight.R ./analysis/open-sna/preflight.R
+COPY analysis/open-sna/analyze.R ./analysis/analyze.R
+COPY analysis/open-sna/preflight.R ./analysis/preflight.R
 
-RUN Rscript --vanilla analysis/open-sna/preflight.R \
-  && groupadd --gid 10001 open-sna \
+RUN groupadd --gid 10001 open-sna \
   && useradd --uid 10001 --gid open-sna --create-home --shell /usr/sbin/nologin open-sna \
   && mkdir -p /tmp/open-sna-jobs \
-  && chown open-sna:open-sna /tmp/open-sna-jobs
+  && chown -R open-sna:open-sna /app /tmp/open-sna-jobs
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -85,4 +105,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "-e", "const port=process.env.PORT||'3000';fetch('http://127.0.0.1:'+port+'/api/open-sna/analyze',{method:'POST'}).then(r=>{if(r.status!==401)process.exit(1)}).catch(()=>process.exit(1))"]
 
-CMD ["sh", "-c", "Rscript --vanilla analysis/open-sna/preflight.R && exec node server.js"]
+CMD ["sh", "-c", "Rscript --vanilla analysis/preflight.R && exec node server.js"]

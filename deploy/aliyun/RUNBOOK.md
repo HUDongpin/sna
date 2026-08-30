@@ -18,7 +18,7 @@ This deployment runs on a host that is already near capacity. The host warning i
 
 ## Image flow
 
-1. Build and push the `linux/amd64` web and worker images from the exact `main` commit SHA.
+1. Build and push the `linux/amd64` web and worker images from the exact `main` commit SHA with `Dockerfile.web` and `Dockerfile.open-sna-worker`.
 1. Attach OCI revision labels, SBOM, provenance, and signature metadata.
 1. Record the pushed digests.
 1. Only deploy by digest.
@@ -45,6 +45,7 @@ The compose file enforces:
 - read-only root filesystems
 - bounded logs
 - bounded tmpfs mounts
+- digest-pinned `ghcr.io/hudongpin/sna-web@sha256:${SNA_WEB_IMAGE_DIGEST}` and `ghcr.io/hudongpin/sna-worker@sha256:${SNA_WORKER_IMAGE_DIGEST}`
 
 ## Start and verify
 
@@ -62,6 +63,7 @@ The compose file enforces:
 - `origin.sna.hk` is the pre-acceptance host and should expose the web container only.
 - `worker.sna.hk` must proxy only the exact `/api/open-sna/analyze` route.
 - Keep request body and authorization logging disabled.
+- Keep the TLS certificate and key at `/etc/nginx/ssl/sna.hk.crt` and `/etc/nginx/ssl/sna.hk.key` as placeholders to be mounted by the host.
 
 ## Rollback
 
@@ -88,6 +90,7 @@ Never use rollback as a reset or delete operation.
 - health responses
 - Nginx config snapshot
 - rollback rehearsal notes
+- secret file permissions under `/opt/sna/secrets`
 
 ## Kill switch
 

@@ -6,12 +6,19 @@ if [ "${CONFIRM_ROLLBACK:-}" != "YES" ]; then
   exit 2
 fi
 
-previous_digest="${1:-}"
-if [ -z "$previous_digest" ]; then
-  echo "A previous digest is required." >&2
-  exit 2
-fi
+previous_web_digest="${1:-}"
+previous_worker_digest="${2:-}"
+previous_release_sha="${3:-}"
 
-echo "Verify old worker before switching web to previous digest: $previous_digest"
-echo "Then update sna-web after the worker has passed verification."
-echo "No reset, no delete, no destructive host changes."
+re_hex='^[0-9a-f]{64}$'
+re_sha='^[0-9a-f]{40}$'
+
+[[ $previous_web_digest =~ $re_hex ]] || { echo "previous web digest must be a 64-character lowercase hex value" >&2; exit 2; }
+[[ $previous_worker_digest =~ $re_hex ]] || { echo "previous worker digest must be a 64-character lowercase hex value" >&2; exit 2; }
+[[ $previous_release_sha =~ $re_sha ]] || { echo "previous release SHA must be a 40-character lowercase hex value" >&2; exit 2; }
+
+echo "Pull previous worker image and update worker first: $previous_worker_digest"
+echo "Verify old worker before switching web."
+echo "Then pull previous web image and update web: $previous_web_digest"
+echo "Release SHA: $previous_release_sha"
+echo "Avoid reset, delete, or destructive host changes."

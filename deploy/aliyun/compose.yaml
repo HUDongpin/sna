@@ -1,6 +1,6 @@
 services:
   sna-web:
-    image: ${SNA_WEB_IMAGE}
+    image: ghcr.io/hudongpin/sna-web@sha256:${SNA_WEB_IMAGE_DIGEST:?set a 64-character image digest}
     container_name: sna-web
     restart: unless-stopped
     read_only: true
@@ -16,8 +16,7 @@ services:
       # SNA_DEPLOYMENT_ROLE=aliyun-primary
       SNA_DEPLOYMENT_ROLE: aliyun-primary
       OPEN_SNA_R_DISABLED: "0"
-      OPEN_SNA_R_API_URL: ${OPEN_SNA_R_API_URL}
-      OPEN_SNA_R_API_TOKEN: ${OPEN_SNA_R_API_TOKEN}
+      OPEN_SNA_R_API_URL: https://worker.sna.hk/api/open-sna/analyze
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
     tmpfs:
       - /tmp:mode=1777,size=64m
@@ -37,7 +36,7 @@ services:
       - ALL
 
   sna-r-worker:
-    image: ${SNA_WORKER_IMAGE}
+    image: ghcr.io/hudongpin/sna-worker@sha256:${SNA_WORKER_IMAGE_DIGEST:?set a 64-character image digest}
     container_name: sna-r-worker
     restart: unless-stopped
     read_only: true
@@ -53,7 +52,6 @@ services:
       # SNA_DEPLOYMENT_ROLE=aliyun-primary
       SNA_DEPLOYMENT_ROLE: aliyun-primary
       OPEN_SNA_R_WORKER_MODE: "1"
-      OPEN_SNA_R_WORKER_TOKEN: ${OPEN_SNA_R_WORKER_TOKEN}
       OPEN_SNA_R_WORKER_TMP_ROOT: /tmp/open-sna-jobs
       R_LIBS_USER: ${R_LIBS_USER}
     tmpfs:

@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS build
 
 ARG VCS_REF=unknown
@@ -35,5 +37,4 @@ USER 10001:10001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r => { if (r.status !== 200) throw new Error('bad status'); }).catch(err => { console.error(err.message); process.exit(1); })"
 
-# node server.js runs the standalone server entrypoint.
 CMD ["node", "server.js"]
