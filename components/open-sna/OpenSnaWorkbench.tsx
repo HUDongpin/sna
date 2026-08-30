@@ -37,6 +37,11 @@ const panelHeadings: Array<{ id: OpenSnaTabId; label: string; shortLabel: string
 ];
 
 const MAX_WORKBOOK_BYTES = 5 * 1024 * 1024;
+const OPEN_SNA_REFERENCE_ERROR_MESSAGE = "The reference result could not be loaded.";
+
+export function openSnaReferenceErrorMessage(_caught: unknown) {
+  return OPEN_SNA_REFERENCE_ERROR_MESSAGE;
+}
 
 type IconName = "arrow" | "check" | "chevron" | "close" | "download" | "info" | "search" | "upload";
 
@@ -478,7 +483,7 @@ export default function OpenSnaWorkbench() {
       if (options.scroll) scrollToResults();
     } catch (caught) {
       setResult(null);
-      setError(caught instanceof Error ? caught.message : "The reference result could not be loaded.");
+      setError(openSnaReferenceErrorMessage(caught));
     } finally {
       setBusySource(null);
     }
