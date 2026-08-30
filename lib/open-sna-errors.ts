@@ -2,6 +2,9 @@ type OpenSnaErrorPayload = {
   code?: unknown;
 };
 
+export const OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE =
+  "The workbook could not be analyzed. Try again later or inspect the aggregate reference result.";
+
 export function openSnaAnalysisErrorMessage(status: number, payload: unknown) {
   const code = payload && typeof payload === "object"
     ? (payload as OpenSnaErrorPayload).code
@@ -25,5 +28,21 @@ export function openSnaAnalysisErrorMessage(status: number, payload: unknown) {
   if (status === 422 && code === "WORKBOOK_INVALID") {
     return "The workbook is not valid for Open SNA. Check its worksheet, item columns, grouping column, and analyzed group sizes. (WORKBOOK_INVALID)";
   }
-  return "The workbook could not be analyzed. Try again later or inspect the aggregate reference result.";
+  return OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE;
+}
+
+export async function decodeOpenSnaAnalysisResponse(response: Response): Promise<
+  { ok: true; payload: unknown } | { ok: false; message: string }
+> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return { ok: false, message: OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE };
+  }
+
+  if (!response.ok) {
+    return { ok: false, message: openSnaAnalysisErrorMessage(response.status, payload) };
+  }
+  return { ok: true, payload };
 }

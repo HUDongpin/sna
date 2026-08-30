@@ -11,7 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import NetworkGraph from "@/components/open-sna/NetworkGraph";
-import { openSnaAnalysisErrorMessage } from "@/lib/open-sna-errors";
+import {
+  decodeOpenSnaAnalysisResponse,
+  OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE,
+} from "@/lib/open-sna-errors";
 import {
   formatOpenSnaNumber,
   isOpenSnaResult,
@@ -543,11 +546,20 @@ export default function OpenSnaWorkbench() {
       formData.set("bootstraps", bootstraps);
       formData.set("permutations", "1000");
       const response = await fetch("/api/open-sna/analyze", { method: "POST", body: formData });
-      const payload: unknown = await response.json();
-      if (!response.ok) {
-        throw new Error(openSnaAnalysisErrorMessage(response.status, payload));
+      const decoded = await decodeOpenSnaAnalysisResponse(response);
+      if (!decoded.ok) {
+        setError(decoded.message);
+        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setSetupOpen(true);
+        return;
       }
-      if (!isOpenSnaResult(payload)) throw new Error("The analysis engine returned an invalid result.");
+      const payload = decoded.payload;
+      if (!isOpenSnaResult(payload)) {
+        setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
+        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setSetupOpen(true);
+        return;
+      }
       setResult(payload);
       setMessage(payload.interpretation.thirdPartyAiUsed
         ? "Workbook analysis and LUNA interpretation complete. Temporary source data was removed."
@@ -555,8 +567,8 @@ export default function OpenSnaWorkbench() {
       selectPanel("overview");
       setSetupOpen(false);
       scrollToResults();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The workbook could not be analyzed.");
+    } catch {
+      setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
       setMessage("No uploaded-workbook result was substituted with reference data.");
       setSetupOpen(true);
     } finally {

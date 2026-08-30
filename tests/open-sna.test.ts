@@ -67,10 +67,16 @@ test("the Open SNA upload UI shows the complete English Public Beta notice", () 
   assert.match(workbench, /no high-availability or availability commitment/i);
 });
 
-test("the Open SNA workbench uses the bounded API error mapper", () => {
+test("the Open SNA workbench uses bounded response decoding and never displays caught exception text", () => {
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
-  assert.match(workbench, /openSnaAnalysisErrorMessage/);
-  assert.doesNotMatch(workbench, /throw new Error\(reason\)/);
+  const analysisPath = workbench.slice(
+    workbench.indexOf("async function analyzeWorkbook"),
+    workbench.indexOf("function handleTabKeyboard"),
+  );
+  assert.match(analysisPath, /decodeOpenSnaAnalysisResponse/);
+  assert.doesNotMatch(analysisPath, /await response\.json\(\)/);
+  assert.doesNotMatch(analysisPath, /caught instanceof Error\s*\?\s*caught\.message/);
+  assert.match(analysisPath, /catch\s*\{[\s\S]*setError\(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE\)/);
 });
 
 test("the Open SNA interface provides accessible interactive exploration", () => {
