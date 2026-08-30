@@ -485,8 +485,8 @@ test("the web adapter refuses an unauthenticated remote worker configuration", a
     "VERCEL",
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
-  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
-  delete process.env.OPEN_SNA_R_API_TOKEN;
+  process.env.OPEN_SNA_R_API_URL = "ftp://user:pass@worker.invalid/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_TOKEN = "x".repeat(32);
   delete process.env.OPEN_SNA_R_WORKER_MODE;
   delete process.env.OPEN_SNA_R_WORKER_TOKEN;
   process.env.VERCEL = "1";

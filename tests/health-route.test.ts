@@ -90,6 +90,36 @@ test("health fails closed for missing or invalid deployment and R configuration"
       { SNA_RELEASE_SHA: "d".repeat(40), SNA_DEPLOYMENT_ROLE: "primary", OPEN_SNA_R_DISABLED: "1" },
       { SNA_RELEASE_SHA: "e".repeat(40), SNA_DEPLOYMENT_ROLE: "vercel-backup", OPEN_SNA_R_API_URL: "https://worker.invalid" },
       { SNA_RELEASE_SHA: "f".repeat(40), SNA_DEPLOYMENT_ROLE: "aliyun-primary", OPEN_SNA_R_API_TOKEN: "x".repeat(31) },
+      {
+        SNA_RELEASE_SHA: "1".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "not a url",
+        OPEN_SNA_R_API_TOKEN: "x".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "2".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "vercel-backup",
+        OPEN_SNA_R_API_URL: "ftp://user:pass@worker.invalid/path",
+        OPEN_SNA_R_API_TOKEN: "y".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "3".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "http://worker.example.com/path",
+        OPEN_SNA_R_API_TOKEN: "z".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "4".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "vercel-backup",
+        OPEN_SNA_R_API_URL: "https://worker.invalid/path",
+        OPEN_SNA_R_API_TOKEN: "short-token-value",
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "http://127.0.0.1:1234/path",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
     ] as const;
 
     for (const environment of cases) {
@@ -97,12 +127,26 @@ test("health fails closed for missing or invalid deployment and R configuration"
       Object.assign(process.env, environment);
       const response = await GET();
       const payload = await response.json() as { status?: string; code?: string };
-      assert.equal(response.status, 503);
-      assert.equal(response.headers.get("cache-control"), "no-store");
-      assert.deepEqual(payload, {
-        status: "unavailable",
-        code: "DEPLOYMENT_HEALTH_MISCONFIGURED",
-      });
+      const isLoopbackHttp =
+        "OPEN_SNA_R_API_URL" in environment &&
+        environment.OPEN_SNA_R_API_URL.startsWith("http://127.0.0.1:");
+      if (isLoopbackHttp) {
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get("cache-control"), "no-store");
+        assert.deepEqual(payload, {
+          status: "ok",
+          releaseSha: environment.SNA_RELEASE_SHA,
+          deploymentRole: "aliyun-primary",
+          rAnalysis: "configured",
+        });
+      } else {
+        assert.equal(response.status, 503);
+        assert.equal(response.headers.get("cache-control"), "no-store");
+        assert.deepEqual(payload, {
+          status: "unavailable",
+          code: "DEPLOYMENT_HEALTH_MISCONFIGURED",
+        });
+      }
     }
   } finally {
     restoreEnvironment(original);

@@ -5,6 +5,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
+import { readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -257,22 +258,9 @@ function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
 }
 
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
-  const engineUrl = process.env.OPEN_SNA_R_API_URL;
-  if (!engineUrl) return null;
-  const engineToken = process.env.OPEN_SNA_R_API_TOKEN || "";
-  let parsedEngineUrl: URL;
-  try {
-    parsedEngineUrl = new URL(engineUrl);
-  } catch {
-    throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
-  }
-  const loopbackHost = ["localhost", "127.0.0.1", "[::1]"].includes(parsedEngineUrl.hostname);
-  if (
-    engineToken.length < 32 ||
-    parsedEngineUrl.username ||
-    parsedEngineUrl.password ||
-    (parsedEngineUrl.protocol !== "https:" && !loopbackHost)
-  ) {
+  const engineConfiguration = readOpenSnaEngineConfigurationStatus();
+  if (!engineConfiguration.configured) {
+    if (engineConfiguration.reason === "missing") return null;
     throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
   }
   try {
@@ -282,8 +270,8 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     outgoing.set("permutations", permutations);
 
     const headers = new Headers({ Accept: "application/json" });
-    headers.set("Authorization", `Bearer ${engineToken}`);
-    const response = await fetch(engineUrl, {
+    headers.set("Authorization", `Bearer ${engineConfiguration.apiToken}`);
+    const response = await fetch(engineConfiguration.apiUrl, {
       method: "POST",
       body: outgoing,
       headers,
