@@ -53,6 +53,26 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });
 
+test("the Open SNA upload UI shows the complete English Public Beta notice", () => {
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  assert.ok(
+    workbench.indexOf("Public Beta") < workbench.indexOf('id="open-sna-setup-controls"'),
+    "the Public Beta notice must remain visible outside the mobile-collapsed setup controls",
+  );
+  assert.match(workbench, /Public Beta/);
+  assert.match(workbench, /one analysis at a time/i);
+  assert.match(workbench, /second concurrent request may return WORKER_BUSY/i);
+  assert.match(workbench, /large[^.]*1,000[^.]*bootstrap[^.]*may time out/i);
+  assert.match(workbench, /uploaded workbooks and row-level data are not retained/i);
+  assert.match(workbench, /no high-availability or availability commitment/i);
+});
+
+test("the Open SNA workbench uses the bounded API error mapper", () => {
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  assert.match(workbench, /openSnaAnalysisErrorMessage/);
+  assert.doesNotMatch(workbench, /throw new Error\(reason\)/);
+});
+
 test("the Open SNA interface provides accessible interactive exploration", () => {
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
   const graph = read("components/open-sna/NetworkGraph.tsx");

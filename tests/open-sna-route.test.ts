@@ -37,12 +37,73 @@ function workerResult(schemaVersion: "1.0" | "1.1") {
 }
 
 function isolateRouteEnvironment(keys: readonly string[]) {
-  const allKeys = Array.from(new Set([...keys, "OPENROUTER_API_KEY", "OPEN_SNA_TEST_OUTPUT_JSON"]));
+  const allKeys = Array.from(new Set([...keys, "OPENROUTER_API_KEY", "OPEN_SNA_TEST_OUTPUT_JSON", "OPEN_SNA_R_DISABLED"]));
   const originalEnvironment = Object.fromEntries(allKeys.map((key) => [key, process.env[key]]));
   delete process.env.OPENROUTER_API_KEY;
   delete process.env.OPEN_SNA_TEST_OUTPUT_JSON;
   return originalEnvironment;
 }
+
+test("the public R kill switch returns before multipart parsing", async () => {
+  const originalEnvironment = isolateRouteEnvironment([]);
+  process.env.OPEN_SNA_R_DISABLED = "1";
+  let multipartParsed = false;
+  const request = new Request("http://localhost/api/open-sna/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "multipart/form-data; boundary=disabled" },
+  });
+  Object.defineProperty(request, "formData", {
+    value: async () => {
+      multipartParsed = true;
+      throw new Error("multipart parsing must not run while R is disabled");
+    },
+  });
+
+  try {
+    const response = await POST(request);
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 503);
+    assert.equal(payload.code, "R_ENGINE_DISABLED");
+    assert.match(payload.error || "", /disabled/i);
+    assert.equal(multipartParsed, false);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
+});
+
+test("local R timeout responses use the bounded public timeout code", async () => {
+  const environmentKeys = [
+    "OPEN_SNA_RSCRIPT_BIN",
+    "OPEN_SNA_TMP_ROOT",
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_TEST_DELAY_MS",
+    "OPEN_SNA_TEST_FAILURE_CODE",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  const originalSetTimeout = globalThis.setTimeout;
+  process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
+  process.env.OPEN_SNA_TMP_ROOT = path.join(repositoryRoot, "tmp", "open-sna-route-timeout-tests");
+  process.env.OPEN_SNA_TEST_DELAY_MS = "250";
+  process.env.OPEN_SNA_TEST_FAILURE_CODE = "R_ANALYSIS_FAILED";
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+  globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...arguments_: unknown[]) => (
+    originalSetTimeout(handler, timeout === 255_000 ? 20 : timeout, ...arguments_)
+  )) as typeof setTimeout;
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 504);
+    assert.equal(payload.code, "R_ANALYSIS_TIMEOUT");
+    assert.match(payload.error || "", /time limit|timed out/i);
+    assert.ok((payload.error || "").length <= 200);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    restoreEnvironment(originalEnvironment);
+  }
+});
 
 function restoreEnvironment(originalEnvironment: Record<string, string | undefined>) {
   for (const [key, value] of Object.entries(originalEnvironment)) {
@@ -213,6 +274,47 @@ test("the web adapter maps remote worker failures without leaking worker diagnos
     assert.match(payload.error || "", /workbook could not be analyzed/i);
     assert.doesNotMatch(payload.error || "", /private worker diagnostic/i);
     assert.equal(receivedAuthorization, `Bearer ${forwardingToken}`);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    server.close();
+    await once(server, "close");
+  }
+});
+
+test("the web adapter preserves the bounded remote timeout response", async () => {
+  const server = createServer((_request, response) => {
+    response.writeHead(504, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({
+      code: "R_ANALYSIS_TIMEOUT",
+      error: "private timeout diagnostics that must not reach the browser",
+    }));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+
+  const environmentKeys = [
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_API_TOKEN",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_R_API_URL = `http://127.0.0.1:${address.port}/api/open-sna/analyze`;
+  process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_R_WORKER_TOKEN;
+  delete process.env.VERCEL;
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 504);
+    assert.equal(payload.code, "R_ANALYSIS_TIMEOUT");
+    assert.match(payload.error || "", /time limit|timed out/i);
+    assert.doesNotMatch(payload.error || "", /private timeout diagnostics/i);
   } finally {
     restoreEnvironment(originalEnvironment);
     server.close();

@@ -50,7 +50,7 @@ async function readBoundedResult(outputPath: string) {
 
 type RProcessResult = { exitCode: number; timedOut: boolean; stderr: string };
 type RFailureCode = "R_RUNTIME_NOT_READY" | "WORKBOOK_INVALID" | "R_ANALYSIS_FAILED";
-type RemoteFailureCode = RFailureCode | "WORKER_BUSY";
+type RemoteFailureCode = RFailureCode | "WORKER_BUSY" | "R_ANALYSIS_TIMEOUT";
 
 class RemoteEngineError extends Error {
   constructor(
@@ -108,6 +108,7 @@ function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError 
   if (code === "R_RUNTIME_NOT_READY" && status === 503) return new RemoteEngineError(code, 503);
   if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502);
   if (code === "WORKER_BUSY" && status === 429) return new RemoteEngineError(code, 429);
+  if (code === "R_ANALYSIS_TIMEOUT" && status === 504) return new RemoteEngineError(code, 504);
   return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
 }
 
@@ -139,6 +140,12 @@ function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "WORKER_BUSY") {
     return noStoreJson(
       { error: "The production R analysis service is busy. Wait for the current analysis to finish and try again.", code: error.code },
+      error.status,
+    );
+  }
+  if (error.code === "R_ANALYSIS_TIMEOUT") {
+    return noStoreJson(
+      { error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.", code: error.code },
       error.status,
     );
   }
@@ -301,11 +308,23 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     return normalizedResult;
   } catch (error) {
     if (error instanceof RemoteEngineError) throw error;
+    if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new RemoteEngineError("R_ANALYSIS_TIMEOUT", 504);
+    }
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }
 }
 
 export async function POST(request: Request) {
+  if (process.env.OPEN_SNA_R_DISABLED === "1") {
+    return noStoreJson(
+      {
+        error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
+        code: "R_ENGINE_DISABLED",
+      },
+      503,
+    );
+  }
   let jobDirectory: string | null = null;
   let claimedWorkerSlot = false;
   try {
@@ -413,7 +432,13 @@ export async function POST(request: Request) {
 
     const processResult = await runRAnalysis({ inputPath, outputPath, bootstraps, permutations });
     if (processResult.timedOut) {
-      return noStoreJson({ error: "The R analysis exceeded the local five-minute execution limit." }, 504);
+      return noStoreJson(
+        {
+          error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.",
+          code: "R_ANALYSIS_TIMEOUT",
+        },
+        504,
+      );
     }
     if (processResult.exitCode !== 0) {
       const failureCode = parseRFailureCode(processResult.stderr);

@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import NetworkGraph from "@/components/open-sna/NetworkGraph";
+import { openSnaAnalysisErrorMessage } from "@/lib/open-sna-errors";
 import {
   formatOpenSnaNumber,
   isOpenSnaResult,
@@ -544,8 +545,7 @@ export default function OpenSnaWorkbench() {
       const response = await fetch("/api/open-sna/analyze", { method: "POST", body: formData });
       const payload: unknown = await response.json();
       if (!response.ok) {
-        const reason = typeof payload === "object" && payload && "error" in payload && typeof payload.error === "string" ? payload.error : "The analysis engine rejected this workbook.";
-        throw new Error(reason);
+        throw new Error(openSnaAnalysisErrorMessage(response.status, payload));
       }
       if (!isOpenSnaResult(payload)) throw new Error("The analysis engine returned an invalid result.");
       setResult(payload);
@@ -594,6 +594,17 @@ export default function OpenSnaWorkbench() {
             <Icon name="chevron" className={cn("h-5 w-5 transition-transform", setupOpen && "rotate-180")} />
           </button>
         </div>
+
+        <aside className="m-4 mb-0 rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-4 sm:m-5 sm:mb-0" aria-label="Open SNA Public Beta notice">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--teal-ink)]">Public Beta</p>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-[var(--ink)]">
+            <li>The service processes one analysis at a time.</li>
+            <li>A second concurrent request may return WORKER_BUSY.</li>
+            <li>Large workbooks or analyses with 1,000 bootstrap replicates may time out.</li>
+            <li>Uploaded workbooks and row-level data are not retained.</li>
+            <li>This Public Beta has no high-availability or availability commitment.</li>
+          </ul>
+        </aside>
 
         <div id="open-sna-setup-controls" className={cn("space-y-5 p-4 sm:p-5", setupOpen ? "block" : "hidden", "xl:block")}>
           <div>
