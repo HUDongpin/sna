@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-origin_url="${1:-${SNA_ORIGIN_URL:-https://origin.sna.hk}}"
-apex_url="${2:-${SNA_APEX_URL:-https://sna.hk}}"
-worker_url="${3:-${SNA_WORKER_URL:-}}"
+base_url="${1:-${SNA_BASE_URL:-https://www.sna.hk}}"
+origin_url="${2:-${SNA_ORIGIN_URL:-https://origin.sna.hk}}"
+apex_url="${3:-${SNA_APEX_URL:-https://sna.hk}}"
+worker_url="${4:-${SNA_WORKER_URL:-}}"
 
 if [ -z "$worker_url" ]; then
-  echo "usage: verify.sh [https://origin.sna.hk] [https://sna.hk] https://worker.sna.hk" >&2
+  echo "usage: verify.sh [https://www.sna.hk] [https://origin.sna.hk] [https://sna.hk] https://worker.sna.hk" >&2
   exit 2
 fi
 
@@ -44,7 +45,7 @@ check_header() {
   fi
 }
 
-fetch_or_fail "web health" curl -fsS -D "$web_health_headers" "$origin_url/api/health" -o "$web_health_body"
+fetch_or_fail "web health" curl -fsS -D "$web_health_headers" "$base_url/api/health" -o "$web_health_body"
 
 if ! curl -fsS -D "$origin_headers" "$origin_url/" -o "$origin_body"; then
   echo "origin request failed" >&2
@@ -71,7 +72,7 @@ if ! curl -sS -D "$apex_headers" -o /dev/null -w '%{http_code}' -I "$apex_url/" 
 fi
 apex_status="$(cat "$tmp_dir/apex.status")"
 
-if ! curl -sS -D "$root_headers" -w '%{http_code}' "$origin_url/" -o "$root_body" > "$tmp_dir/root.status"; then
+if ! curl -sS -D "$root_headers" -w '%{http_code}' "$base_url/" -o "$root_body" > "$tmp_dir/root.status"; then
   echo "www root network request failed" >&2
   exit 1
 fi

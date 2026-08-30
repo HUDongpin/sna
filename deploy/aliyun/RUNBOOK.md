@@ -58,7 +58,8 @@ The compose file enforces:
 1. Confirm `sna.hk` on HTTP goes directly to `https://www.sna.hk$request_uri` in one hop.
 1. Confirm `www.sna.hk` on HTTP returns HTTP 307 and redirects to `/en`, not a 200 response.
 1. Confirm the worker response body includes `WORKER_UNAUTHORIZED` and does not disclose secrets.
-1. Confirm `origin.sna.hk` returns `X-Robots-Tag: noindex,nofollow` and that the origin root is the endpoint you use for the public health and root checks.
+1. Run `deploy/aliyun/scripts/verify.sh https://www.sna.hk https://origin.sna.hk https://sna.hk https://worker.sna.hk` after public cutover. Before cutover, pass `https://origin.sna.hk` as the first argument as well; the script will still check the origin robots header separately.
+1. Confirm `origin.sna.hk` returns `X-Robots-Tag: noindex,nofollow`, and that `worker.sna.hk/` returns HTTP 404.
 
 ## Nginx and TLS
 

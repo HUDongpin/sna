@@ -187,6 +187,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /WORKER_UNAUTHORIZED/, "verify must check the worker unauthorized body");
   expectContains(verify, /X-Robots-Tag/i, "verify must check the origin robots header");
   expectContains(verify, /404/, "verify must check the worker root 404");
+  expectContains(verify, /base_url=.*SNA_BASE_URL/, "verify must check the public base separately from origin");
+  expectContains(verify, /usage: verify\.sh \[https:\/\/www\.sna\.hk\] \[https:\/\/origin\.sna\.hk\] \[https:\/\/sna\.hk\] https:\/\/worker\.sna\.hk/, "verify usage must document all endpoint arguments");
   expectContains(verify, /https:\/\/sna\.hk/, "verify must support the apex redirect check");
   expectContains(verify, /(301|308)/, "verify must allow apex 301 or 308 redirects");
   assert.ok(
