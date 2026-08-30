@@ -76,6 +76,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   const rollback = read("deploy/aliyun/scripts/rollback.sh");
   const workflow = read(".github/workflows/release-containers.yml");
   const ci = read(".github/workflows/ci.yml");
+  const dockerignore = read(".dockerignore");
 
   assert.ok(existsSync(fromRoot("Dockerfile.web")), "root web Dockerfile must exist");
   assert.ok(existsSync(fromRoot("Dockerfile.open-sna-worker")), "root worker Dockerfile must exist");
@@ -112,6 +113,9 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerDockerfile, /CMD \["sh", "-c", "Rscript --vanilla analysis\/preflight\.R && exec node server\.js"\]/, "worker Dockerfile must healthcheck and start through the standalone server");
   const workerFinalStage = workerDockerfile.slice(workerDockerfile.indexOf("FROM worker-base AS final"));
   expectNotContains(workerFinalStage, /analysis\/open-sna\/tests|fixture|test harness/i, "worker final stage should not retain tests or harness text");
+  expectContains(dockerignore, /\*\.md/, "Docker build context must exclude repository Markdown and internal reports");
+  expectContains(dockerignore, /!analysis\/open-sna\/tests\/conditioning-regression\.R/, "Docker context must retain the conditioning regression source");
+  expectContains(dockerignore, /!analysis\/open-sna\/tests\/group-selection-regression\.R/, "Docker context must retain the group selection regression source");
 
   const webService = composeServiceBlock(compose, "sna-web");
   const workerService = composeServiceBlock(compose, "sna-r-worker");

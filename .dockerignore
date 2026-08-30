@@ -14,5 +14,6 @@ tests
 *.xlsx
 *.csv
 *.pdf
+*.md
 *.log
 *.tsbuildinfo
