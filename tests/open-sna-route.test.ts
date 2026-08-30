@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -121,12 +122,14 @@ test("the upload route distinguishes R runtime, workbook, and analysis failures"
     "OPEN_SNA_TEST_FAILURE_CODE",
     "OPEN_SNA_TEST_EXPECT_R_LIBS_USER",
     "R_LIBS_USER",
+    "NODE_ENV",
     "VERCEL",
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
 
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
-  process.env.OPEN_SNA_TMP_ROOT = path.join(repositoryRoot, "tmp", "open-sna-route-tests");
+  process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-route-tests");
+  process.env.NODE_ENV = "test";
   delete process.env.OPEN_SNA_R_API_URL;
   delete process.env.OPEN_SNA_R_LIBS_USER;
   delete process.env.R_LIBS_USER;

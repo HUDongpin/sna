@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
@@ -69,6 +70,13 @@ function parseRFailureCode(stderr: string): RFailureCode {
 
 function workerModeEnabled() {
   return process.env.OPEN_SNA_R_WORKER_MODE === "1";
+}
+
+function isTestSystemTemporaryRoot(temporaryRoot: string) {
+  if (process.env.NODE_ENV !== "test") return false;
+  const systemTemporaryRoot = path.resolve(tmpdir());
+  const relative = path.relative(systemTemporaryRoot, temporaryRoot);
+  return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function safeTokenMatches(actualHeader: string | null, expectedToken: string) {
@@ -401,7 +409,7 @@ export async function POST(request: Request) {
     );
     const validWorkerRoot = workerMode &&
       (temporaryRoot.startsWith("/tmp/open-sna-") || temporaryRoot.startsWith("/var/tmp/open-sna-"));
-    if (!validWorkerRoot && !temporaryRoot.startsWith("/Volumes/Starship/")) {
+    if (!validWorkerRoot && !temporaryRoot.startsWith("/Volumes/Starship/") && !isTestSystemTemporaryRoot(temporaryRoot)) {
       return noStoreJson(
         {
           error: workerMode
