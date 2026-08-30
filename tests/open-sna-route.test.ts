@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { once } from "node:events";
-import { readFileSync } from "node:fs";
-import { createServer } from "node:http";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -11,6 +9,12 @@ import { POST } from "../app/api/open-sna/analyze/route";
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const fakeRscript = path.join(repositoryRoot, "tests", "fixtures", "fake-open-sna-rscript.mjs");
 const xlsxMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const workerTestTemporaryParent = path.resolve(tmpdir());
+
+function createWorkerTestTemporaryRoot() {
+  mkdirSync(workerTestTemporaryParent, { recursive: true, mode: 0o700 });
+  return mkdtempSync(path.join(workerTestTemporaryParent, "open-sna-worker-tests-"));
+}
 
 function analysisRequest(authorization?: string) {
   const formData = new FormData();
@@ -208,11 +212,12 @@ test("worker mode requires bearer authentication and accepts an isolated Linux t
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const workerToken = "test-worker-token-with-32-characters";
+  const workerTemporaryRoot = createWorkerTestTemporaryRoot();
 
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
   process.env.OPEN_SNA_R_WORKER_MODE = "1";
   process.env.OPEN_SNA_R_WORKER_TOKEN = workerToken;
-  process.env.OPEN_SNA_R_WORKER_TMP_ROOT = "/tmp/open-sna-worker-tests";
+  process.env.OPEN_SNA_R_WORKER_TMP_ROOT = workerTemporaryRoot;
   process.env.OPEN_SNA_TEST_FAILURE_CODE = "WORKBOOK_INVALID";
   delete process.env.OPEN_SNA_TMP_ROOT;
   delete process.env.OPEN_SNA_R_API_URL;
@@ -230,6 +235,19 @@ test("worker mode requires bearer authentication and accepts an isolated Linux t
     assert.equal(authenticatedResponse.status, 422);
     assert.equal(authenticatedPayload.code, "WORKBOOK_INVALID");
 
+    for (const invalidToken of [
+      "replace-with-a-unique-32-byte-token",
+      `"replace-with-a-unique-32-byte-token"`,
+      `${"x".repeat(16)} ${"x".repeat(16)}`,
+      "界".repeat(32),
+    ]) {
+      process.env.OPEN_SNA_R_WORKER_TOKEN = invalidToken;
+      const invalidTokenResponse = await POST(analysisRequest(`Bearer ${workerToken}`));
+      const invalidTokenPayload = await invalidTokenResponse.json() as { code?: string };
+      assert.equal(invalidTokenResponse.status, 503);
+      assert.equal(invalidTokenPayload.code, "WORKER_CONFIGURATION_INVALID");
+    }
+
     delete process.env.OPEN_SNA_R_WORKER_TOKEN;
     const misconfiguredResponse = await POST(analysisRequest(`Bearer ${workerToken}`));
     const misconfiguredPayload = await misconfiguredResponse.json() as { code?: string };
@@ -237,23 +255,25 @@ test("worker mode requires bearer authentication and accepts an isolated Linux t
     assert.equal(misconfiguredPayload.code, "WORKER_CONFIGURATION_INVALID");
   } finally {
     restoreEnvironment(originalEnvironment);
+    rmSync(workerTemporaryRoot, { recursive: true, force: true });
   }
 });
 
 test("the web adapter maps remote worker failures without leaking worker diagnostics", async () => {
   let receivedAuthorization = "";
-  const server = createServer((request, response) => {
-    receivedAuthorization = request.headers.authorization || "";
-    response.writeHead(422, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({
-      code: "WORKBOOK_INVALID",
-      error: "private worker diagnostic that must not reach the browser",
-    }));
-  });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
+  let receivedUrl = "";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    receivedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    receivedAuthorization = new Headers(init?.headers).get("authorization") || "";
+    return Response.json(
+      {
+        code: "WORKBOOK_INVALID",
+        error: "private worker diagnostic that must not reach the browser",
+      },
+      { status: 422 },
+    );
+  }) as typeof fetch;
 
   const environmentKeys = [
     "OPEN_SNA_R_API_URL",
@@ -264,7 +284,7 @@ test("the web adapter maps remote worker failures without leaking worker diagnos
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const forwardingToken = "test-forwarding-token-with-32-characters";
-  process.env.OPEN_SNA_R_API_URL = `http://127.0.0.1:${address.port}/api/open-sna/analyze`;
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
   process.env.OPEN_SNA_R_API_TOKEN = forwardingToken;
   delete process.env.OPEN_SNA_R_WORKER_MODE;
   delete process.env.OPEN_SNA_R_WORKER_TOKEN;
@@ -278,25 +298,22 @@ test("the web adapter maps remote worker failures without leaking worker diagnos
     assert.match(payload.error || "", /workbook could not be analyzed/i);
     assert.doesNotMatch(payload.error || "", /private worker diagnostic/i);
     assert.equal(receivedAuthorization, `Bearer ${forwardingToken}`);
+    assert.equal(receivedUrl, "https://worker.invalid/api/open-sna/analyze");
   } finally {
     restoreEnvironment(originalEnvironment);
-    server.close();
-    await once(server, "close");
+    globalThis.fetch = originalFetch;
   }
 });
 
 test("the web adapter preserves the bounded remote timeout response", async () => {
-  const server = createServer((_request, response) => {
-    response.writeHead(504, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json(
+    {
       code: "R_ANALYSIS_TIMEOUT",
       error: "private timeout diagnostics that must not reach the browser",
-    }));
-  });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
+    },
+    { status: 504 },
+  )) as typeof fetch;
 
   const environmentKeys = [
     "OPEN_SNA_R_API_URL",
@@ -306,7 +323,7 @@ test("the web adapter preserves the bounded remote timeout response", async () =
     "VERCEL",
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
-  process.env.OPEN_SNA_R_API_URL = `http://127.0.0.1:${address.port}/api/open-sna/analyze`;
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
   process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
   delete process.env.OPEN_SNA_R_WORKER_MODE;
   delete process.env.OPEN_SNA_R_WORKER_TOKEN;
@@ -321,21 +338,14 @@ test("the web adapter preserves the bounded remote timeout response", async () =
     assert.doesNotMatch(payload.error || "", /private timeout diagnostics/i);
   } finally {
     restoreEnvironment(originalEnvironment);
-    server.close();
-    await once(server, "close");
+    globalThis.fetch = originalFetch;
   }
 });
 
 test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes only canonical 1.1", async () => {
   let responsePayload: unknown = workerResult("1.1");
-  const server = createServer((_request, response) => {
-    response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify(responsePayload));
-  });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json(responsePayload, { status: 200 })) as typeof fetch;
 
   const environmentKeys = [
     "OPEN_SNA_R_API_URL",
@@ -345,7 +355,7 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
     "VERCEL",
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
-  process.env.OPEN_SNA_R_API_URL = `http://127.0.0.1:${address.port}/api/open-sna/analyze`;
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
   process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
   delete process.env.OPEN_SNA_R_WORKER_MODE;
   delete process.env.OPEN_SNA_R_WORKER_TOKEN;
@@ -412,8 +422,7 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
     }
   } finally {
     restoreEnvironment(originalEnvironment);
-    server.close();
-    await once(server, "close");
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -430,10 +439,11 @@ test("worker mode admits only one R analysis at a time", async () => {
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
   const workerToken = "test-worker-token-with-32-characters";
+  const workerTemporaryRoot = createWorkerTestTemporaryRoot();
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
   process.env.OPEN_SNA_R_WORKER_MODE = "1";
   process.env.OPEN_SNA_R_WORKER_TOKEN = workerToken;
-  process.env.OPEN_SNA_R_WORKER_TMP_ROOT = "/tmp/open-sna-worker-tests";
+  process.env.OPEN_SNA_R_WORKER_TMP_ROOT = workerTemporaryRoot;
   process.env.OPEN_SNA_TEST_DELAY_MS = "150";
   process.env.OPEN_SNA_TEST_FAILURE_CODE = "WORKBOOK_INVALID";
   delete process.env.OPEN_SNA_R_API_URL;
@@ -451,10 +461,15 @@ test("worker mode admits only one R analysis at a time", async () => {
     assert.equal(firstResponse.status, 422);
   } finally {
     restoreEnvironment(originalEnvironment);
+    rmSync(workerTemporaryRoot, { recursive: true, force: true });
   }
 });
 
 test("the web adapter reports an unavailable remote worker as a gateway failure", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new TypeError("synthetic unavailable worker");
+  }) as typeof fetch;
   const environmentKeys = [
     "OPEN_SNA_R_API_URL",
     "OPEN_SNA_R_API_TOKEN",
@@ -463,7 +478,7 @@ test("the web adapter reports an unavailable remote worker as a gateway failure"
     "VERCEL",
   ] as const;
   const originalEnvironment = isolateRouteEnvironment(environmentKeys);
-  process.env.OPEN_SNA_R_API_URL = "http://127.0.0.1:1/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
   process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
   delete process.env.OPEN_SNA_R_WORKER_MODE;
   delete process.env.OPEN_SNA_R_WORKER_TOKEN;
@@ -475,8 +490,10 @@ test("the web adapter reports an unavailable remote worker as a gateway failure"
     assert.equal(response.status, 502);
     assert.equal(payload.code, "R_ENGINE_UNAVAILABLE");
     assert.match(payload.error || "", /temporarily unavailable/i);
+    assert.doesNotMatch(payload.error || "", /synthetic unavailable worker/i);
   } finally {
     restoreEnvironment(originalEnvironment);
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -506,15 +523,28 @@ test("the web adapter refuses an unauthenticated remote worker configuration", a
   }
 });
 
-test("the Open SNA engine config requires the exact planned analyze endpoint path", async () => {
+test("the Open SNA engine config requires HTTPS and the exact planned analyze endpoint path", async () => {
   const { readOpenSnaEngineConfigurationStatus } = await import("../lib/open-sna-config");
+  const environmentKeys = ["OPEN_SNA_R_API_URL", "OPEN_SNA_R_API_TOKEN"] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
 
-  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze/health";
-  process.env.OPEN_SNA_R_API_TOKEN = "x".repeat(32);
+  try {
+    for (const invalidUrl of [
+      "http://127.0.0.1:1234/api/open-sna/analyze",
+      "http://localhost:1234/api/open-sna/analyze",
+      "http://[::1]:1234/api/open-sna/analyze",
+      "https://worker.invalid/api/open-sna/analyze/health",
+    ]) {
+      process.env.OPEN_SNA_R_API_URL = invalidUrl;
+      process.env.OPEN_SNA_R_API_TOKEN = "x".repeat(32);
 
-  const status = readOpenSnaEngineConfigurationStatus();
+      const status = readOpenSnaEngineConfigurationStatus();
 
-  assert.equal(status.configured, false);
-  if (status.configured) assert.fail("unexpectedly accepted a non-exact endpoint path");
-  assert.equal(status.reason, "invalid");
+      assert.equal(status.configured, false, invalidUrl);
+      if (status.configured) assert.fail(`unexpectedly accepted ${invalidUrl}`);
+      assert.equal(status.reason, "invalid", invalidUrl);
+    }
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
 });

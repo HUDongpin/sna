@@ -6,7 +6,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
-import { readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
+import { isValidOpenSnaServiceToken, readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,7 +91,7 @@ function safeTokenMatches(actualHeader: string | null, expectedToken: string) {
 function workerAuthenticationFailure(request: Request) {
   if (!workerModeEnabled()) return null;
   const workerToken = process.env.OPEN_SNA_R_WORKER_TOKEN || "";
-  if (workerToken.length < 32 || process.env.OPEN_SNA_R_API_URL) {
+  if (!isValidOpenSnaServiceToken(workerToken) || process.env.OPEN_SNA_R_API_URL) {
     return noStoreJson(
       {
         error: "The Open SNA R worker configuration is incomplete.",
