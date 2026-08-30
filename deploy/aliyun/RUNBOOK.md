@@ -55,16 +55,22 @@ The compose file enforces:
 1. Start the compose stack with `docker compose --env-file /opt/sna/.env -f deploy/aliyun/compose.yaml up -d`.
 1. Confirm `GET /api/health` returns HTTP 200 and reports the expected SHA and role.
 1. Confirm `POST /api/open-sna/analyze` without credentials returns HTTP 401 on the worker.
-1. Confirm the HTTP entrypoint redirects to HTTPS.
+1. Confirm `sna.hk` on HTTP goes directly to `https://www.sna.hk$request_uri` in one hop.
+1. Confirm `www.sna.hk` on HTTP either returns 200 or redirects to `/en`.
+1. Confirm the worker response body includes `WORKER_UNAUTHORIZED` and does not disclose secrets.
 1. Confirm `origin.sna.hk` returns `X-Robots-Tag: noindex,nofollow`.
 
 ## Nginx and TLS
 
 - `www.sna.hk` is the main host.
-- `sna.hk` should redirect to `www.sna.hk`.
+- `sna.hk` should redirect to `https://www.sna.hk$request_uri` on HTTP and to `https://www.sna.hk$request_uri` on HTTPS.
 - `origin.sna.hk` is the pre-acceptance host and should expose the web container only.
 - `worker.sna.hk` must proxy only the exact `/api/open-sna/analyze` route.
 - Keep request body and authorization logging disabled.
+- Keep `Authorization` forwarding limited to `worker.sna.hk`.
+- Keep TLS at 1.2/1.3, `client_max_body_size` at `6m`, and upstream read/send timeouts at `300s`.
+- Keep worker rate limiting at `2r/m` and `limit_conn` at `1`.
+- Keep `X-Robots-Tag: noindex,nofollow` on `origin.sna.hk`.
 - Keep the TLS certificate and key at `/etc/nginx/ssl/sna.hk.crt` and `/etc/nginx/ssl/sna.hk.key` as placeholders to be mounted by the host.
 - Apply the Baota/Nginx include or config replacement in a staging-safe order: back up the current file, update the template, run `nginx -t`, then reload. If validation fails, restore the backup before any reload.
 
@@ -75,8 +81,10 @@ Use the rollback script only when you have a confirmed previous digest and `CONF
 Rollback order:
 
 1. validate the compose file and digests
-1. switch the worker back first and wait for a healthy 401 response
+1. switch the worker back first using the in-memory digests and wait for a healthy container plus a 401 worker response
+1. only after that, atomically update `/opt/sna/.env` or `OPEN_SNA_COMPOSE_ENV_FILE`
 1. switch the web service last
+1. wait for the web container to become healthy before declaring success
 
 Never use rollback as a reset or delete operation.
 

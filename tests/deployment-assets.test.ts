@@ -142,10 +142,12 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(nginx, /client_max_body_size\s+6m;/i, "nginx config must enforce upload size");
   expectContains(nginx, /proxy_read_timeout\s+300s;/i, "nginx config must enforce upstream timeout");
   expectContains(nginx, /X-Robots-Tag\s+noindex,nofollow/i, "origin host must return noindex,nofollow");
+  expectContains(nginx, /server_name\s+sna\.hk;\s*\n\s*return 301 https:\/\/www\.sna\.hk\$request_uri;/, "apex HTTP must redirect directly to www");
   expectContains(nginx, /location\s+=\s*\/api\/open-sna\/analyze/, "worker host must proxy only the exact analysis path");
   expectContains(nginx, /proxy_set_header\s+Authorization\s+\$http_authorization;/, "worker proxy must forward authorization when present");
   expectContains(nginx, /ssl_certificate\s+\/etc\/nginx\/ssl\/sna\.hk\.crt;/, "nginx config must declare a certificate placeholder");
   expectContains(nginx, /ssl_certificate_key\s+\/etc\/nginx\/ssl\/sna\.hk\.key;/, "nginx config must declare a key placeholder");
+  expectContains(nginx, /Strict-Transport-Security/i, "nginx config must emit HSTS when verify enforces it");
   expectContains(nginx, /limit_req_zone\s+\$binary_remote_addr\s+zone=sna_api:10m\s+rate=2r\/m;/, "nginx config must use the strict 2r/m worker limit");
   expectContains(nginx, /limit_conn\s+sna_conn\s+1;/, "nginx config must limit worker concurrency to one");
   expectNotContains(nginx, /(?:access_log|log_format)[^\n]*(?:authorization|request_body|body|auth)/i, "nginx config must not log authorization or request bodies");
@@ -185,9 +187,16 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /WORKER_UNAUTHORIZED/, "verify must check the worker unauthorized body");
   expectContains(verify, /https:\/\/sna\.hk/, "verify must support the apex redirect check");
   expectContains(verify, /(301|308)/, "verify must allow apex 301 or 308 redirects");
-  expectContains(verify, /location: \/en\/?/, "verify must allow www root redirects to /en");
+  assert.ok(
+    verify.includes("grep -Eqi '^location: (/?en/?|https://www\\.sna\\.hk/en/?)(\\?.*)?$'") &&
+      verify.includes("root status error: expected 200, 301, or 308"),
+    "verify must allow www root redirects to /en",
+  );
   expectContains(verify, /no-store/i, "verify must check cache headers");
-  expectContains(verify, /https/i, "verify must check HTTPS or redirects");
+  expectContains(verify, /worker network request failed/, "verify must separate worker network failures");
+  expectContains(verify, /apex network request failed/, "verify must separate apex network failures");
+  expectContains(verify, /www root network request failed/, "verify must separate www network failures");
+  expectContains(verify, /strict-transport-security/i, "verify must check HSTS when the config emits it");
   expectNotContains(verify, /printenv|cat .*env|echo .*token/i, "verify must not print secrets");
 
   expectContains(rollback, /set -euo pipefail/, "rollback must use strict shell mode");
@@ -197,10 +206,19 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(rollback, /release SHA/i, "rollback must require a release SHA");
   expectContains(rollback, /worker first/i, "rollback must update the worker before the web service");
   expectContains(rollback, /--no-deps/, "rollback must avoid cascading restarts");
-  expectContains(rollback, /healthy 401 response/i, "rollback must wait for the worker health check");
+  expectContains(rollback, /Waiting for the worker container health status to become healthy/i, "rollback must wait for the worker health status");
+  expectContains(rollback, /docker inspect -f '\{\{\.State\.Health\.Status\}\}'/, "rollback must poll Docker health directly");
+  expectContains(rollback, /expected worker to return 401 after rollback/i, "rollback must validate the worker authorization boundary");
   expectContains(rollback, /export SNA_WEB_IMAGE_DIGEST/, "rollback must override the web digest in the compose environment");
   expectContains(rollback, /export SNA_WORKER_IMAGE_DIGEST/, "rollback must override the worker digest in the compose environment");
   expectContains(rollback, /export SNA_RELEASE_SHA/, "rollback must override the release SHA in the compose environment");
+  expectContains(rollback, /rollback_dir/, "rollback must keep a rollback backup directory");
+  expectContains(rollback, /mv "\$tmp_env_file" "\$compose_env_file"/, "rollback must update the compose env file atomically");
+  assert.ok(
+    rollback.indexOf("Waiting for the worker container health status to become healthy") <
+      rollback.indexOf("cp -p \"$compose_env_file\" \"$backup_file\""),
+    "rollback must persist env only after worker health and 401 verification",
+  );
   expectContains(rollback, /docker compose --env-file .* pull --no-parallel sna-r-worker/, "rollback must pull the worker first");
   expectContains(rollback, /docker compose --env-file .* up -d --no-deps --force-recreate sna-r-worker/, "rollback must recreate the worker before web");
   expectContains(rollback, /docker compose --env-file .* pull --no-parallel sna-web/, "rollback must only touch web after the worker check");
@@ -214,6 +232,11 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(runbook, /Dockerfile\.open-sna-worker/, "runbook must reference the root worker Dockerfile");
   expectContains(runbook, /compose.yaml/, "runbook must reference the compose file");
   expectContains(runbook, /\/opt\/sna\/\.env/, "runbook must describe the non-secret compose env file");
+  assert.ok(
+    runbook.includes("`sna.hk` on HTTP goes directly to `https://www.sna.hk$request_uri` in one hop."),
+    "runbook must document the apex redirect",
+  );
+  expectContains(runbook, /Authorization` forwarding limited to `worker\.sna\.hk`/, "runbook must document authorization scoping");
   expectContains(runbook, /Baota|nginx -t|reload/i, "runbook must describe the safe Nginx update sequence");
 
   const preflightTemp = mkdtempSync(path.join(repositoryRoot, "tmp", "deployment-assets-"));
@@ -252,6 +275,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /target:\s*verify/, "release workflow must build the worker verify stage");
   expectContains(workflow, /release-digests\.json/, "release workflow must emit a digest manifest");
   expectContains(workflow, /upload-artifact/i, "release workflow must upload the digest manifest");
+  assert.ok(stepIndex(workflow, "Set up Buildx") < stepIndex(workflow, "Build worker verify stage"), "buildx must be ready before verify builds");
   assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build and push web image"), "worker verify must happen before any push:true image build");
   assert.ok(stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build and push worker image"), "worker verify must happen before worker push");
 
