@@ -86,23 +86,11 @@ test("reference load failures do not pass untrusted response errors to the UI", 
     workbench.indexOf("useEffect", workbench.indexOf("async function loadReference")),
   );
   const { openSnaReferenceErrorMessage } = await import("../components/open-sna/OpenSnaWorkbench");
-  const untrustedFailure = "reference body https://private.invalid/result 203.0.113.8 bearer sk_live_reference_secret";
-  const response = new Response("not-json", { status: 502 });
-  Object.defineProperty(response, "json", {
-    configurable: true,
-    value: async () => {
-      throw new Error(untrustedFailure);
-    },
-  });
-
-  let uiError: string | null = null;
-  try {
-    await response.json();
-  } catch (caught) {
-    uiError = openSnaReferenceErrorMessage(caught);
-  }
+  const caught = new Error("reference body https://private.invalid/result 203.0.113.8 bearer sk_live_reference_secret");
+  const uiError = openSnaReferenceErrorMessage(caught);
 
   assert.equal(uiError === "The reference result could not be loaded.", true, "reference failure text must be bounded before it reaches the UI");
+  assert.doesNotMatch(uiError, /https?:\/\/|203\.0\.113\.8|sk_live_reference_secret/i);
   assert.match(workbench, /const OPEN_SNA_REFERENCE_ERROR_MESSAGE = [\"']The reference result could not be loaded\.[\"']/);
   assert.match(referencePath, /setError\(openSnaReferenceErrorMessage\(caught\)\)/);
   assert.doesNotMatch(referencePath, /caught instanceof Error\s*\?\s*caught\.message/);
