@@ -286,6 +286,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /Node source gate/, "release workflow must gate with Node checks before pushes");
   expectContains(workflow, /steps\.web_build\.outputs\.digest/, "release workflow must work with web digests");
   expectContains(workflow, /steps\.worker_build\.outputs\.digest/, "release workflow must work with worker digests");
+  expectContains(workflow, /aquasecurity\/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25/, "release workflow must pin the official Trivy action to the requested commit");
+  expectContains(workflow, /Confirm prebuilt images are loaded locally/, "release workflow must verify the prebuilds are local before scanning");
   expectContains(workflow, /file: Dockerfile\.web/, "release workflow must use the root web Dockerfile");
   expectContains(workflow, /file: Dockerfile\.open-sna-worker/, "release workflow must use the root worker Dockerfile");
   expectContains(workflow, /target:\s*verify/, "release workflow must build the worker verify stage");
@@ -298,10 +300,14 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
       stepIndex(workflow, "Node source gate") < stepIndex(workflow, "Build worker verify stage") &&
       stepIndex(workflow, "Build worker verify stage") < stepIndex(workflow, "Build web final image") &&
       stepIndex(workflow, "Build web final image") < stepIndex(workflow, "Build worker final image") &&
+      stepIndex(workflow, "Build worker final image") < stepIndex(workflow, "Confirm prebuilt images are loaded locally") &&
+      stepIndex(workflow, "Confirm prebuilt images are loaded locally") < stepIndex(workflow, "Scan web image with Trivy") &&
+      stepIndex(workflow, "Scan web image with Trivy") < stepIndex(workflow, "Scan worker image with Trivy") &&
+      stepIndex(workflow, "Scan worker image with Trivy") < stepIndex(workflow, "Log in to GHCR") &&
       stepIndex(workflow, "Build worker final image") < stepIndex(workflow, "Log in to GHCR") &&
       stepIndex(workflow, "Log in to GHCR") < stepIndex(workflow, "Build and push web image") &&
       stepIndex(workflow, "Build and push web image") < stepIndex(workflow, "Build and push worker image"),
-    "release workflow must keep buildx first, then source/verify gates, then final builds, then login and pushes",
+    "release workflow must keep buildx first, then source/verify gates, then local prebuild verification, then Trivy scans, then login and pushes",
   );
 
   expectContains(ci, /pull_request:/, "CI workflow must run on pull requests");
