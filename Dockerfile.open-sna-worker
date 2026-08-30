@@ -71,6 +71,8 @@ RUN mkdir -p "${R_LIBS_USER}" \
 
 FROM worker-base AS verify
 
+COPY analysis/open-sna/tests/conditioning-regression.R ./analysis/open-sna/tests/conditioning-regression.R
+COPY analysis/open-sna/tests/group-selection-regression.R ./analysis/open-sna/tests/group-selection-regression.R
 COPY analysis/open-sna ./analysis/open-sna
 
 RUN Rscript --vanilla analysis/open-sna/preflight.R \
@@ -96,6 +98,7 @@ RUN groupadd --gid 10001 open-sna \
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV OPEN_SNA_R_WORKER_MODE=1
+ENV OPEN_SNA_R_LIBS_USER=/opt/open-sna/r-library
 ENV OPEN_SNA_R_WORKER_TMP_ROOT=/tmp/open-sna-jobs
 ENV PORT=3000
 

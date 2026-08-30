@@ -3,6 +3,8 @@ set -euo pipefail
 
 web_env_file="${OPEN_SNA_WEB_ENV_FILE:-/opt/sna/secrets/web.env}"
 worker_env_file="${OPEN_SNA_WORKER_ENV_FILE:-/opt/sna/secrets/worker.env}"
+compose_file="${OPEN_SNA_COMPOSE_FILE:-$(dirname "$0")/../compose.yaml}"
+compose_env_file="${OPEN_SNA_COMPOSE_ENV_FILE:-/opt/sna/.env}"
 web_digest="${SNA_WEB_IMAGE_DIGEST:-${OPEN_SNA_WEB_IMAGE_DIGEST:-}}"
 worker_digest="${SNA_WORKER_IMAGE_DIGEST:-${OPEN_SNA_WORKER_IMAGE_DIGEST:-}}"
 
@@ -21,6 +23,7 @@ worker_digest="${SNA_WORKER_IMAGE_DIGEST:-${OPEN_SNA_WORKER_IMAGE_DIGEST:-}}"
 echo "Preflight is read-only."
 command -v docker >/dev/null
 docker compose version >/dev/null
+docker compose --env-file "$compose_env_file" -f "$compose_file" config >/dev/null
 
 if [ -e /opt/sna/secrets/web.env ]; then
   stat -c '%U %a %n' /opt/sna/secrets/web.env
@@ -31,6 +34,5 @@ fi
 
 df -h / /opt /tmp || true
 free -h || true
-ss -ltnp | awk '$4 ~ /:3100$/ || $4 ~ /:3101$/'
+ss -ltnp | awk '$4 ~ /127\.0\.0\.1:3100$/ || $4 ~ /127\.0\.0\.1:3101$/'
 docker ps --format '{{.Names}} {{.Image}} {{.Status}}'
-docker compose -f "$(dirname "$0")/../compose.yaml" config >/dev/null

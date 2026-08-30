@@ -77,6 +77,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(webDockerfile, /FROM node:24\.15\.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS build/, "web Dockerfile must pin the requested Node base image");
   expectContains(webDockerfile, /ARG VCS_REF=unknown/, "web Dockerfile must declare the revision build arg");
   expectContains(webDockerfile, /OPEN_SNA_CONTAINER_BUILD=1/, "web Dockerfile must set the container build flag");
+  expectContains(webDockerfile, /NEXT_TELEMETRY_DISABLED=1/, "web Dockerfile must disable Next telemetry during build");
   expectContains(webDockerfile, /npm run build -- --webpack/, "web Dockerfile must build with webpack");
   expectContains(webDockerfile, /COPY --from=build \/app\/\.next\/standalone/, "web Dockerfile must copy standalone output");
   expectContains(webDockerfile, /USER 10001:10001/, "web Dockerfile must run as non-root");
@@ -91,6 +92,9 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerDockerfile, /rocker\/r-ver:4\.4\.2@sha256:[0-9a-f]{64}/, "worker Dockerfile must use the pinned rocker base");
   expectContains(workerDockerfile, /COPY analysis\/open-sna\/renv\.lock/, "worker Dockerfile must copy the exact lockfile");
   expectContains(workerDockerfile, /renv::restore/, "worker Dockerfile must restore renv");
+  expectContains(workerDockerfile, /OPEN_SNA_R_LIBS_USER=\/opt\/open-sna\/r-library/, "worker Dockerfile must lock the R library path for runtime and preflight");
+  expectContains(workerDockerfile, /COPY analysis\/open-sna\/tests\/conditioning-regression\.R/, "worker verify stage must copy the conditioning regression harness");
+  expectContains(workerDockerfile, /COPY analysis\/open-sna\/tests\/group-selection-regression\.R/, "worker verify stage must copy the group-selection regression harness");
   expectContains(workerDockerfile, /preflight\.R/, "worker Dockerfile must run the preflight fixture");
   expectContains(workerDockerfile, /verify-conditioning\.R/, "worker Dockerfile must run the conditioning regression via the wrapper");
   expectContains(workerDockerfile, /verify-group-selection\.R/, "worker Dockerfile must run the group-selection regression via the wrapper");
@@ -100,7 +104,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerDockerfile, /COPY --from=web-build \/app\/public/, "worker Dockerfile must include public assets");
   expectContains(workerDockerfile, /USER open-sna/, "worker Dockerfile must run as non-root");
   expectContains(workerDockerfile, /CMD \["sh", "-c", "Rscript --vanilla analysis\/preflight\.R && exec node server\.js"\]/, "worker Dockerfile must healthcheck and start through the standalone server");
-  expectNotContains(workerDockerfile, /analysis\/open-sna\/tests|fixture|test harness/i, "worker final stage should not retain tests or harness text");
+  const workerFinalStage = workerDockerfile.slice(workerDockerfile.indexOf("FROM worker-base AS final"));
+  expectNotContains(workerFinalStage, /analysis\/open-sna\/tests|fixture|test harness/i, "worker final stage should not retain tests or harness text");
 
   const webService = composeServiceBlock(compose, "sna-web");
   const workerService = composeServiceBlock(compose, "sna-r-worker");
@@ -115,9 +120,12 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(compose, /\/tmp\/open-sna-jobs/, "compose must mount the worker job tmpfs");
   expectContains(compose, /max-size:\s*"10m"/, "compose must cap log size");
   expectContains(compose, /max-file:\s*"5"/, "compose must cap log files");
-  expectContains(compose, /SNA_RELEASE_SHA/, "compose must pass the release SHA");
+  expectContains(compose, /SNA_RELEASE_SHA:\s*\$\{SNA_RELEASE_SHA:\?set the release SHA for this deployment\}/, "compose must require the release SHA");
   expectContains(compose, /SNA_DEPLOYMENT_ROLE=aliyun-primary/, "compose must declare the deployment role");
   expectContains(compose, /https:\/\/worker\.sna\.hk\/api\/open-sna\/analyze/, "compose must point the web adapter at the HTTPS worker URL");
+  expectContains(compose, /NEXT_PUBLIC_SITE_URL:\s*https:\/\/www\.sna\.hk/, "compose must pin the public site URL");
+  expectContains(compose, /R_LIBS_USER:\s*\/opt\/open-sna\/r-library/, "compose must pin the worker R library path");
+  expectContains(compose, /OPEN_SNA_R_LIBS_USER:\s*\/opt\/open-sna\/r-library/, "compose must export the locked worker R library path");
   expectNotContains(compose, /OPEN_SNA_R_API_TOKEN:\s*\$\{/, "compose must not interpolate secret tokens");
 
   expectContains(nginx, /origin\.sna\.hk/, "nginx config must cover the origin host");
@@ -147,7 +155,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workerEnv, /OPEN_SNA_R_WORKER_MODE=1/, "worker env example must enable worker mode");
   expectContains(workerEnv, /OPEN_SNA_R_WORKER_TOKEN=/, "worker env example must document the worker token slot");
   expectContains(workerEnv, /OPEN_SNA_R_WORKER_TMP_ROOT=\/tmp\/open-sna-jobs/, "worker env example must document the tmp root");
-  expectContains(workerEnv, /R_LIBS_USER=/, "worker env example must document the R library path");
+  expectContains(workerEnv, /R_LIBS_USER=\/opt\/open-sna\/r-library/, "worker env example must document the exact R library path");
   assert.ok(exampleValues(workerEnv).every((value) => !/^(?:replace-with-|change-me-|secret|password)/i.test(value)));
 
   expectContains(preflight, /set -euo pipefail/, "preflight must use strict shell mode");
@@ -155,6 +163,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(preflight, /OPEN_SNA_WORKER_IMAGE_DIGEST|SNA_WORKER_IMAGE_DIGEST/, "preflight must inspect the worker digest");
   expectContains(preflight, /docker compose/, "preflight must inspect compose");
   expectContains(preflight, /read-only/i, "preflight must be read-only");
+  expectContains(preflight, /\/opt\/sna\/\.env/, "preflight must validate the non-secret compose env file");
+  expectContains(preflight, /127\\.0\\.0\\.1:3100|127\\.0\\.0\\.1:3101/, "preflight must check loopback bindings");
   expectNotContains(preflight, /docker run|systemctl|apt-get|rm -rf|stop|start|kill/i, "preflight must not mutate the host");
 
   expectContains(verify, /set -euo pipefail/, "verify must use strict shell mode");
@@ -162,6 +172,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(verify, /trap/, "verify must clean up temporary files");
   expectContains(verify, /rAnalysis/, "verify must check the health payload");
   expectContains(verify, /401/, "verify must check unauthorized worker access");
+  expectContains(verify, /WORKER_UNAUTHORIZED/, "verify must check the worker unauthorized body");
+  expectContains(verify, /https:\/\/sna\.hk/, "verify must support the apex redirect check");
   expectContains(verify, /no-store/i, "verify must check cache headers");
   expectContains(verify, /https/i, "verify must check HTTPS or redirects");
   expectNotContains(verify, /printenv|cat .*env|echo .*token/i, "verify must not print secrets");
@@ -171,8 +183,10 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(rollback, /previous web digest/i, "rollback must require a previous web digest");
   expectContains(rollback, /previous worker digest/i, "rollback must require a previous worker digest");
   expectContains(rollback, /release SHA/i, "rollback must require a release SHA");
-  expectContains(rollback, /verify old worker/i, "rollback must validate the old worker first");
-  expectNotContains(rollback, /docker system prune|rm -rf|reset --hard|down\b/i, "rollback must avoid destructive resets");
+  expectContains(rollback, /worker first/i, "rollback must update the worker before the web service");
+  expectContains(rollback, /--no-deps/, "rollback must avoid cascading restarts");
+  expectContains(rollback, /healthy 401 response/i, "rollback must wait for the worker health check");
+  expectNotContains(rollback, /docker system prune|rm -rf|reset --hard|down\b|delete\b/i, "rollback must avoid destructive resets");
 
   expectContains(runbook, /4vCPU\/8GiB/i, "runbook must warn about current capacity");
   expectContains(runbook, /backup/i, "runbook must describe backup of the current state");
@@ -181,6 +195,8 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(runbook, /Dockerfile\.web/, "runbook must reference the root web Dockerfile");
   expectContains(runbook, /Dockerfile\.open-sna-worker/, "runbook must reference the root worker Dockerfile");
   expectContains(runbook, /compose.yaml/, "runbook must reference the compose file");
+  expectContains(runbook, /\/opt\/sna\/\.env/, "runbook must describe the non-secret compose env file");
+  expectContains(runbook, /Baota|nginx -t|reload/i, "runbook must describe the safe Nginx update sequence");
 
   const preflightTemp = mkdtempSync(path.join(repositoryRoot, "tmp", "deployment-assets-"));
   const preflightFailure = runShell("deploy/aliyun/scripts/preflight.sh", {
@@ -198,12 +214,15 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
     SNA_WORKER_URL: "",
   });
   assert.notEqual(verifyFailure.status, 0, "verify must fail without required URLs");
+  assert.match((verifyFailure.stderr || "") + (verifyFailure.stdout || ""), /usage:/i);
 
   expectContains(workflow, /workflow_dispatch/, "release workflow must be manual only");
   const triggerBlock = workflowTriggerBlock(workflow);
   expectNotContains(triggerBlock, /push:|pull_request:/, "release workflow must not auto-trigger");
   expectContains(workflow, /release_sha/, "release workflow must accept the release SHA input");
-  expectContains(workflow, /git rev-parse --verify HEAD/, "release workflow must assert the exact checkout SHA");
+  expectContains(workflow, /ref:\s*\$\{\{ inputs\.release_sha \}\}/, "release workflow must checkout the exact requested SHA");
+  expectContains(workflow, /git merge-base --is-ancestor HEAD origin\/main/, "release workflow must verify the input commit is on main");
+  expectContains(workflow, /test "\$\(git rev-parse --verify HEAD\)" = "\$\{\{ inputs\.release_sha \}\}"/, "release workflow must pin HEAD to the requested SHA");
   expectContains(workflow, /linux\/amd64/, "release workflow must build amd64 artifacts");
   expectContains(workflow, /org\.opencontainers\.image\.revision/, "release workflow must annotate OCI revision");
   expectContains(workflow, /sbom|provenance/i, "release workflow must generate SBOM/provenance");
@@ -212,6 +231,9 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /steps\.worker_build\.outputs\.digest/, "release workflow must work with worker digests");
   expectContains(workflow, /file: Dockerfile\.web/, "release workflow must use the root web Dockerfile");
   expectContains(workflow, /file: Dockerfile\.open-sna-worker/, "release workflow must use the root worker Dockerfile");
+  expectContains(workflow, /target:\s*verify/, "release workflow must build the worker verify stage");
+  expectContains(workflow, /release-digests\.json/, "release workflow must emit a digest manifest");
+  expectContains(workflow, /upload-artifact/i, "release workflow must upload the digest manifest");
 
   expectContains(ci, /pull_request:/, "CI workflow must run on pull requests");
   expectContains(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, "CI workflow must run on push to main");

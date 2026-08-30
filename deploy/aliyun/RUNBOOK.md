@@ -28,6 +28,7 @@ This deployment runs on a host that is already near capacity. The host warning i
 - Put secrets only in root-owned env files under `/opt/sna/secrets`.
 - Keep repository examples secret-free.
 - Do not store credentials in the compose file or workflow.
+- Use `/opt/sna/.env` or `--env-file /opt/sna/.env` for non-secret compose interpolation values.
 
 ## Compose
 
@@ -49,8 +50,9 @@ The compose file enforces:
 
 ## Start and verify
 
+1. Prepare `/opt/sna/.env` with non-secret compose inputs such as `SNA_RELEASE_SHA`, `SNA_WEB_IMAGE_DIGEST`, and `SNA_WORKER_IMAGE_DIGEST`.
 1. Pull the exact digests.
-1. Start the compose stack.
+1. Start the compose stack with `docker compose --env-file /opt/sna/.env -f deploy/aliyun/compose.yaml up -d`.
 1. Confirm `GET /api/health` returns HTTP 200 and reports the expected SHA and role.
 1. Confirm `POST /api/open-sna/analyze` without credentials returns HTTP 401 on the worker.
 1. Confirm the HTTP entrypoint redirects to HTTPS.
@@ -64,6 +66,7 @@ The compose file enforces:
 - `worker.sna.hk` must proxy only the exact `/api/open-sna/analyze` route.
 - Keep request body and authorization logging disabled.
 - Keep the TLS certificate and key at `/etc/nginx/ssl/sna.hk.crt` and `/etc/nginx/ssl/sna.hk.key` as placeholders to be mounted by the host.
+- Apply the Baota/Nginx include or config replacement in a staging-safe order: back up the current file, update the template, run `nginx -t`, then reload. If validation fails, restore the backup before any reload.
 
 ## Rollback
 
@@ -71,8 +74,8 @@ Use the rollback script only when you have a confirmed previous digest and `CONF
 
 Rollback order:
 
-1. verify the previous worker image first
-1. switch the worker back if needed
+1. validate the compose file and digests
+1. switch the worker back first and wait for a healthy 401 response
 1. switch the web service last
 
 Never use rollback as a reset or delete operation.

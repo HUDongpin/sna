@@ -12,12 +12,12 @@ services:
     env_file:
       - /opt/sna/secrets/web.env
     environment:
-      SNA_RELEASE_SHA: ${SNA_RELEASE_SHA}
+      SNA_RELEASE_SHA: ${SNA_RELEASE_SHA:?set the release SHA for this deployment}
       # SNA_DEPLOYMENT_ROLE=aliyun-primary
       SNA_DEPLOYMENT_ROLE: aliyun-primary
       OPEN_SNA_R_DISABLED: "0"
       OPEN_SNA_R_API_URL: https://worker.sna.hk/api/open-sna/analyze
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      NEXT_PUBLIC_SITE_URL: https://www.sna.hk
     tmpfs:
       - /tmp:mode=1777,size=64m
     logging:
@@ -48,15 +48,17 @@ services:
     env_file:
       - /opt/sna/secrets/worker.env
     environment:
-      SNA_RELEASE_SHA: ${SNA_RELEASE_SHA}
+      SNA_RELEASE_SHA: ${SNA_RELEASE_SHA:?set the release SHA for this deployment}
       # SNA_DEPLOYMENT_ROLE=aliyun-primary
       SNA_DEPLOYMENT_ROLE: aliyun-primary
       OPEN_SNA_R_WORKER_MODE: "1"
       OPEN_SNA_R_WORKER_TMP_ROOT: /tmp/open-sna-jobs
-      R_LIBS_USER: ${R_LIBS_USER}
+      R_LIBS_USER: /opt/open-sna/r-library
+      OPEN_SNA_R_LIBS_USER: /opt/open-sna/r-library
     tmpfs:
       - /tmp/open-sna-jobs:mode=1777,size=1024m
       - /app/.next/cache:mode=1777,size=128m
+      - /tmp:mode=1777,size=128m
     logging:
       driver: json-file
       options:

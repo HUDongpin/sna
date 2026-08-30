@@ -19,13 +19,16 @@ jobs:
       - name: Checkout exact main commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.release_sha }}
           fetch-depth: 0
       - name: Guard exact SHA
         run: |
           [[ "${{ inputs.release_sha }}" =~ ^[0-9a-f]{40}$ ]]
-          git fetch origin main --depth=1
+          git fetch origin main
+          git rev-parse --verify HEAD
           test "$(git rev-parse --verify HEAD)" = "${{ inputs.release_sha }}"
+          git merge-base --is-ancestor HEAD origin/main
+          test "$(git rev-parse --verify HEAD^{commit})" = "${{ inputs.release_sha }}"
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -64,6 +67,32 @@ jobs:
           labels: |
             org.opencontainers.image.revision=${{ inputs.release_sha }}
           tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
+      - name: Build worker verify stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.open-sna-worker
+          target: verify
+          platforms: linux/amd64
+          push: false
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ inputs.release_sha }}
+      - name: Write digest manifest
+        run: |
+          cat > release-digests.json <<'JSON'
+          {
+            "release_sha": "${{ inputs.release_sha }}",
+            "web_image": "ghcr.io/hudongpin/sna-web@${{ steps.web_build.outputs.digest }}",
+            "worker_image": "ghcr.io/hudongpin/sna-worker@${{ steps.worker_build.outputs.digest }}"
+          }
+          JSON
+      - name: Upload digest manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-digests-${{ inputs.release_sha }}
+          path: release-digests.json
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
       - name: Sign images
