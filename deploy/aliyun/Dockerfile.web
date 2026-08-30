@@ -1,0 +1,39 @@
+FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS build
+
+ARG VCS_REF=unknown
+
+WORKDIR /app
+ENV OPEN_SNA_CONTAINER_BUILD=1
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build -- --webpack
+
+FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS runtime
+
+ARG VCS_REF=unknown
+
+LABEL org.opencontainers.image.title="SNA web" \
+      org.opencontainers.image.description="SNA.HK web container for the primary Aliyun deployment." \
+      org.opencontainers.image.source="https://github.com/HUDongpin/sna" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="UNLICENSED"
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser
+
+WORKDIR /app
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+
+USER 10001:10001
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r => { if (r.status !== 200) throw new Error('bad status'); }).catch(err => { console.error(err.message); process.exit(1); })"
+
+# node server.js runs the standalone server entrypoint.
+CMD ["node", "server.js"]
