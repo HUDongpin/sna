@@ -107,6 +107,15 @@ cyclic_transformed <- huge::huge.npn(
 cyclic_raw_correlation <- stats::cor(cyclic_transformed)
 stopifnot(min(eigen(cyclic_raw_correlation, symmetric = TRUE, only.values = TRUE)$values) <= 0)
 
+unconditioned_ebicglasso_error <- tryCatch(
+  suppressWarnings(suppressMessages(
+    qgraph::EBICglasso(cyclic_raw_correlation, n = nrow(cyclic_duplicate_items), gamma = 0.5)
+  )),
+  error = function(error) error
+)
+stopifnot(inherits(unconditioned_ebicglasso_error, "error"))
+stopifnot(grepl("positive definite", conditionMessage(unconditioned_ebicglasso_error), ignore.case = TRUE))
+
 cyclic_estimate <- suppressWarnings(suppressMessages(
   npn_ebicglasso_estimate(cyclic_duplicate_items, gamma = 0.5)
 ))
