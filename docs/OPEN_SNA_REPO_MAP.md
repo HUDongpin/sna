@@ -1,6 +1,6 @@
 # Open SNA + R analysis — repository map
 
-Investigation of `HUDongpin/sna` at `main` (`f5a19779d84cf8d670aae069c199a1cd811c8667`). That SHA matches the live `/api/health` fingerprint from the 2026-09-14 production QA. This file is a structural map only; it does not change runtime behavior.
+Investigation of `HUDongpin/sna` focused on Open SNA. `main` at the time of the map was `f5a19779d84cf8d670aae069c199a1cd811c8667` (the live `/api/health` fingerprint from the 2026-09-14 production QA). Locale/`api` routing is documented as implemented in this tree (`dynamicParams = false` plus `app/api/open-sna/route.ts`).
 
 ## 1. Top-level layout
 
@@ -8,7 +8,7 @@ This is a **single Next.js App Router app**, not a package monorepo.
 
 | Area | Path | Role |
 | --- | --- | --- |
-| Next.js app | `app/` | Localized pages + two API route handlers |
+| Next.js app | `app/` | Localized pages + API route handlers |
 | UI components | `components/` | Site chrome; Open SNA workbench under `components/open-sna/` |
 | Shared TS | `lib/` | i18n, Open SNA contracts, R-config, LUNA, News/Academy corpora |
 | R engine | `analysis/open-sna/` | CLI runner, `renv.lock`, preflight, R regressions |
@@ -20,10 +20,11 @@ This is a **single Next.js App Router app**, not a package monorepo.
 
 There is **no** `vercel.json` and **no** feature-flag service. Knobs are environment variables plus `SNA_DEPLOYMENT_ROLE`.
 
-Public HTTP APIs in this repo are only:
+Public HTTP APIs in this repo are:
 
 - `GET /api/health` → `app/api/health/route.ts`
 - `POST /api/open-sna/analyze` → `app/api/open-sna/analyze/route.ts`
+- `GET|POST|… /api/open-sna` → `app/api/open-sna/route.ts` (JSON 404 stub; not an analysis endpoint)
 
 ## 2. Path inventory
 
@@ -54,7 +55,7 @@ Client pre-checks: `.xlsx` suffix, non-empty, ≤ 5 MiB. It does **not** parse L
 | --- | --- | --- | --- |
 | GET | `/api/health` | `app/api/health/route.ts` | JSON: `status`, `releaseSha`, `deploymentRole`, `rAnalysis` |
 | POST | `/api/open-sna/analyze` | `app/api/open-sna/analyze/route.ts` | Only exported handler; GET is framework 405 |
-| — | `/api/open-sna` | **no** `route.ts` | Falls through to `[locale]` (see §5) |
+| GET/POST/… | `/api/open-sna` | `app/api/open-sna/route.ts` | JSON 404 `NOT_FOUND`; occupies the path so `[locale]` cannot match `locale=api` |
 
 The analyze POST kill-switch returns **`503 R_ENGINE_DISABLED` before multipart parsing**. That is why production probes never reached `WORKBOOK_INVALID` while disabled (confirmed by `tests/open-sna-route.test.ts`).
 
@@ -163,19 +164,18 @@ Wired from `app/api/open-sna/analyze/route.ts` via `withLunaInterpretation`. The
 
 Supported prefixes: **`en`**, **`zh-hant`**, **`zh-hans`** (`lib/i18n.ts`). `isLocale("api")` is false. Root `/` redirects to `/en`.
 
-`app/[locale]/layout.tsx` calls `notFound()` for unknown locales, but it does **not** set `export const dynamicParams = false` (unlike `news/[slug]` and `academy/[slug]`). Next/Vercel can still **match** `GET /api/open-sna` to `app/[locale]/open-sna` with `locale=api` because there is no `app/api/open-sna/route.ts`.
+The `[locale]` segment sets `export const dynamicParams = false` next to `generateStaticParams` in `app/[locale]/layout.tsx`, so unknown first segments (including `api`) are not rendered as locale pages.
 
-Intended runtime after match: `notFound()` → HTML 404, not JSON. QA reported HTML **200** with `x-matched-path: /[locale]/open-sna`. Source does not intend to render the workbench for `api`; the matcher collision is real. Treat the 200 as “confirm on the live host”; the fix is still to stop matching `api` as a locale.
+`GET /api/open-sna` is owned by `app/api/open-sna/route.ts` and returns JSON `{ code: "NOT_FOUND" }` with HTTP 404. That static `app/api/...` handler wins over `app/[locale]/open-sna`. `POST /api/open-sna/analyze` remains `app/api/open-sna/analyze/route.ts` and is a more specific sibling, not replaced by the stub.
 
-`/api/health` and `/api/open-sna/analyze` are real App Router handlers and win over `[locale]`.
+`/api/health` and `/api/open-sna/analyze` are the real App Router handlers.
 
 ## 6. Suggested next engineering fixes (ranked)
 
 1. **Serve uploads from a host with R actually enabled** — highest user impact. Today both Vercel-backup and Aliyun-primary env examples keep `OPEN_SNA_R_DISABLED=1`. Enabling is an ops/cutover decision (worker HTTPS, matching tokens, kill switch off), not a missing feature in the workbench.
 2. **Confirm `GET /api/health` on `www.sna.hk` after cutover** — `rAnalysis` must be `"configured"`, role must be the process you think is serving apex, SHA must match the intended release. Do not assume Aliyun-primary is live while health says `vercel-backup`.
-3. **Stop `[locale]` from capturing `/api/*`** — `dynamicParams = false` on `app/[locale]/layout.tsx`, and/or a tiny `app/api/open-sna/route.ts` that 404s JSON. Low risk, removes the locale=`api` quirk.
-4. **Ship a downloadable sample XLSX** next to the demo JSON so schema QA does not require a homemade workbook once R is on.
-5. **Optional: validate workbook shape even when disabled** (or richer client-side schema) so `WORKBOOK_INVALID` is testable without enabling the engine. Product choice: kill-switch-first is currently intentional.
-6. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host.
+3. **Ship a downloadable sample XLSX** next to the demo JSON so schema QA does not require a homemade workbook once R is on.
+4. **Optional: validate workbook shape even when disabled** (or richer client-side schema) so `WORKBOOK_INVALID` is testable without enabling the engine. Product choice: kill-switch-first is currently intentional.
+5. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host.
 
 Do not treat flipping `OPEN_SNA_R_DISABLED` alone as enough: health will go 503 unless URL+token are valid, and Vercel still cannot spawn R.

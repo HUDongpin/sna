@@ -159,6 +159,23 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.doesNotMatch(engine, /install\.packages\(/);
 });
 
+test("GET /api/open-sna is an API stub so locale=api cannot capture the workbench", () => {
+  const stub = read("app/api/open-sna/route.ts");
+  const analyze = read("app/api/open-sna/analyze/route.ts");
+  const localeLayout = read("app/[locale]/layout.tsx");
+  const openSnaPage = read("app/[locale]/open-sna/page.tsx");
+
+  assert.ok(existsSync(fromRoot("app/api/open-sna/route.ts")));
+  assert.match(stub, /export const GET/);
+  assert.match(stub, /status:\s*404/);
+  assert.match(stub, /NOT_FOUND/);
+  assert.doesNotMatch(stub, /spawn\(|analyze\.R|workbook/);
+  assert.match(analyze, /export async function POST/);
+  assert.doesNotMatch(analyze, /export function GET/);
+  assert.match(localeLayout, /export const dynamicParams = false/);
+  assert.match(openSnaPage, /if \(!isLocale\(locale\)\) notFound\(\)/);
+});
+
 test("the upload adapter is bounded, cleans temporary files, and fails closed on Vercel", () => {
   const route = read("app/api/open-sna/analyze/route.ts");
   assert.match(route, /MAX_UPLOAD_BYTES/);

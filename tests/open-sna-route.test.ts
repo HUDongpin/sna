@@ -5,6 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { POST } from "../app/api/open-sna/analyze/route";
+import {
+  DELETE as deleteOpenSnaApiRoot,
+  GET as getOpenSnaApiRoot,
+  OPTIONS as optionsOpenSnaApiRoot,
+  POST as postOpenSnaApiRoot,
+} from "../app/api/open-sna/route";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const fakeRscript = path.join(repositoryRoot, "tests", "fixtures", "fake-open-sna-rscript.mjs");
@@ -40,6 +46,25 @@ function workerResult(schemaVersion: "1.0" | "1.1") {
   stability.bootstraps = 100;
   return result;
 }
+
+test("GET /api/open-sna is a JSON 404 and does not invoke the analyze adapter", async () => {
+  const response = getOpenSnaApiRoot();
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("content-type")?.includes("application/json"), true);
+  const payload = await response.json() as { code?: string; error?: string };
+  assert.equal(payload.code, "NOT_FOUND");
+  assert.match(payload.error || "", /POST \/api\/open-sna\/analyze/);
+});
+
+test("non-analyze methods on /api/open-sna stay JSON 404", async () => {
+  for (const handler of [postOpenSnaApiRoot, deleteOpenSnaApiRoot, optionsOpenSnaApiRoot]) {
+    const response = handler();
+    assert.equal(response.status, 404);
+    const payload = await response.json() as { code?: string };
+    assert.equal(payload.code, "NOT_FOUND");
+  }
+});
 
 function isolateRouteEnvironment(keys: readonly string[]) {
   const allKeys = Array.from(new Set([...keys, "NODE_ENV", "OPENROUTER_API_KEY", "OPEN_SNA_TEST_OUTPUT_JSON", "OPEN_SNA_R_DISABLED"]));
