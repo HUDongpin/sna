@@ -1,0 +1,181 @@
+# Open SNA + R analysis — repository map
+
+Investigation of `HUDongpin/sna` at `main` (`f5a19779d84cf8d670aae069c199a1cd811c8667`). That SHA matches the live `/api/health` fingerprint from the 2026-09-14 production QA. This file is a structural map only; it does not change runtime behavior.
+
+## 1. Top-level layout
+
+This is a **single Next.js App Router app**, not a package monorepo.
+
+| Area | Path | Role |
+| --- | --- | --- |
+| Next.js app | `app/` | Localized pages + two API route handlers |
+| UI components | `components/` | Site chrome; Open SNA workbench under `components/open-sna/` |
+| Shared TS | `lib/` | i18n, Open SNA contracts, R-config, LUNA, News/Academy corpora |
+| R engine | `analysis/open-sna/` | CLI runner, `renv.lock`, preflight, R regressions |
+| Static assets | `public/` | Demo JSON at `public/open-sna/` |
+| Aliyun deploy | `deploy/aliyun/` | Compose, env examples, Nginx, preflight/verify scripts |
+| Worker image | `Dockerfile.open-sna-worker` | R 4.4.2 + Next standalone server for worker mode |
+| Web image | `Dockerfile.web` | Next standalone (`OPEN_SNA_CONTAINER_BUILD=1`) |
+| Historical research R | `New Programming Resilience/` | Source analyses; **not** the production runner |
+
+There is **no** `vercel.json` and **no** feature-flag service. Knobs are environment variables plus `SNA_DEPLOYMENT_ROLE`.
+
+Public HTTP APIs in this repo are only:
+
+- `GET /api/health` → `app/api/health/route.ts`
+- `POST /api/open-sna/analyze` → `app/api/open-sna/analyze/route.ts`
+
+## 2. Path inventory
+
+### UI (Open SNA workbench)
+
+| Concern | Path |
+| --- | --- |
+| Localized page | `app/[locale]/open-sna/page.tsx` |
+| Workbench (upload, tabs, fetch) | `components/open-sna/OpenSnaWorkbench.tsx` |
+| Network SVG | `components/open-sna/NetworkGraph.tsx` |
+| Result contract + CSV | `lib/open-sna.ts` |
+| Client error-code mapping | `lib/open-sna-errors.ts` |
+| Copy / nav | `lib/i18n.ts` (`nav.openSna`) |
+
+Canonical URL is `/en/open-sna`. `next.config.mjs` redirects bare `/open-sna` → `/en/open-sna`. The workbench is English even inside `/zh-hant` and `/zh-hans` shells.
+
+Client loads the reference demo from **`/open-sna/programming-resilience-demo.json`** (`public/open-sna/programming-resilience-demo.json`). Upload `FormData` matches QA:
+
+- `workbook` — XLSX `File`
+- `bootstraps` — `"100"` \| `"500"` \| `"1000"` (UI default `"1000"`)
+- `permutations` — always `"1000"`
+
+Client pre-checks: `.xlsx` suffix, non-empty, ≤ 5 MiB. It does **not** parse Likert/group schema in the browser.
+
+### API
+
+| Method | Path | File | Notes |
+| --- | --- | --- | --- |
+| GET | `/api/health` | `app/api/health/route.ts` | JSON: `status`, `releaseSha`, `deploymentRole`, `rAnalysis` |
+| POST | `/api/open-sna/analyze` | `app/api/open-sna/analyze/route.ts` | Only exported handler; GET is framework 405 |
+| — | `/api/open-sna` | **no** `route.ts` | Falls through to `[locale]` (see §5) |
+
+The analyze POST kill-switch returns **`503 R_ENGINE_DISABLED` before multipart parsing**. That is why production probes never reached `WORKBOOK_INVALID` while disabled (confirmed by `tests/open-sna-route.test.ts`).
+
+### R worker / engine integration
+
+Same Next route serves three modes:
+
+```
+Browser  --POST multipart-->  Next /api/open-sna/analyze
+                                  |
+                                  | OPEN_SNA_R_DISABLED=1  --> 503 R_ENGINE_DISABLED
+                                  |
+                                  +--> if OPEN_SNA_R_API_URL + TOKEN valid
+                                  |      HTTPS forward to worker /api/open-sna/analyze
+                                  |      (Bearer token; 255s abort)
+                                  |
+                                  +--> else if process.env.VERCEL
+                                  |      503 R_ENGINE_NOT_CONFIGURED
+                                  |
+                                  +--> else spawn Rscript analysis/open-sna/analyze.R
+                                         worker mode: OPEN_SNA_R_WORKER_MODE=1
+                                         local mode:  tmp under /Volumes/Starship/
+```
+
+| Concern | Path |
+| --- | --- |
+| Engine URL/token validation | `lib/open-sna-config.ts` |
+| R CLI | `analysis/open-sna/analyze.R` |
+| Package pin check | `analysis/open-sna/preflight.R` |
+| Lockfile | `analysis/open-sna/renv.lock` |
+| Worker deploy notes | `analysis/open-sna/WORKER_DEPLOYMENT.md` |
+| Method/schema contract | `analysis/open-sna/README.md` |
+| Cloud Run build | `cloudbuild.open-sna-worker.yaml`, `scripts/deploy-open-sna-worker-cloud-run.sh` |
+| Aliyun loopback worker | `deploy/aliyun/compose.yaml` (`127.0.0.1:3101`) |
+
+R stderr `OPEN_SNA_ERROR_CODE=WORKBOOK_INVALID|R_RUNTIME_NOT_READY|R_ANALYSIS_FAILED` is mapped to public JSON. Worker concurrency: in-process `activeWorkerJobs`; second job → **`429 WORKER_BUSY`**. Timeout → **`504 R_ANALYSIS_TIMEOUT`**. Remote contract/network failure → **`502 R_ENGINE_UNAVAILABLE`**. Invalid URL/token (present but bad) → **`503 R_ENGINE_CONFIGURATION_INVALID`**.
+
+### Workbook validation (where it actually lives)
+
+| Layer | What it checks | Path |
+| --- | --- | --- |
+| Browser | extension, empty, 5 MiB | `OpenSnaWorkbench.tsx` |
+| Next adapter | multipart, MIME, ZIP `PK\x03\x04`, size, bootstraps/permutations | `app/api/open-sna/analyze/route.ts` |
+| R (authoritative schema) | one sheet, Likert 1–5, construct prefixes, binary Gender/metadata, ≥20/group | `analysis/open-sna/analyze.R` |
+| TS guard for `--mode validate` JSON | fingerprint + aggregate summary only | `lib/open-sna-workbook-validation.ts` (release/golden tests, not the live XLSX parser) |
+| Result JSON v1.1 | eight panels’ contract | `lib/open-sna.ts` `isOpenSnaResult` |
+
+There is **no** public sample XLSX under `public/open-sna/` (only the demo JSON).
+
+## 3. How `rAnalysis` is enabled/disabled
+
+Health (`app/api/health/route.ts`):
+
+- `rAnalysis` is `"disabled"` iff `OPEN_SNA_R_DISABLED === "1"`.
+- Otherwise it is `"configured"` only if `readOpenSnaEngineConfigurationStatus()` succeeds.
+- HTTP 200 also requires a 40-char SHA (`SNA_RELEASE_SHA` or `VERCEL_GIT_COMMIT_SHA`) and `SNA_DEPLOYMENT_ROLE` ∈ `{aliyun-primary, vercel-backup}`.
+- If the kill switch is **off** and the engine is **not** configured, health is **`503 DEPLOYMENT_HEALTH_MISCONFIGURED`**. You cannot report healthy `rAnalysis: "configured"` without a valid worker URL+token.
+
+Allowed roles are labels only. **`vercel-backup` does not by itself disable R**; the live disable is the kill switch. QA’s `deploymentRole: "vercel-backup"` + `rAnalysis: "disabled"` matches `deploy/aliyun/env/vercel.env.example`.
+
+Tracked env contracts (non-secret):
+
+| File | Role | R default |
+| --- | --- | --- |
+| `deploy/aliyun/env/vercel.env.example` | `vercel-backup` | `OPEN_SNA_R_DISABLED=1` (no worker URL) |
+| `deploy/aliyun/env/web.env.example` | `aliyun-primary` | `OPEN_SNA_R_DISABLED=1` (URL/token commented) |
+| `deploy/aliyun/env/worker.env.example` | worker | `OPEN_SNA_R_WORKER_MODE=1` |
+| `.env.example` | local/Vercel docs | URL+token empty; no kill switch documented there |
+
+Compose **must not** override `OPEN_SNA_R_DISABLED` / URL / token; those live in root-owned `/opt/sna/secrets/web.env`. Current Aliyun runbook (`deploy/aliyun/RUNBOOK.md`) is an **origin-only soak**: public R is forbidden until an alert group and an approved enablement. PR #6 (`codex/sna-origin-disabled-rollout-20260831`) is that fail-closed rollout.
+
+### What must be true for `rAnalysis` enabled in production
+
+All of the following on the process that serves `www.sna.hk`:
+
+1. `OPEN_SNA_R_DISABLED` is **not** the string `1` (unset or any other value).
+2. `SNA_DEPLOYMENT_ROLE` is `aliyun-primary` or `vercel-backup`.
+3. `SNA_RELEASE_SHA` or `VERCEL_GIT_COMMIT_SHA` is a 40-character hex SHA.
+4. **Both** `OPEN_SNA_R_API_URL` and `OPEN_SNA_R_API_TOKEN` pass `lib/open-sna-config.ts`:
+   - URL is exact `https://<host>[:port]/api/open-sna/analyze` (HTTPS only; no userinfo, query, fragment, or extra path).
+   - Token is ≥32 visible ASCII (`0x21–0x7e`), not a placeholder (`replace-with-`, `example-`, `placeholder`, `<…>`).
+5. The worker behind that URL is up with `OPEN_SNA_R_WORKER_MODE=1`, the **same** token as `OPEN_SNA_R_WORKER_TOKEN`, R 4.4.2 + pinned packages, and tmp under `/tmp/open-sna-*` or `/var/tmp/open-sna-*`.
+6. If the public site is still Vercel, the worker must be reachable **from Vercel over public HTTPS** (historical Cloud Run path in `WORKER_DEPLOYMENT.md`). Aliyun’s worker on `127.0.0.1:3101` is invisible to Vercel until Nginx `worker.sna.hk` (or equivalent) is cut over.
+
+Then `GET /api/health` should show `rAnalysis: "configured"` and POST analyze can leave the kill-switch branch. LUNA is independent (see §4).
+
+**Vercel does not run R.** On Vercel, missing URL+token after the kill switch is off yields `R_ENGINE_NOT_CONFIGURED`, not a local `Rscript`.
+
+## 4. LUNA / OpenRouter
+
+Present. Server-only, after a **successful** R (or forwarded worker) result.
+
+| Concern | Path / value |
+| --- | --- |
+| Integration | `lib/open-sna-ai.ts` |
+| Model pin | `openai/gpt-5.6-luna` (`LUNA_MODEL`) |
+| Credential | `OPENROUTER_API_KEY` (never `NEXT_PUBLIC_`) |
+| Endpoint | `https://openrouter.ai/api/v1/chat/completions` |
+| Privacy routing | `provider.data_collection: "deny"`, `provider.zdr: true` |
+| Payload | `buildOpenSnaInterpretationInput()` — aggregate stats only; no rows, IDs, fingerprint, file names |
+| Failure | Result stays usable; warning that LUNA is not configured / unavailable; R interpretation kept |
+
+Wired from `app/api/open-sna/analyze/route.ts` via `withLunaInterpretation`. The bundled demo sets `privacy.thirdPartyAiUsed: false` (no live AI on reference load). Upload-path LUNA cannot be QA’d while R is disabled.
+
+## 5. Locale routing and `api` as a locale
+
+Supported prefixes: **`en`**, **`zh-hant`**, **`zh-hans`** (`lib/i18n.ts`). `isLocale("api")` is false. Root `/` redirects to `/en`.
+
+`app/[locale]/layout.tsx` calls `notFound()` for unknown locales, but it does **not** set `export const dynamicParams = false` (unlike `news/[slug]` and `academy/[slug]`). Next/Vercel can still **match** `GET /api/open-sna` to `app/[locale]/open-sna` with `locale=api` because there is no `app/api/open-sna/route.ts`.
+
+Intended runtime after match: `notFound()` → HTML 404, not JSON. QA reported HTML **200** with `x-matched-path: /[locale]/open-sna`. Source does not intend to render the workbench for `api`; the matcher collision is real. Treat the 200 as “confirm on the live host”; the fix is still to stop matching `api` as a locale.
+
+`/api/health` and `/api/open-sna/analyze` are real App Router handlers and win over `[locale]`.
+
+## 6. Suggested next engineering fixes (ranked)
+
+1. **Serve uploads from a host with R actually enabled** — highest user impact. Today both Vercel-backup and Aliyun-primary env examples keep `OPEN_SNA_R_DISABLED=1`. Enabling is an ops/cutover decision (worker HTTPS, matching tokens, kill switch off), not a missing feature in the workbench.
+2. **Confirm `GET /api/health` on `www.sna.hk` after cutover** — `rAnalysis` must be `"configured"`, role must be the process you think is serving apex, SHA must match the intended release. Do not assume Aliyun-primary is live while health says `vercel-backup`.
+3. **Stop `[locale]` from capturing `/api/*`** — `dynamicParams = false` on `app/[locale]/layout.tsx`, and/or a tiny `app/api/open-sna/route.ts` that 404s JSON. Low risk, removes the locale=`api` quirk.
+4. **Ship a downloadable sample XLSX** next to the demo JSON so schema QA does not require a homemade workbook once R is on.
+5. **Optional: validate workbook shape even when disabled** (or richer client-side schema) so `WORKBOOK_INVALID` is testable without enabling the engine. Product choice: kill-switch-first is currently intentional.
+6. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host.
+
+Do not treat flipping `OPEN_SNA_R_DISABLED` alone as enough: health will go 503 unless URL+token are valid, and Vercel still cannot spawn R.
