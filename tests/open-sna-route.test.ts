@@ -256,6 +256,51 @@ test("the upload route distinguishes R runtime, workbook, and analysis failures"
   }
 });
 
+test("local R analysis failures log a redacted one-line diagnostic", async () => {
+  const environmentKeys = [
+    "OPEN_SNA_RSCRIPT_BIN",
+    "OPEN_SNA_TMP_ROOT",
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_TEST_FAILURE_CODE",
+    "NODE_ENV",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  const logged: string[] = [];
+  const originalConsoleError = console.error;
+  process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
+  process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-route-log-tests");
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
+  process.env.OPEN_SNA_TEST_FAILURE_CODE = "R_ANALYSIS_FAILED";
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+  console.error = ((message?: unknown, ...rest: unknown[]) => {
+    logged.push([message, ...rest].map((value) => String(value)).join(" "));
+  }) as typeof console.error;
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { code?: string };
+    assert.equal(response.status, 500);
+    assert.equal(payload.code, "R_ANALYSIS_FAILED");
+    const diagnostic = logged.find((entry) => entry.includes("open_sna_r_failed"));
+    assert.ok(diagnostic, "worker/local R failures must log open_sna_r_failed");
+    const parsed = JSON.parse(diagnostic) as {
+      failureCode?: string;
+      detail?: string | null;
+      stderrEmpty?: boolean;
+    };
+    assert.equal(parsed.failureCode, "R_ANALYSIS_FAILED");
+    assert.equal(parsed.stderrEmpty, false);
+    assert.match(parsed.detail || "", /cannot open file/i);
+    assert.match(parsed.detail || "", /\[path\]/);
+    assert.doesNotMatch(parsed.detail || "", /open-sna-jobs|input\.xlsx/);
+  } finally {
+    console.error = originalConsoleError;
+    restoreEnvironment(originalEnvironment);
+  }
+});
+
 test("worker mode requires bearer authentication and accepts an isolated Linux temporary root", async () => {
   const environmentKeys = [
     "OPEN_SNA_RSCRIPT_BIN",
@@ -396,6 +441,44 @@ test("the web adapter preserves the bounded remote timeout response", async () =
     assert.equal(payload.code, "R_ANALYSIS_TIMEOUT");
     assert.match(payload.error || "", /time limit|timed out/i);
     assert.doesNotMatch(payload.error || "", /private timeout diagnostics/i);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("the web adapter preserves worker R_ANALYSIS_FAILED instead of mapping it to unavailable", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json(
+    {
+      code: "R_ANALYSIS_FAILED",
+      error: "private R stderr and /tmp/open-sna-jobs/job-xyz/input.xlsx",
+    },
+    { status: 500 },
+  )) as typeof fetch;
+
+  const environmentKeys = [
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_API_TOKEN",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_R_WORKER_TOKEN;
+  delete process.env.VERCEL;
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 502);
+    assert.equal(payload.code, "R_ANALYSIS_FAILED");
+    assert.match(payload.error || "", /analysis engine failed/i);
+    assert.doesNotMatch(payload.error || "", /temporarily unavailable/i);
+    assert.doesNotMatch(payload.error || "", /private R stderr|open-sna-jobs|input\.xlsx/i);
   } finally {
     restoreEnvironment(originalEnvironment);
     globalThis.fetch = originalFetch;

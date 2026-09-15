@@ -14,6 +14,7 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   const cases = [
     [429, "WORKER_BUSY"],
     [502, "R_ENGINE_UNAVAILABLE"],
+    [502, "R_ANALYSIS_FAILED"],
     [503, "R_ENGINE_DISABLED"],
     [503, "R_ENGINE_NOT_CONFIGURED"],
     [504, "R_ANALYSIS_TIMEOUT"],
@@ -31,10 +32,11 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   }
   assert.match(messages[0], /another analysis|busy/i);
   assert.match(messages[1], /unavailable/i);
-  assert.match(messages[2], /disabled/i);
-  assert.match(messages[3], /not configured/i);
-  assert.match(messages[4], /time limit|timed out/i);
-  assert.match(messages[5], /workbook/i);
+  assert.match(messages[2], /engine failed/i);
+  assert.match(messages[3], /disabled/i);
+  assert.match(messages[4], /not configured/i);
+  assert.match(messages[5], /time limit|timed out/i);
+  assert.match(messages[6], /workbook/i);
 });
 
 test("Open SNA maps the engine configuration invalid code to a bounded user message", async () => {
@@ -82,6 +84,7 @@ test("Open SNA guarded decoding preserves distinct status and code mappings", as
   const cases = [
     [429, "WORKER_BUSY"],
     [502, "R_ENGINE_UNAVAILABLE"],
+    [502, "R_ANALYSIS_FAILED"],
     [503, "R_ENGINE_DISABLED"],
     [503, "R_ENGINE_NOT_CONFIGURED"],
     [504, "R_ANALYSIS_TIMEOUT"],

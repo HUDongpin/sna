@@ -144,7 +144,7 @@ Complete every gate before describing the production loop as working:
 9. The worker job directory is empty after the response.
 10. A second simultaneous analysis returns `429 WORKER_BUSY`.
 11. Invalid workbooks return the bounded `422 WORKBOOK_INVALID` response without worker diagnostics.
-12. Production logs, screenshots, and reports contain no workbook rows, tokens, identifiers, or raw R stderr.
+12. Production logs, screenshots, and reports contain no workbook rows, tokens, identifiers, or raw R stderr. One JSON line `{"event":"open_sna_r_failed",...}` with a path-stripped R message is the allowed failure diagnostic.
 
 ## Rollback
 

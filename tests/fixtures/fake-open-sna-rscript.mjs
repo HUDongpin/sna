@@ -21,5 +21,7 @@ if (process.env.OPEN_SNA_TEST_OUTPUT_JSON !== undefined && !rLibraryMismatch) {
   process.exit(0);
 }
 process.stderr.write(`OPEN_SNA_ERROR_CODE=${code}\n`);
-process.stderr.write("Open SNA analysis failed: deterministic route-test fixture\n");
+process.stderr.write(
+  "Open SNA analysis failed: cannot open file '/tmp/open-sna-jobs/job-xyz/input.xlsx'\n",
+);
 process.exit(1);

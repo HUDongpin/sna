@@ -144,6 +144,8 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /empty_network_metrics\s*<-\s*function/);
   assert.match(engine, /deterministic_circle_layout\s*<-\s*function/);
   assert.match(engine, /empty_network_stability\s*<-\s*function/);
+  assert.match(engine, /grDevices::pdf\(NULL\)/);
+  assert.match(engine, /NCT did not return the expected edge-difference table/);
   assert.match(engine, /nct_npn_ebicglasso_estimator\s*<-\s*function/);
   assert.match(engine, /stabilize_npn_correlation\s*<-\s*function/);
   assert.match(engine, /NPN_EBICGLASSO_CONDITIONING_FLOOR_V1\s*<-/);

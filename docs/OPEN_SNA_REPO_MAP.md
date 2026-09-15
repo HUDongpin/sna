@@ -95,7 +95,7 @@ Browser  --POST multipart-->  Next /api/open-sna/analyze
 | Cloud Run build | `cloudbuild.open-sna-worker.yaml`, `scripts/deploy-open-sna-worker-cloud-run.sh` |
 | Aliyun loopback worker | `deploy/aliyun/compose.yaml` (`127.0.0.1:3101`) |
 
-R stderr `OPEN_SNA_ERROR_CODE=WORKBOOK_INVALID|R_RUNTIME_NOT_READY|R_ANALYSIS_FAILED` is mapped to public JSON. Worker concurrency: in-process `activeWorkerJobs`; second job → **`429 WORKER_BUSY`**. Timeout → **`504 R_ANALYSIS_TIMEOUT`**. Remote contract/network failure → **`502 R_ENGINE_UNAVAILABLE`**. Invalid URL/token (present but bad) → **`503 R_ENGINE_CONFIGURATION_INVALID`**.
+R stderr `OPEN_SNA_ERROR_CODE=WORKBOOK_INVALID|R_RUNTIME_NOT_READY|R_ANALYSIS_FAILED` is mapped to public JSON. The worker captures a **tail** of R stderr (64 KiB) only to parse that code; it never returns stderr to the browser. On non-zero R exit it writes one JSON log line `open_sna_r_failed` with `failureCode`, `exitCode`, `timedOut`, `stderrEmpty`, and a path-stripped `Open SNA analysis failed:` detail. Worker concurrency: in-process `activeWorkerJobs`; second job → **`429 WORKER_BUSY`**. Timeout → **`504 R_ANALYSIS_TIMEOUT`**. Worker `500 R_ANALYSIS_FAILED` is forwarded as **`502 R_ANALYSIS_FAILED`** (not `R_ENGINE_UNAVAILABLE`). Remote contract/network failure → **`502 R_ENGINE_UNAVAILABLE`**. Invalid URL/token (present but bad) → **`503 R_ENGINE_CONFIGURATION_INVALID`**.
 
 ### Workbook validation (where it actually lives)
 
@@ -108,7 +108,7 @@ R stderr `OPEN_SNA_ERROR_CODE=WORKBOOK_INVALID|R_RUNTIME_NOT_READY|R_ANALYSIS_FA
 | TS guard for `--mode validate` JSON | fingerprint + aggregate summary only | `lib/open-sna-workbook-validation.ts` |
 | Result JSON v1.1 | eight panels’ contract | `lib/open-sna.ts` `isOpenSnaResult` |
 
-Public sample workbook: `public/open-sna/programming-resilience-sample.xlsx` (synthetic Likert + Gender F/M; linked from the workbench). The aggregate demo remains `public/open-sna/programming-resilience-demo.json`.
+Public sample workbook: `public/open-sna/programming-resilience-sample.xlsx` (synthetic Likert + Gender F/M; linked from the workbench). Schema: one sheet, 16 items `Cmt|Cnf|Cop|Cmp` 1–4, Gender `F`/`M` with 25 rows each, Likert 1–5, no IDs. That file **passes** Node/R validation. `R_ANALYSIS_FAILED` after a valid upload is **not** a Gender+Likert schema miss; it is a post-validate estimation/runtime failure. The only full-analysis R regression is `tests/fixtures/open-sna-empty-network-80x40.xlsx`, which skips qgraph spring layout, `networktools::bridge`, and `bootnet` because the estimated graph has no edges. The public sample is uncorrelated noise and may or may not take that empty-network shortcut. The aggregate demo remains `public/open-sna/programming-resilience-demo.json`.
 
 ## 3. How `rAnalysis` is enabled/disabled
 
@@ -177,9 +177,10 @@ The `[locale]` segment sets `export const dynamicParams = false` next to `genera
 
 ## 6. Suggested next engineering fixes (ranked)
 
-1. **Serve uploads from a host with R actually enabled** — highest user impact. Today both Vercel-backup and Aliyun-primary env examples keep `OPEN_SNA_R_DISABLED=1`. Enabling is an ops/cutover decision (worker HTTPS, matching tokens, kill switch off), not a missing feature in the workbench.
-2. **Confirm `GET /api/health` on `www.sna.hk` after cutover** — `rAnalysis` must be `"configured"`, role must be the process you think is serving apex, SHA must match the intended release. Do not assume Aliyun-primary is live while health says `vercel-backup`.
-3. **Optional: richer client-side schema** so users see `WORKBOOK_INVALID` before POST. The server already prechecks uploads while R is disabled.
-4. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host.
+1. **Read `open_sna_r_failed` on the worker** after a 500 `R_ANALYSIS_FAILED`. Public JSON never includes R stderr. Empty `stderrEmpty: true` with a non-zero exit (often 137) usually means the process was killed (OOM on the Aliyun worker at 1.5 CPU / 2560 MiB) before R could write `OPEN_SNA_ERROR_CODE`. A `detail` line is the redacted R message.
+2. **Serve uploads from a host with R actually enabled** — highest user impact. Today both Vercel-backup and Aliyun-primary env examples keep `OPEN_SNA_R_DISABLED=1`. Enabling is an ops/cutover decision (worker HTTPS, matching tokens, kill switch off), not a missing feature in the workbench.
+3. **Confirm `GET /api/health` on `www.sna.hk` after cutover** — `rAnalysis` must be `"configured"`, role must be the process you think is serving apex, SHA must match the intended release. Do not assume Aliyun-primary is live while health says `vercel-backup`.
+4. **Optional: richer client-side schema** so users see `WORKBOOK_INVALID` before POST. The server already prechecks uploads while R is disabled.
+5. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host. The workbench default is 1,000 bootstraps; Aliyun `sna-r-worker` is far below the 8 vCPU / 16 GiB starting point in `WORKER_DEPLOYMENT.md`.
 
 Do not treat flipping `OPEN_SNA_R_DISABLED` alone as enough: health will go 503 unless URL+token are valid, and Vercel still cannot spawn R.

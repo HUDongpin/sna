@@ -687,6 +687,17 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
   )
 
   edge_p_values <- nct_result$einv.pvals
+  if (is.matrix(edge_p_values)) {
+    edge_p_values <- as.data.frame(edge_p_values, stringsAsFactors = FALSE, check.names = FALSE)
+  }
+  required_edge_columns <- c("Var1", "Var2", "Test statistic E", "p-value")
+  if (
+    is.null(edge_p_values) ||
+      !is.data.frame(edge_p_values) ||
+      !all(required_edge_columns %in% names(edge_p_values))
+  ) {
+    stop("NCT did not return the expected edge-difference table.", call. = FALSE)
+  }
   edge_table <- data.frame(
     source = as.character(edge_p_values[["Var1"]]),
     target = as.character(edge_p_values[["Var2"]]),
@@ -945,6 +956,12 @@ analyze_workbook <- function(
     gender_mapping = NULL,
     availability = package_available) {
   assert_packages(full_analysis_required_packages, availability = availability)
+  if (is.null(grDevices::dev.list())) {
+    grDevices::pdf(NULL)
+    on.exit({
+      while (length(grDevices::dev.list())) grDevices::dev.off()
+    }, add = TRUE)
+  }
   if (!(data_source %in% c("uploaded-workbook", "aggregate-demo"))) {
     stop("Data source must be uploaded-workbook or aggregate-demo.", call. = FALSE)
   }

@@ -69,6 +69,31 @@ function parseRFailureCode(stderr: string): RFailureCode {
   return match?.[1] as RFailureCode | undefined || "R_ANALYSIS_FAILED";
 }
 
+const R_FAILURE_MESSAGE_PREFIX = "Open SNA analysis failed:";
+
+function summarizeRFailureDetail(stderr: string) {
+  const line = stderr.split(/\r?\n/).find((entry) => entry.includes(R_FAILURE_MESSAGE_PREFIX));
+  if (!line) return null;
+  const detail = line.slice(line.indexOf(R_FAILURE_MESSAGE_PREFIX) + R_FAILURE_MESSAGE_PREFIX.length).trim();
+  const redacted = detail
+    .replace(/(?:\/(?:tmp|var\/tmp|app|opt|Volumes|home|Users)\/)\S+/g, "[path]")
+    .replace(/[A-Za-z]:\\[^\s]+/g, "[path]")
+    .replace(/\s+/g, " ")
+    .trim();
+  return redacted.slice(0, 180) || null;
+}
+
+function logRProcessFailure(processResult: RProcessResult) {
+  console.error(JSON.stringify({
+    event: "open_sna_r_failed",
+    failureCode: parseRFailureCode(processResult.stderr),
+    exitCode: processResult.exitCode,
+    timedOut: processResult.timedOut,
+    stderrEmpty: processResult.stderr.trim().length === 0,
+    detail: summarizeRFailureDetail(processResult.stderr),
+  }));
+}
+
 function workerModeEnabled() {
   return process.env.OPEN_SNA_R_WORKER_MODE === "1";
 }
@@ -173,6 +198,15 @@ function remoteFailureResponse(error: RemoteEngineError) {
       error.status,
     );
   }
+  if (error.code === "R_ANALYSIS_FAILED") {
+    return noStoreJson(
+      {
+        error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
+        code: error.code,
+      },
+      error.status,
+    );
+  }
   return noStoreJson(
     { error: "The production R analysis service is temporarily unavailable. Try again later.", code: error.code },
     error.status,
@@ -238,13 +272,12 @@ function runRAnalysis(options: {
           path.join(process.cwd(), "tmp", "r-library"),
       },
     });
-    let stderrBytes = 0;
-    const stderrChunks: Buffer[] = [];
+    let stderrTail = Buffer.alloc(0);
     child.stderr.on("data", (chunk: Buffer) => {
-      const remainingBytes = MAX_R_STDERR_BYTES - stderrBytes;
-      if (remainingBytes > 0) stderrChunks.push(chunk.subarray(0, remainingBytes));
-      stderrBytes += chunk.byteLength;
-      if (stderrBytes > MAX_R_STDERR_BYTES) child.kill("SIGTERM");
+      stderrTail = Buffer.concat([stderrTail, chunk]);
+      if (stderrTail.byteLength > MAX_R_STDERR_BYTES) {
+        stderrTail = Buffer.from(stderrTail.subarray(stderrTail.byteLength - MAX_R_STDERR_BYTES));
+      }
     });
 
     let timedOut = false;
@@ -264,7 +297,7 @@ function runRAnalysis(options: {
       resolve({
         exitCode: code ?? 1,
         timedOut,
-        stderr: Buffer.concat(stderrChunks).toString("utf8"),
+        stderr: stderrTail.toString("utf8"),
       });
     });
   });
@@ -441,6 +474,7 @@ export async function POST(request: Request) {
 
     const processResult = await runRAnalysis({ inputPath, outputPath, bootstraps, permutations });
     if (processResult.timedOut) {
+      logRProcessFailure(processResult);
       return noStoreJson(
         {
           error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.",
@@ -450,6 +484,7 @@ export async function POST(request: Request) {
       );
     }
     if (processResult.exitCode !== 0) {
+      logRProcessFailure(processResult);
       const failureCode = parseRFailureCode(processResult.stderr);
       if (failureCode === "R_RUNTIME_NOT_READY") {
         return noStoreJson(
