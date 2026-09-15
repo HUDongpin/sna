@@ -178,17 +178,17 @@ function latentToLikert(value: number) {
 }
 
 const SAMPLE_ITEM_LOADINGS = [
-  0.72, 0.66, 0.74, 0.63,
-  0.71, 0.75, 0.64, 0.69,
-  0.68, 0.73, 0.67, 0.76,
-  0.65, 0.7, 0.72, 0.68,
+  0.86, 0.82, 0.88, 0.8,
+  0.84, 0.89, 0.81, 0.85,
+  0.83, 0.87, 0.82, 0.9,
+  0.81, 0.85, 0.86, 0.83,
 ] as const;
 
 const SAMPLE_GENDER_SHIFTS = [
-  0.32, 0.26, 0.3, 0.2,
-  -0.22, -0.28, -0.18, -0.16,
-  0.14, 0.2, 0.12, 0.18,
-  -0.1, -0.16, -0.12, -0.14,
+  0.18, 0.14, 0.16, 0.1,
+  -0.12, -0.16, -0.1, -0.08,
+  0.08, 0.12, 0.06, 0.1,
+  -0.06, -0.1, -0.08, -0.09,
 ] as const;
 
 function columnSignature(rows: Array<Array<string | number>>, column: number) {
@@ -202,13 +202,13 @@ export function buildProgrammingResilienceSampleRows() {
     const gender = row < OPEN_SNA_SAMPLE_GROUP_SIZE ? "F" : "M";
     const general = nextGaussian(rng);
     const constructs = [
-      0.5 * general + 0.8 * nextGaussian(rng),
-      0.5 * general + 0.8 * nextGaussian(rng),
-      0.5 * general + 0.8 * nextGaussian(rng),
-      0.5 * general + 0.8 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
     ];
     const items = SAMPLE_ITEM_LOADINGS.map((loading, column) => {
-      const uniqueness = Math.sqrt(Math.max(0.18, 1 - loading * loading));
+      const uniqueness = Math.sqrt(Math.max(0.08, 1 - loading * loading));
       const shift = SAMPLE_GENDER_SHIFTS[column];
       const construct = constructs[Math.floor(column / 4)];
       const genderShift = gender === "F" ? shift : -shift;
