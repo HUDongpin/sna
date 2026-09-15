@@ -76,8 +76,8 @@ function summarizeRFailureDetail(stderr: string) {
   if (!line) return null;
   const detail = line.slice(line.indexOf(R_FAILURE_MESSAGE_PREFIX) + R_FAILURE_MESSAGE_PREFIX.length).trim();
   const redacted = detail
-    .replace(/(?:\/(?:tmp|var\/tmp|app|opt|Volumes|home|Users)\/)\S+/g, "[path]")
-    .replace(/[A-Za-z]:\\[^\s]+/g, "[path]")
+    .replace(/(?:\/(?:tmp|var\/tmp|app|opt|Volumes|home|Users)\/)[^\s'"]+/g, "[path]")
+    .replace(/[A-Za-z]:\\[^\s'"]+/g, "[path]")
     .replace(/\s+/g, " ")
     .trim();
   return redacted.slice(0, 180) || null;
