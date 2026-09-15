@@ -151,8 +151,11 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /NPN_EBICGLASSO_CONDITIONING_FLOOR_V1\s*<-/);
   assert.match(engine, /npn_ebicglasso_estimate\s*<-\s*function/);
   assert.match(engine, /estimator\s*=\s*nct_npn_ebicglasso_estimator/);
+  assert.match(engine, /fun\s*=\s*nct_npn_ebicglasso_estimator/);
+  assert.match(engine, /default\s*=\s*"none"/);
   assert.match(engine, /estimatorArgs\s*=\s*list\(gamma\s*=\s*gamma\)/);
   assert.match(engine, /conditional positive-definite conditioning/);
+  assert.doesNotMatch(engine, /corMethod\s*=\s*"npn"/);
   assert.match(read("package.json"), /open-sna:r-statistical-release/);
   assert.match(read("package.json"), /release:verify[\s\S]*open-sna:r-statistical-release/);
   assert.match(

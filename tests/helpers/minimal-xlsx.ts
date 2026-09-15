@@ -148,11 +148,82 @@ export function buildMinimalXlsx(
   });
 }
 
+export const OPEN_SNA_SAMPLE_SEED = 2026;
+export const OPEN_SNA_SAMPLE_ROW_COUNT = 50;
+export const OPEN_SNA_SAMPLE_GROUP_SIZE = 25;
+
+function createSampleRng(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function nextGaussian(rng: () => number) {
+  const u = Math.max(rng(), 1e-12);
+  const v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function latentToLikert(value: number) {
+  if (value < -1.15) return 1;
+  if (value < -0.35) return 2;
+  if (value < 0.35) return 3;
+  if (value < 1.15) return 4;
+  return 5;
+}
+
+const SAMPLE_ITEM_LOADINGS = [
+  0.86, 0.82, 0.88, 0.8,
+  0.84, 0.89, 0.81, 0.85,
+  0.83, 0.87, 0.82, 0.9,
+  0.81, 0.85, 0.86, 0.83,
+] as const;
+
+const SAMPLE_GENDER_SHIFTS = [
+  0.18, 0.14, 0.16, 0.1,
+  -0.12, -0.16, -0.1, -0.08,
+  0.08, 0.12, 0.06, 0.1,
+  -0.06, -0.1, -0.08, -0.09,
+] as const;
+
+function columnSignature(rows: Array<Array<string | number>>, column: number) {
+  return rows.map((row) => row[column]).join("\u0001");
+}
+
+export function buildProgrammingResilienceSampleRows() {
+  const rng = createSampleRng(OPEN_SNA_SAMPLE_SEED);
+  const itemCount = OPEN_SNA_SAMPLE_ITEM_HEADERS.length;
+  const rows = Array.from({ length: OPEN_SNA_SAMPLE_ROW_COUNT }, (_, row) => {
+    const gender = row < OPEN_SNA_SAMPLE_GROUP_SIZE ? "F" : "M";
+    const general = nextGaussian(rng);
+    const constructs = [
+      0.65 * general + 0.6 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
+      0.65 * general + 0.6 * nextGaussian(rng),
+    ];
+    const items = SAMPLE_ITEM_LOADINGS.map((loading, column) => {
+      const uniqueness = Math.sqrt(Math.max(0.08, 1 - loading * loading));
+      const shift = SAMPLE_GENDER_SHIFTS[column];
+      const construct = constructs[Math.floor(column / 4)];
+      const genderShift = gender === "F" ? shift : -shift;
+      return latentToLikert(loading * construct + uniqueness * nextGaussian(rng) + genderShift);
+    });
+    return [...items, gender];
+  });
+  const signatures = new Set(Array.from({ length: itemCount }, (_, column) => columnSignature(rows, column)));
+  if (signatures.size !== itemCount) {
+    throw new Error("Open SNA sample items must remain unique after Likert discretization.");
+  }
+  return rows;
+}
+
 export function buildProgrammingResilienceSampleXlsx() {
   const headers = [...OPEN_SNA_SAMPLE_ITEM_HEADERS, "Gender"];
-  const rows = Array.from({ length: 50 }, (_, row) => [
-    ...OPEN_SNA_SAMPLE_ITEM_HEADERS.map((_, column) => ((row + column) % 5) + 1),
-    row < 25 ? "F" : "M",
-  ]);
-  return buildMinimalXlsx(headers, rows, OPEN_SNA_SAMPLE_SHEET_NAME);
+  return buildMinimalXlsx(headers, buildProgrammingResilienceSampleRows(), OPEN_SNA_SAMPLE_SHEET_NAME);
 }
