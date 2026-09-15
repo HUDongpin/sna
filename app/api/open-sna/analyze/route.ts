@@ -58,7 +58,7 @@ type RemoteFailureCode = RFailureCode | "WORKER_BUSY" | "R_ANALYSIS_TIMEOUT";
 
 class RemoteEngineError extends Error {
   constructor(
-    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID",
+    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID" | "R_ENGINE_CONTRACT_FAILED",
     readonly status: number,
     readonly detail: string | null = null,
   ) {
@@ -220,6 +220,15 @@ function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "R_ANALYSIS_FAILED") {
     return analysisFailedResponse(error.status, error.detail);
   }
+  if (error.code === "R_ENGINE_CONTRACT_FAILED") {
+    return noStoreJson(
+      {
+        error: "The production R analysis service returned a result that could not be used. Try again later.",
+        code: error.code,
+      },
+      error.status,
+    );
+  }
   return noStoreJson(
     { error: "The production R analysis service is temporarily unavailable. Try again later.", code: error.code },
     error.status,
@@ -326,6 +335,33 @@ function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
   return isOpenSnaResult(candidate) ? candidate : null;
 }
 
+function copyWorkbookBytes(bytes: Uint8Array) {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+function createRemoteAnalyzeFormData(bytes: Uint8Array, bootstraps: string, permutations: string) {
+  // Undici/Vercel can serialize `new File([uint8Array])` as an empty multipart
+  // part. Copy the bytes first, then append a Blob with an explicit filename.
+  const outgoing = new FormData();
+  outgoing.append(
+    "workbook",
+    new Blob([copyWorkbookBytes(bytes)], { type: XLSX_MIME }),
+    "input.xlsx",
+  );
+  outgoing.append("bootstraps", bootstraps);
+  outgoing.append("permutations", permutations);
+  return outgoing;
+}
+
+function logRemoteEngineFailure(reason: string) {
+  console.error(JSON.stringify({
+    event: "open_sna_remote_engine_failed",
+    reason,
+  }));
+}
+
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
   const engineConfiguration = readOpenSnaEngineConfigurationStatus();
   if (!engineConfiguration.configured) {
@@ -333,16 +369,11 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
   }
   try {
-    const outgoing = new FormData();
-    outgoing.set("workbook", new File([bytes], "input.xlsx", { type: XLSX_MIME }));
-    outgoing.set("bootstraps", bootstraps);
-    outgoing.set("permutations", permutations);
-
     const headers = new Headers({ Accept: "application/json" });
     headers.set("Authorization", `Bearer ${engineConfiguration.apiToken}`);
     const response = await fetch(engineConfiguration.apiUrl, {
       method: "POST",
-      body: outgoing,
+      body: createRemoteAnalyzeFormData(bytes, bootstraps, permutations),
       headers,
       cache: "no-store",
       signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
@@ -356,7 +387,12 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (responseBytes === 0 || responseBytes > MAX_RESULT_BYTES) {
       throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
     }
-    const payload: unknown = JSON.parse(responseText.replace(/^\uFEFF/, ""));
+    let payload: unknown;
+    try {
+      payload = JSON.parse(responseText.replace(/^\uFEFF/, ""));
+    } catch {
+      throw new Error(response.ok ? "REMOTE_ENGINE_CONTRACT_FAILED" : "REMOTE_ENGINE_JSON_INVALID");
+    }
     if (!response.ok) throw safeRemoteFailure(payload, response.status);
     const normalizedResult = normalizeRemoteResult(payload);
     if (!normalizedResult || !matchesOpenSnaRequest(normalizedResult, bootstraps, permutations)) {
@@ -367,6 +403,16 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (error instanceof RemoteEngineError) throw error;
     if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
       throw new RemoteEngineError("R_ANALYSIS_TIMEOUT", 504);
+    }
+    const reason = error instanceof Error ? error.message : "REMOTE_ENGINE_UNAVAILABLE";
+    const knownReasons = new Set([
+      "REMOTE_ENGINE_CONTRACT_FAILED",
+      "REMOTE_ENGINE_RESULT_TOO_LARGE",
+      "REMOTE_ENGINE_JSON_INVALID",
+    ]);
+    logRemoteEngineFailure(knownReasons.has(reason) ? reason : "REMOTE_ENGINE_UNAVAILABLE");
+    if (reason === "REMOTE_ENGINE_CONTRACT_FAILED") {
+      throw new RemoteEngineError("R_ENGINE_CONTRACT_FAILED", 502);
     }
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }

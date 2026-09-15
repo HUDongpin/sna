@@ -197,6 +197,11 @@ test("the upload adapter is bounded, cleans temporary files, and fails closed on
   assert.match(route, /engineDisabledResponse/);
   assert.match(route, /analysisFailedResponse/);
   assert.match(route, /safeOpenSnaAnalysisDetail/);
+  assert.match(route, /createRemoteAnalyzeFormData/);
+  assert.match(route, /outgoing\.append/);
+  assert.match(route, /new Blob/);
+  assert.match(route, /R_ENGINE_CONTRACT_FAILED/);
+  assert.doesNotMatch(route, /new File\(\[bytes\]/);
   assert.doesNotMatch(route, /shell:\s*true/);
 });
 
@@ -294,6 +299,13 @@ test("the bundled demonstration is aggregate output and matches the public contr
   assert.equal(matchesOpenSnaRequest(uploaded, "1000", "1000"), true);
   assert.equal(matchesOpenSnaRequest(uploaded, "500", "1000"), false);
   assert.equal(matchesOpenSnaRequest(demo, "1000", "1000"), false);
+
+  const hundredBootstraps = structuredClone(uploaded);
+  hundredBootstraps.settings.bootstrapReplicates = 100;
+  hundredBootstraps.stability.bootstraps = 100;
+  assert.equal(isOpenSnaResult(hundredBootstraps), true);
+  assert.equal(matchesOpenSnaRequest(hundredBootstraps, "100", "1000"), true);
+  assert.equal(matchesOpenSnaRequest(hundredBootstraps, "1000", "1000"), false);
 });
 
 test("the Open SNA 1.1 validator enforces the mandatory two-group NCT contract", () => {

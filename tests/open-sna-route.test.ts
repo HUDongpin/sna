@@ -490,6 +490,97 @@ test("the web adapter preserves worker R_ANALYSIS_FAILED instead of mapping it t
   }
 });
 
+test("Vercel forwarding posts a non-empty input.xlsx Blob and accepts worker bootstraps=100", async () => {
+  let forwardedBody: unknown;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input, init) => {
+    forwardedBody = init?.body;
+    return Response.json(workerResult("1.1"), { status: 200 });
+  }) as typeof fetch;
+
+  const environmentKeys = [
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_API_TOKEN",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
+  process.env.VERCEL = "1";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_R_WORKER_TOKEN;
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { schemaVersion?: string; overview?: { nodeCount?: number } };
+    assert.equal(response.status, 200);
+    assert.equal(payload.schemaVersion, "1.1");
+    assert.equal(payload.overview?.nodeCount, 16);
+
+    assert.ok(forwardedBody instanceof FormData);
+    const workbook = forwardedBody.get("workbook");
+    assert.ok(workbook instanceof Blob);
+    assert.ok(workbook instanceof File, "append(blob, filename) must produce a named File part");
+    assert.notEqual(workbook.size, 0);
+    assert.equal(workbook.size, validWorkbookBytes.byteLength);
+    assert.equal(workbook.name, "input.xlsx");
+    const forwardedBytes = new Uint8Array(await workbook.arrayBuffer());
+    assert.equal(forwardedBytes.byteLength, validWorkbookBytes.byteLength);
+    assert.equal(forwardedBytes[0], 0x50);
+    assert.equal(forwardedBytes[1], 0x4b);
+    assert.deepEqual(forwardedBytes, validWorkbookBytes);
+    assert.equal(forwardedBody.get("bootstraps"), "100");
+    assert.equal(forwardedBody.get("permutations"), "1000");
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a 200 worker payload that is not JSON is a contract failure, not unavailable", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("<html>not json</html>", {
+    status: 200,
+    headers: { "Content-Type": "text/html" },
+  })) as typeof fetch;
+  const environmentKeys = [
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_API_TOKEN",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_R_WORKER_TOKEN;
+  delete process.env.VERCEL;
+
+  const originalError = console.error;
+  const logged: string[] = [];
+  console.error = (...args: unknown[]) => {
+    logged.push(args.map((value) => String(value)).join(" "));
+  };
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 502);
+    assert.equal(payload.code, "R_ENGINE_CONTRACT_FAILED");
+    assert.match(payload.error || "", /could not be used/i);
+    assert.doesNotMatch(payload.error || "", /temporarily unavailable/i);
+    assert.ok(logged.some((line) => line.includes("open_sna_remote_engine_failed")));
+    assert.ok(logged.some((line) => line.includes("REMOTE_ENGINE_CONTRACT_FAILED")));
+  } finally {
+    console.error = originalError;
+    restoreEnvironment(originalEnvironment);
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes only canonical 1.1", async () => {
   let responsePayload: unknown = workerResult("1.1");
   const originalFetch = globalThis.fetch;
@@ -566,7 +657,7 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
       const response = await POST(analysisRequest());
       const payload = await response.json() as { code?: string };
       assert.equal(response.status, 502, invalid.name);
-      assert.equal(payload.code, "R_ENGINE_UNAVAILABLE", invalid.name);
+      assert.equal(payload.code, "R_ENGINE_CONTRACT_FAILED", invalid.name);
     }
   } finally {
     restoreEnvironment(originalEnvironment);

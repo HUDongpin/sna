@@ -39,6 +39,9 @@ export function openSnaAnalysisErrorMessage(status: number, payload: unknown) {
   if (status === 502 && code === "R_ENGINE_UNAVAILABLE") {
     return "The R analysis service is temporarily unavailable. Try again later. (R_ENGINE_UNAVAILABLE)";
   }
+  if (status === 502 && code === "R_ENGINE_CONTRACT_FAILED") {
+    return "The R analysis service returned a result that could not be used. Try again later. (R_ENGINE_CONTRACT_FAILED)";
+  }
   if (status === 503 && code === "R_ENGINE_DISABLED") {
     return "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result. (R_ENGINE_DISABLED)";
   }
