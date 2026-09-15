@@ -57,7 +57,7 @@ Client pre-checks: `.xlsx` suffix, non-empty, ≤ 5 MiB. It does **not** parse L
 | POST | `/api/open-sna/analyze` | `app/api/open-sna/analyze/route.ts` | Only exported handler; GET is framework 405 |
 | GET/POST/… | `/api/open-sna` | `app/api/open-sna/route.ts` | JSON 404 `NOT_FOUND`; occupies the path so `[locale]` cannot match `locale=api` |
 
-The analyze POST kill-switch returns **`503 R_ENGINE_DISABLED` before multipart parsing**. That is why production probes never reached `WORKBOOK_INVALID` while disabled (confirmed by `tests/open-sna-route.test.ts`).
+The analyze POST envelope is parsed even when the kill switch is on. If a workbook is present, the Node precheck (`lib/open-sna-workbook-schema.ts`, same rules as R `read_and_validate_workbook` / `--mode validate`) can return **`422 WORKBOOK_INVALID`**. A valid workbook with `OPEN_SNA_R_DISABLED=1` still returns **`503 R_ENGINE_DISABLED`** and never substitutes the demo JSON. Empty or non-workbook requests stay `R_ENGINE_DISABLED` while disabled.
 
 ### R worker / engine integration
 
@@ -65,6 +65,10 @@ Same Next route serves three modes:
 
 ```
 Browser  --POST multipart-->  Next /api/open-sna/analyze
+                                  |
+                                  | parse workbook envelope
+                                  | schema precheck (Node, same rules as R --mode validate)
+                                  |   invalid --> 422 WORKBOOK_INVALID
                                   |
                                   | OPEN_SNA_R_DISABLED=1  --> 503 R_ENGINE_DISABLED
                                   |
@@ -99,11 +103,12 @@ R stderr `OPEN_SNA_ERROR_CODE=WORKBOOK_INVALID|R_RUNTIME_NOT_READY|R_ANALYSIS_FA
 | --- | --- | --- |
 | Browser | extension, empty, 5 MiB | `OpenSnaWorkbench.tsx` |
 | Next adapter | multipart, MIME, ZIP `PK\x03\x04`, size, bootstraps/permutations | `app/api/open-sna/analyze/route.ts` |
-| R (authoritative schema) | one sheet, Likert 1–5, construct prefixes, binary Gender/metadata, ≥20/group | `analysis/open-sna/analyze.R` |
-| TS guard for `--mode validate` JSON | fingerprint + aggregate summary only | `lib/open-sna-workbook-validation.ts` (release/golden tests, not the live XLSX parser) |
+| Node precheck (live, including when R is disabled) | one sheet, Likert 1–5, construct prefixes, binary Gender/metadata, ≥20/group, variability | `lib/open-sna-workbook-schema.ts` (mirrors R `read_and_validate_workbook`) |
+| R `--mode validate` / full analyze | same schema, then estimation | `analysis/open-sna/analyze.R` |
+| TS guard for `--mode validate` JSON | fingerprint + aggregate summary only | `lib/open-sna-workbook-validation.ts` |
 | Result JSON v1.1 | eight panels’ contract | `lib/open-sna.ts` `isOpenSnaResult` |
 
-There is **no** public sample XLSX under `public/open-sna/` (only the demo JSON).
+Public sample workbook: `public/open-sna/programming-resilience-sample.xlsx` (synthetic Likert + Gender F/M; linked from the workbench). The aggregate demo remains `public/open-sna/programming-resilience-demo.json`.
 
 ## 3. How `rAnalysis` is enabled/disabled
 
@@ -174,8 +179,7 @@ The `[locale]` segment sets `export const dynamicParams = false` next to `genera
 
 1. **Serve uploads from a host with R actually enabled** — highest user impact. Today both Vercel-backup and Aliyun-primary env examples keep `OPEN_SNA_R_DISABLED=1`. Enabling is an ops/cutover decision (worker HTTPS, matching tokens, kill switch off), not a missing feature in the workbench.
 2. **Confirm `GET /api/health` on `www.sna.hk` after cutover** — `rAnalysis` must be `"configured"`, role must be the process you think is serving apex, SHA must match the intended release. Do not assume Aliyun-primary is live while health says `vercel-backup`.
-3. **Ship a downloadable sample XLSX** next to the demo JSON so schema QA does not require a homemade workbook once R is on.
-4. **Optional: validate workbook shape even when disabled** (or richer client-side schema) so `WORKBOOK_INVALID` is testable without enabling the engine. Product choice: kill-switch-first is currently intentional.
-5. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host.
+3. **Optional: richer client-side schema** so users see `WORKBOOK_INVALID` before POST. The server already prechecks uploads while R is disabled.
+4. **Async job/queue** — `analysis/open-sna/README.md` still calls the 255s synchronous path not production-qualified (empty-network regression ~193s). Needed before advertising HA or 1000-bootstrap as reliable on the public host.
 
 Do not treat flipping `OPEN_SNA_R_DISABLED` alone as enough: health will go 503 unless URL+token are valid, and Vercel still cannot spawn R.

@@ -11,10 +11,14 @@ import {
   OPTIONS as optionsOpenSnaApiRoot,
   POST as postOpenSnaApiRoot,
 } from "../app/api/open-sna/route";
+import { buildMinimalXlsx } from "./helpers/minimal-xlsx";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const fakeRscript = path.join(repositoryRoot, "tests", "fixtures", "fake-open-sna-rscript.mjs");
 const xlsxMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const validWorkbookBytes = new Uint8Array(
+  readFileSync(path.join(repositoryRoot, "tests", "fixtures", "open-sna-empty-network-80x40.xlsx")),
+);
 const workerTestTemporaryParent = path.resolve(tmpdir());
 
 function createWorkerTestTemporaryRoot() {
@@ -22,11 +26,11 @@ function createWorkerTestTemporaryRoot() {
   return mkdtempSync(path.join(workerTestTemporaryParent, "open-sna-worker-tests-"));
 }
 
-function analysisRequest(authorization?: string) {
+function analysisRequest(authorization?: string, workbookBytes: Uint8Array = validWorkbookBytes) {
   const formData = new FormData();
   formData.set(
     "workbook",
-    new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], "fixture.xlsx", { type: xlsxMime }),
+    new File([workbookBytes], "fixture.xlsx", { type: xlsxMime }),
   );
   formData.set("bootstraps", "100");
   formData.set("permutations", "1000");
@@ -71,22 +75,17 @@ function isolateRouteEnvironment(keys: readonly string[]) {
   const originalEnvironment = Object.fromEntries(allKeys.map((key) => [key, process.env[key]]));
   delete process.env.OPENROUTER_API_KEY;
   delete process.env.OPEN_SNA_TEST_OUTPUT_JSON;
+  delete process.env.OPEN_SNA_R_DISABLED;
   return originalEnvironment;
 }
 
-test("the public R kill switch returns before multipart parsing", async () => {
+test("the public R kill switch still returns when no workbook can be validated", async () => {
   const originalEnvironment = isolateRouteEnvironment([]);
   process.env.OPEN_SNA_R_DISABLED = "1";
-  let multipartParsed = false;
   const request = new Request("http://localhost/api/open-sna/analyze", {
     method: "POST",
-    headers: { "Content-Type": "multipart/form-data; boundary=disabled" },
-  });
-  Object.defineProperty(request, "formData", {
-    value: async () => {
-      multipartParsed = true;
-      throw new Error("multipart parsing must not run while R is disabled");
-    },
+    headers: { "Content-Type": "text/plain" },
+    body: "not-a-workbook",
   });
 
   try {
@@ -95,7 +94,43 @@ test("the public R kill switch returns before multipart parsing", async () => {
     assert.equal(response.status, 503);
     assert.equal(payload.code, "R_ENGINE_DISABLED");
     assert.match(payload.error || "", /disabled/i);
-    assert.equal(multipartParsed, false);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
+});
+
+test("a disabled engine still returns WORKBOOK_INVALID for an uploaded invalid workbook", async () => {
+  const originalEnvironment = isolateRouteEnvironment([]);
+  process.env.OPEN_SNA_R_DISABLED = "1";
+  const invalid = buildMinimalXlsx(["Name", "Score"], [["Ada", 1], ["Bea", 2]]);
+
+  try {
+    const response = await POST(analysisRequest(undefined, invalid));
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 422);
+    assert.equal(payload.code, "WORKBOOK_INVALID");
+    assert.match(payload.error || "", /workbook could not be analyzed/i);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
+});
+
+test("a disabled engine returns R_ENGINE_DISABLED after a valid workbook precheck", async () => {
+  const originalEnvironment = isolateRouteEnvironment([
+    "OPEN_SNA_RSCRIPT_BIN",
+    "OPEN_SNA_R_API_URL",
+    "VERCEL",
+  ]);
+  process.env.OPEN_SNA_R_DISABLED = "1";
+  process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+
+  try {
+    const response = await POST(analysisRequest());
+    const payload = await response.json() as { code?: string };
+    assert.equal(response.status, 503);
+    assert.equal(payload.code, "R_ENGINE_DISABLED");
   } finally {
     restoreEnvironment(originalEnvironment);
   }

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
 import { isValidOpenSnaServiceToken, readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
+import { precheckOpenSnaWorkbook } from "@/lib/open-sna-workbook-schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -121,6 +122,26 @@ function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError 
   return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
 }
 
+function workbookInvalidResponse() {
+  return noStoreJson(
+    {
+      error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
+      code: "WORKBOOK_INVALID",
+    },
+    422,
+  );
+}
+
+function engineDisabledResponse() {
+  return noStoreJson(
+    {
+      error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
+      code: "R_ENGINE_DISABLED",
+    },
+    503,
+  );
+}
+
 function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "R_ENGINE_CONFIGURATION_INVALID") {
     return noStoreJson(
@@ -132,13 +153,7 @@ function remoteFailureResponse(error: RemoteEngineError) {
     );
   }
   if (error.code === "WORKBOOK_INVALID") {
-    return noStoreJson(
-      {
-        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
-        code: error.code,
-      },
-      error.status,
-    );
+    return workbookInvalidResponse();
   }
   if (error.code === "R_RUNTIME_NOT_READY") {
     return noStoreJson(
@@ -312,24 +327,18 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
 }
 
 export async function POST(request: Request) {
-  if (process.env.OPEN_SNA_R_DISABLED === "1") {
-    return noStoreJson(
-      {
-        error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
-        code: "R_ENGINE_DISABLED",
-      },
-      503,
-    );
-  }
   let jobDirectory: string | null = null;
   let claimedWorkerSlot = false;
   try {
     const authenticationFailure = workerAuthenticationFailure(request);
     if (authenticationFailure) return authenticationFailure;
+    const engineDisabled = process.env.OPEN_SNA_R_DISABLED === "1";
 
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
-      return noStoreJson({ error: "Open SNA expects a multipart XLSX upload." }, 415);
+      return engineDisabled
+        ? engineDisabledResponse()
+        : noStoreJson({ error: "Open SNA expects a multipart XLSX upload." }, 415);
     }
     const declaredRequestBytes = Number(request.headers.get("content-length"));
     if (Number.isFinite(declaredRequestBytes) && declaredRequestBytes > MAX_MULTIPART_BYTES) {
@@ -338,7 +347,9 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const workbook = formData.get("workbook");
     if (!(workbook instanceof File)) {
-      return noStoreJson({ error: "Select an XLSX workbook before running the analysis." }, 400);
+      return engineDisabled
+        ? engineDisabledResponse()
+        : noStoreJson({ error: "Select an XLSX workbook before running the analysis." }, 400);
     }
     if (!workbook.name.toLowerCase().endsWith(".xlsx")) {
       return noStoreJson({ error: "Open SNA accepts .xlsx workbooks only." }, 415);
@@ -360,6 +371,8 @@ export async function POST(request: Request) {
     if (!hasXlsxSignature(bytes) || String.fromCharCode(bytes[0], bytes[1]) !== XLSX_ZIP_SIGNATURE) {
       return noStoreJson({ error: "The file extension is XLSX, but the file contents are not a valid XLSX container." }, 415);
     }
+    if (!precheckOpenSnaWorkbook(bytes).valid) return workbookInvalidResponse();
+    if (engineDisabled) return engineDisabledResponse();
 
     const inputFingerprint = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
     const configuredEngineResult = await forwardToConfiguredEngine(bytes, bootstraps, permutations);
@@ -456,13 +469,7 @@ export async function POST(request: Request) {
           500
         );
       }
-      return noStoreJson(
-        {
-          error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
-          code: failureCode,
-        },
-        422
-      );
+      return workbookInvalidResponse();
     }
 
     const resultText = await readBoundedResult(outputPath);

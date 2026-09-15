@@ -50,6 +50,9 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.match(workbench, /accept="\.xlsx"/);
   assert.match(workbench, /lang="en"/);
   assert.match(workbench, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
+  assert.match(workbench, /href="\/open-sna\/programming-resilience-sample\.xlsx"/);
+  assert.match(workbench, /Download a synthetic sample workbook/);
+  assert.ok(existsSync(fromRoot("public/open-sna/programming-resilience-sample.xlsx")));
   assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });
 
@@ -188,6 +191,8 @@ test("the upload adapter is bounded, cleans temporary files, and fails closed on
   assert.match(route, /OPEN_SNA_GENDER_1_LABEL/);
   assert.match(route, /OPEN_SNA_GENDER_2_LABEL/);
   assert.match(route, /503/);
+  assert.match(route, /precheckOpenSnaWorkbook/);
+  assert.match(route, /engineDisabledResponse/);
   assert.doesNotMatch(route, /shell:\s*true/);
 });
 
