@@ -794,9 +794,9 @@ stability_analysis <- function(items, communities, gamma, bootstraps, seed, weig
   set.seed(seed)
   network <- bootnet::estimateNetwork(
     items,
-    default = "EBICglasso",
-    corMethod = "npn",
-    tuning = gamma,
+    default = "none",
+    fun = nct_npn_ebicglasso_estimator,
+    gamma = gamma,
     verbose = FALSE
   )
   set.seed(seed)
