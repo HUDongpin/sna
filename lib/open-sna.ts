@@ -393,9 +393,9 @@ export function matchesOpenSnaRequest(
 ) {
   return (
     result.dataSource === "uploaded-workbook" &&
-    result.settings.bootstrapReplicates === Number(bootstraps) &&
-    result.settings.nctPermutations === Number(permutations) &&
-    result.subgroupComparison.permutations === Number(permutations)
+    Number(result.settings.bootstrapReplicates) === Number(bootstraps) &&
+    Number(result.settings.nctPermutations) === Number(permutations) &&
+    Number(result.subgroupComparison.permutations) === Number(permutations)
   );
 }
 

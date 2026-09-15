@@ -50,6 +50,9 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.match(workbench, /accept="\.xlsx"/);
   assert.match(workbench, /lang="en"/);
   assert.match(workbench, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
+  assert.match(workbench, /href="\/open-sna\/programming-resilience-sample\.xlsx"/);
+  assert.match(workbench, /Download a synthetic sample workbook/);
+  assert.ok(existsSync(fromRoot("public/open-sna/programming-resilience-sample.xlsx")));
   assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });
 
@@ -141,6 +144,8 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /empty_network_metrics\s*<-\s*function/);
   assert.match(engine, /deterministic_circle_layout\s*<-\s*function/);
   assert.match(engine, /empty_network_stability\s*<-\s*function/);
+  assert.match(engine, /grDevices::pdf\(NULL\)/);
+  assert.match(engine, /NCT did not return the expected edge-difference table/);
   assert.match(engine, /nct_npn_ebicglasso_estimator\s*<-\s*function/);
   assert.match(engine, /stabilize_npn_correlation\s*<-\s*function/);
   assert.match(engine, /NPN_EBICGLASSO_CONDITIONING_FLOOR_V1\s*<-/);
@@ -159,6 +164,23 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.doesNotMatch(engine, /install\.packages\(/);
 });
 
+test("GET /api/open-sna is an API stub so locale=api cannot capture the workbench", () => {
+  const stub = read("app/api/open-sna/route.ts");
+  const analyze = read("app/api/open-sna/analyze/route.ts");
+  const localeLayout = read("app/[locale]/layout.tsx");
+  const openSnaPage = read("app/[locale]/open-sna/page.tsx");
+
+  assert.ok(existsSync(fromRoot("app/api/open-sna/route.ts")));
+  assert.match(stub, /export const GET/);
+  assert.match(stub, /status:\s*404/);
+  assert.match(stub, /NOT_FOUND/);
+  assert.doesNotMatch(stub, /spawn\(|analyze\.R|workbook/);
+  assert.match(analyze, /export async function POST/);
+  assert.doesNotMatch(analyze, /export function GET/);
+  assert.match(localeLayout, /export const dynamicParams = false/);
+  assert.match(openSnaPage, /if \(!isLocale\(locale\)\) notFound\(\)/);
+});
+
 test("the upload adapter is bounded, cleans temporary files, and fails closed on Vercel", () => {
   const route = read("app/api/open-sna/analyze/route.ts");
   assert.match(route, /MAX_UPLOAD_BYTES/);
@@ -171,6 +193,15 @@ test("the upload adapter is bounded, cleans temporary files, and fails closed on
   assert.match(route, /OPEN_SNA_GENDER_1_LABEL/);
   assert.match(route, /OPEN_SNA_GENDER_2_LABEL/);
   assert.match(route, /503/);
+  assert.match(route, /precheckOpenSnaWorkbook/);
+  assert.match(route, /engineDisabledResponse/);
+  assert.match(route, /analysisFailedResponse/);
+  assert.match(route, /safeOpenSnaAnalysisDetail/);
+  assert.match(route, /createRemoteAnalyzeFormData/);
+  assert.match(route, /outgoing\.append/);
+  assert.match(route, /new Blob/);
+  assert.match(route, /R_ENGINE_CONTRACT_FAILED/);
+  assert.doesNotMatch(route, /new File\(\[bytes\]/);
   assert.doesNotMatch(route, /shell:\s*true/);
 });
 
@@ -268,6 +299,13 @@ test("the bundled demonstration is aggregate output and matches the public contr
   assert.equal(matchesOpenSnaRequest(uploaded, "1000", "1000"), true);
   assert.equal(matchesOpenSnaRequest(uploaded, "500", "1000"), false);
   assert.equal(matchesOpenSnaRequest(demo, "1000", "1000"), false);
+
+  const hundredBootstraps = structuredClone(uploaded);
+  hundredBootstraps.settings.bootstrapReplicates = 100;
+  hundredBootstraps.stability.bootstraps = 100;
+  assert.equal(isOpenSnaResult(hundredBootstraps), true);
+  assert.equal(matchesOpenSnaRequest(hundredBootstraps, "100", "1000"), true);
+  assert.equal(matchesOpenSnaRequest(hundredBootstraps, "1000", "1000"), false);
 });
 
 test("the Open SNA 1.1 validator enforces the mandatory two-group NCT contract", () => {

@@ -14,6 +14,8 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   const cases = [
     [429, "WORKER_BUSY"],
     [502, "R_ENGINE_UNAVAILABLE"],
+    [502, "R_ENGINE_CONTRACT_FAILED"],
+    [502, "R_ANALYSIS_FAILED"],
     [503, "R_ENGINE_DISABLED"],
     [503, "R_ENGINE_NOT_CONFIGURED"],
     [504, "R_ANALYSIS_TIMEOUT"],
@@ -31,10 +33,37 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   }
   assert.match(messages[0], /another analysis|busy/i);
   assert.match(messages[1], /unavailable/i);
-  assert.match(messages[2], /disabled/i);
-  assert.match(messages[3], /not configured/i);
-  assert.match(messages[4], /time limit|timed out/i);
-  assert.match(messages[5], /workbook/i);
+  assert.match(messages[2], /could not be used/i);
+  assert.match(messages[3], /engine failed/i);
+  assert.match(messages[4], /disabled/i);
+  assert.match(messages[5], /not configured/i);
+  assert.match(messages[6], /time limit|timed out/i);
+  assert.match(messages[7], /workbook/i);
+});
+
+test("Open SNA shows a safe R_ANALYSIS_FAILED excerpt and ignores untrusted error text", async () => {
+  const { openSnaAnalysisErrorMessage, safeOpenSnaAnalysisDetail } = await import("../lib/open-sna-errors");
+  const withDetail = openSnaAnalysisErrorMessage(502, {
+    code: "R_ANALYSIS_FAILED",
+    error: "private R stderr https://worker.invalid/trace",
+    detail: "cannot open file '[path]'",
+  });
+  assert.match(withDetail, /R_ANALYSIS_FAILED/);
+  assert.match(withDetail, /cannot open file/);
+  assert.doesNotMatch(withDetail, /https?:\/\/|worker\.invalid|private R stderr/i);
+  assert.ok(withDetail.length <= 240);
+
+  assert.equal(safeOpenSnaAnalysisDetail("cannot open file '[path]'"), "cannot open file '[path]'");
+  assert.equal(safeOpenSnaAnalysisDetail("see https://evil.example/x"), null);
+  assert.equal(safeOpenSnaAnalysisDetail("/tmp/open-sna-jobs/job-1/input.xlsx"), null);
+
+  const dropped = openSnaAnalysisErrorMessage(502, {
+    code: "R_ANALYSIS_FAILED",
+    error: "private R stderr",
+    detail: "see https://evil.example/x",
+  });
+  assert.match(dropped, /R_ANALYSIS_FAILED/);
+  assert.doesNotMatch(dropped, /evil\.example|https?:\/\//i);
 });
 
 test("Open SNA maps the engine configuration invalid code to a bounded user message", async () => {
@@ -82,6 +111,8 @@ test("Open SNA guarded decoding preserves distinct status and code mappings", as
   const cases = [
     [429, "WORKER_BUSY"],
     [502, "R_ENGINE_UNAVAILABLE"],
+    [502, "R_ENGINE_CONTRACT_FAILED"],
+    [502, "R_ANALYSIS_FAILED"],
     [503, "R_ENGINE_DISABLED"],
     [503, "R_ENGINE_NOT_CONFIGURED"],
     [504, "R_ANALYSIS_TIMEOUT"],

@@ -7,6 +7,8 @@ import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
 import { isValidOpenSnaServiceToken, readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
+import { safeOpenSnaAnalysisDetail } from "@/lib/open-sna-errors";
+import { precheckOpenSnaWorkbook } from "@/lib/open-sna-workbook-schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,8 +58,9 @@ type RemoteFailureCode = RFailureCode | "WORKER_BUSY" | "R_ANALYSIS_TIMEOUT";
 
 class RemoteEngineError extends Error {
   constructor(
-    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID",
+    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID" | "R_ENGINE_CONTRACT_FAILED",
     readonly status: number,
+    readonly detail: string | null = null,
   ) {
     super(code);
   }
@@ -66,6 +69,31 @@ class RemoteEngineError extends Error {
 function parseRFailureCode(stderr: string): RFailureCode {
   const match = stderr.match(/^OPEN_SNA_ERROR_CODE=(R_RUNTIME_NOT_READY|WORKBOOK_INVALID|R_ANALYSIS_FAILED)$/m);
   return match?.[1] as RFailureCode | undefined || "R_ANALYSIS_FAILED";
+}
+
+const R_FAILURE_MESSAGE_PREFIX = "Open SNA analysis failed:";
+
+function summarizeRFailureDetail(stderr: string) {
+  const line = stderr.split(/\r?\n/).find((entry) => entry.includes(R_FAILURE_MESSAGE_PREFIX));
+  if (!line) return null;
+  const detail = line.slice(line.indexOf(R_FAILURE_MESSAGE_PREFIX) + R_FAILURE_MESSAGE_PREFIX.length).trim();
+  const redacted = detail
+    .replace(/(?:\/(?:tmp|var\/tmp|app|opt|Volumes|home|Users)\/)[^\s'"]+/g, "[path]")
+    .replace(/[A-Za-z]:\\[^\s'"]+/g, "[path]")
+    .replace(/\s+/g, " ")
+    .trim();
+  return redacted.slice(0, 180) || null;
+}
+
+function logRProcessFailure(processResult: RProcessResult) {
+  console.error(JSON.stringify({
+    event: "open_sna_r_failed",
+    failureCode: parseRFailureCode(processResult.stderr),
+    exitCode: processResult.exitCode,
+    timedOut: processResult.timedOut,
+    stderrEmpty: processResult.stderr.trim().length === 0,
+    detail: summarizeRFailureDetail(processResult.stderr),
+  }));
 }
 
 function workerModeEnabled() {
@@ -109,16 +137,53 @@ function workerAuthenticationFailure(request: Request) {
   return null;
 }
 
+function readRemoteErrorRecord(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { code: undefined, detail: null as string | null };
+  }
+  const record = payload as { code?: unknown; detail?: unknown };
+  return { code: record.code, detail: safeOpenSnaAnalysisDetail(record.detail) };
+}
+
+function analysisFailedResponse(status: number, detail: string | null = null) {
+  return noStoreJson(
+    {
+      error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
+      code: "R_ANALYSIS_FAILED",
+      ...(detail ? { detail } : {}),
+    },
+    status,
+  );
+}
+
 function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError {
-  const code = payload && typeof payload === "object" && "code" in payload
-    ? (payload as { code?: unknown }).code
-    : undefined;
+  const { code, detail } = readRemoteErrorRecord(payload);
   if (code === "WORKBOOK_INVALID" && status === 422) return new RemoteEngineError(code, 422);
   if (code === "R_RUNTIME_NOT_READY" && status === 503) return new RemoteEngineError(code, 503);
-  if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502);
+  if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502, detail);
   if (code === "WORKER_BUSY" && status === 429) return new RemoteEngineError(code, 429);
   if (code === "R_ANALYSIS_TIMEOUT" && status === 504) return new RemoteEngineError(code, 504);
   return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
+}
+
+function workbookInvalidResponse() {
+  return noStoreJson(
+    {
+      error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
+      code: "WORKBOOK_INVALID",
+    },
+    422,
+  );
+}
+
+function engineDisabledResponse() {
+  return noStoreJson(
+    {
+      error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
+      code: "R_ENGINE_DISABLED",
+    },
+    503,
+  );
 }
 
 function remoteFailureResponse(error: RemoteEngineError) {
@@ -132,13 +197,7 @@ function remoteFailureResponse(error: RemoteEngineError) {
     );
   }
   if (error.code === "WORKBOOK_INVALID") {
-    return noStoreJson(
-      {
-        error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
-        code: error.code,
-      },
-      error.status,
-    );
+    return workbookInvalidResponse();
   }
   if (error.code === "R_RUNTIME_NOT_READY") {
     return noStoreJson(
@@ -155,6 +214,18 @@ function remoteFailureResponse(error: RemoteEngineError) {
   if (error.code === "R_ANALYSIS_TIMEOUT") {
     return noStoreJson(
       { error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.", code: error.code },
+      error.status,
+    );
+  }
+  if (error.code === "R_ANALYSIS_FAILED") {
+    return analysisFailedResponse(error.status, error.detail);
+  }
+  if (error.code === "R_ENGINE_CONTRACT_FAILED") {
+    return noStoreJson(
+      {
+        error: "The production R analysis service returned a result that could not be used. Try again later.",
+        code: error.code,
+      },
       error.status,
     );
   }
@@ -223,13 +294,12 @@ function runRAnalysis(options: {
           path.join(process.cwd(), "tmp", "r-library"),
       },
     });
-    let stderrBytes = 0;
-    const stderrChunks: Buffer[] = [];
+    let stderrTail = Buffer.alloc(0);
     child.stderr.on("data", (chunk: Buffer) => {
-      const remainingBytes = MAX_R_STDERR_BYTES - stderrBytes;
-      if (remainingBytes > 0) stderrChunks.push(chunk.subarray(0, remainingBytes));
-      stderrBytes += chunk.byteLength;
-      if (stderrBytes > MAX_R_STDERR_BYTES) child.kill("SIGTERM");
+      stderrTail = Buffer.concat([stderrTail, chunk]);
+      if (stderrTail.byteLength > MAX_R_STDERR_BYTES) {
+        stderrTail = Buffer.from(stderrTail.subarray(stderrTail.byteLength - MAX_R_STDERR_BYTES));
+      }
     });
 
     let timedOut = false;
@@ -249,7 +319,7 @@ function runRAnalysis(options: {
       resolve({
         exitCode: code ?? 1,
         timedOut,
-        stderr: Buffer.concat(stderrChunks).toString("utf8"),
+        stderr: stderrTail.toString("utf8"),
       });
     });
   });
@@ -265,6 +335,33 @@ function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
   return isOpenSnaResult(candidate) ? candidate : null;
 }
 
+function copyWorkbookBytes(bytes: Uint8Array) {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+function createRemoteAnalyzeFormData(bytes: Uint8Array, bootstraps: string, permutations: string) {
+  // Undici/Vercel can serialize `new File([uint8Array])` as an empty multipart
+  // part. Copy the bytes first, then append a Blob with an explicit filename.
+  const outgoing = new FormData();
+  outgoing.append(
+    "workbook",
+    new Blob([copyWorkbookBytes(bytes)], { type: XLSX_MIME }),
+    "input.xlsx",
+  );
+  outgoing.append("bootstraps", bootstraps);
+  outgoing.append("permutations", permutations);
+  return outgoing;
+}
+
+function logRemoteEngineFailure(reason: string) {
+  console.error(JSON.stringify({
+    event: "open_sna_remote_engine_failed",
+    reason,
+  }));
+}
+
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
   const engineConfiguration = readOpenSnaEngineConfigurationStatus();
   if (!engineConfiguration.configured) {
@@ -272,16 +369,11 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
   }
   try {
-    const outgoing = new FormData();
-    outgoing.set("workbook", new File([bytes], "input.xlsx", { type: XLSX_MIME }));
-    outgoing.set("bootstraps", bootstraps);
-    outgoing.set("permutations", permutations);
-
     const headers = new Headers({ Accept: "application/json" });
     headers.set("Authorization", `Bearer ${engineConfiguration.apiToken}`);
     const response = await fetch(engineConfiguration.apiUrl, {
       method: "POST",
-      body: outgoing,
+      body: createRemoteAnalyzeFormData(bytes, bootstraps, permutations),
       headers,
       cache: "no-store",
       signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
@@ -295,7 +387,12 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (responseBytes === 0 || responseBytes > MAX_RESULT_BYTES) {
       throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
     }
-    const payload: unknown = JSON.parse(responseText);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(responseText.replace(/^\uFEFF/, ""));
+    } catch {
+      throw new Error(response.ok ? "REMOTE_ENGINE_CONTRACT_FAILED" : "REMOTE_ENGINE_JSON_INVALID");
+    }
     if (!response.ok) throw safeRemoteFailure(payload, response.status);
     const normalizedResult = normalizeRemoteResult(payload);
     if (!normalizedResult || !matchesOpenSnaRequest(normalizedResult, bootstraps, permutations)) {
@@ -307,29 +404,33 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
       throw new RemoteEngineError("R_ANALYSIS_TIMEOUT", 504);
     }
+    const reason = error instanceof Error ? error.message : "REMOTE_ENGINE_UNAVAILABLE";
+    const knownReasons = new Set([
+      "REMOTE_ENGINE_CONTRACT_FAILED",
+      "REMOTE_ENGINE_RESULT_TOO_LARGE",
+      "REMOTE_ENGINE_JSON_INVALID",
+    ]);
+    logRemoteEngineFailure(knownReasons.has(reason) ? reason : "REMOTE_ENGINE_UNAVAILABLE");
+    if (reason === "REMOTE_ENGINE_CONTRACT_FAILED") {
+      throw new RemoteEngineError("R_ENGINE_CONTRACT_FAILED", 502);
+    }
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }
 }
 
 export async function POST(request: Request) {
-  if (process.env.OPEN_SNA_R_DISABLED === "1") {
-    return noStoreJson(
-      {
-        error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
-        code: "R_ENGINE_DISABLED",
-      },
-      503,
-    );
-  }
   let jobDirectory: string | null = null;
   let claimedWorkerSlot = false;
   try {
     const authenticationFailure = workerAuthenticationFailure(request);
     if (authenticationFailure) return authenticationFailure;
+    const engineDisabled = process.env.OPEN_SNA_R_DISABLED === "1";
 
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
-      return noStoreJson({ error: "Open SNA expects a multipart XLSX upload." }, 415);
+      return engineDisabled
+        ? engineDisabledResponse()
+        : noStoreJson({ error: "Open SNA expects a multipart XLSX upload." }, 415);
     }
     const declaredRequestBytes = Number(request.headers.get("content-length"));
     if (Number.isFinite(declaredRequestBytes) && declaredRequestBytes > MAX_MULTIPART_BYTES) {
@@ -338,7 +439,9 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const workbook = formData.get("workbook");
     if (!(workbook instanceof File)) {
-      return noStoreJson({ error: "Select an XLSX workbook before running the analysis." }, 400);
+      return engineDisabled
+        ? engineDisabledResponse()
+        : noStoreJson({ error: "Select an XLSX workbook before running the analysis." }, 400);
     }
     if (!workbook.name.toLowerCase().endsWith(".xlsx")) {
       return noStoreJson({ error: "Open SNA accepts .xlsx workbooks only." }, 415);
@@ -360,6 +463,8 @@ export async function POST(request: Request) {
     if (!hasXlsxSignature(bytes) || String.fromCharCode(bytes[0], bytes[1]) !== XLSX_ZIP_SIGNATURE) {
       return noStoreJson({ error: "The file extension is XLSX, but the file contents are not a valid XLSX container." }, 415);
     }
+    if (!precheckOpenSnaWorkbook(bytes).valid) return workbookInvalidResponse();
+    if (engineDisabled) return engineDisabledResponse();
 
     const inputFingerprint = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
     const configuredEngineResult = await forwardToConfiguredEngine(bytes, bootstraps, permutations);
@@ -428,6 +533,7 @@ export async function POST(request: Request) {
 
     const processResult = await runRAnalysis({ inputPath, outputPath, bootstraps, permutations });
     if (processResult.timedOut) {
+      logRProcessFailure(processResult);
       return noStoreJson(
         {
           error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.",
@@ -437,6 +543,7 @@ export async function POST(request: Request) {
       );
     }
     if (processResult.exitCode !== 0) {
+      logRProcessFailure(processResult);
       const failureCode = parseRFailureCode(processResult.stderr);
       if (failureCode === "R_RUNTIME_NOT_READY") {
         return noStoreJson(
@@ -448,21 +555,12 @@ export async function POST(request: Request) {
         );
       }
       if (failureCode === "R_ANALYSIS_FAILED") {
-        return noStoreJson(
-          {
-            error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
-            code: failureCode,
-          },
-          500
+        return analysisFailedResponse(
+          500,
+          safeOpenSnaAnalysisDetail(summarizeRFailureDetail(processResult.stderr)),
         );
       }
-      return noStoreJson(
-        {
-          error: "The workbook could not be analyzed. Confirm that it has one worksheet, 6 to 40 consecutively numbered Likert item columns in 2 to 8 construct-prefix communities, and a valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
-          code: failureCode,
-        },
-        422
-      );
+      return workbookInvalidResponse();
     }
 
     const resultText = await readBoundedResult(outputPath);

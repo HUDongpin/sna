@@ -650,7 +650,7 @@ export default function OpenSnaWorkbench() {
                 {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />Remove</button> : null}
               </div>
             </div>
-            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.</p>
+            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion. <a href="/open-sna/programming-resilience-sample.xlsx" download="programming-resilience-sample.xlsx" className="font-black text-[var(--indigo)] underline decoration-[var(--teal-line)] underline-offset-2 hover:text-[var(--teal-ink)]">Download a synthetic sample workbook</a>.</p>
           </div>
 
           <div>

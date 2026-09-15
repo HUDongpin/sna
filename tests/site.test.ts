@@ -118,6 +118,8 @@ test("the localized Home, Mission, Open SNA, News, Academy, and About route file
     "app/[locale]/academy/page.tsx",
     "app/[locale]/about/page.tsx",
   ];
+  assert.match(read("app/[locale]/layout.tsx"), /export const dynamicParams = false/);
+  assert.match(read("app/[locale]/layout.tsx"), /locales\.map\(\(locale\) => \(\{ locale \}\)\)/);
 
   for (const routeFile of routeFiles) {
     assert.ok(existsSync(fromRoot(routeFile)), `${routeFile} is required`);
@@ -537,6 +539,8 @@ test("semantic layout metadata and Open Graph assets are present", () => {
 
   const localeLayout = read("app/[locale]/layout.tsx");
   assert.match(localeLayout, /export async function generateMetadata/);
+  assert.match(localeLayout, /export function generateStaticParams/);
+  assert.match(localeLayout, /export const dynamicParams = false/);
   assert.match(localeLayout, /alternates:\s*\{/);
   assert.match(localeLayout, /canonical:/);
   assert.match(localeLayout, /languages:/);
