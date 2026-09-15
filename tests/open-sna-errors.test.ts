@@ -39,6 +39,31 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   assert.match(messages[6], /workbook/i);
 });
 
+test("Open SNA shows a safe R_ANALYSIS_FAILED excerpt and ignores untrusted error text", async () => {
+  const { openSnaAnalysisErrorMessage, safeOpenSnaAnalysisDetail } = await import("../lib/open-sna-errors");
+  const withDetail = openSnaAnalysisErrorMessage(502, {
+    code: "R_ANALYSIS_FAILED",
+    error: "private R stderr https://worker.invalid/trace",
+    detail: "cannot open file '[path]'",
+  });
+  assert.match(withDetail, /R_ANALYSIS_FAILED/);
+  assert.match(withDetail, /cannot open file/);
+  assert.doesNotMatch(withDetail, /https?:\/\/|worker\.invalid|private R stderr/i);
+  assert.ok(withDetail.length <= 240);
+
+  assert.equal(safeOpenSnaAnalysisDetail("cannot open file '[path]'"), "cannot open file '[path]'");
+  assert.equal(safeOpenSnaAnalysisDetail("see https://evil.example/x"), null);
+  assert.equal(safeOpenSnaAnalysisDetail("/tmp/open-sna-jobs/job-1/input.xlsx"), null);
+
+  const dropped = openSnaAnalysisErrorMessage(502, {
+    code: "R_ANALYSIS_FAILED",
+    error: "private R stderr",
+    detail: "see https://evil.example/x",
+  });
+  assert.match(dropped, /R_ANALYSIS_FAILED/);
+  assert.doesNotMatch(dropped, /evil\.example|https?:\/\//i);
+});
+
 test("Open SNA maps the engine configuration invalid code to a bounded user message", async () => {
   assert.ok(existsSync(errorModulePath), "the bounded Open SNA UI error mapper must exist");
   const { openSnaAnalysisErrorMessage } = await import("../lib/open-sna-errors");

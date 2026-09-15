@@ -1,23 +1,43 @@
 type OpenSnaErrorPayload = {
   code?: unknown;
+  detail?: unknown;
 };
 
 export const OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE =
   "The workbook could not be analyzed. Try again later or inspect the aggregate reference result.";
 
+export const OPEN_SNA_ANALYSIS_FAILED_MESSAGE =
+  "The R analysis engine failed before producing a valid result. Try again later. (R_ANALYSIS_FAILED)";
+
+export function safeOpenSnaAnalysisDetail(value: unknown) {
+  if (typeof value !== "string") return null;
+  const detail = value.trim().slice(0, 180);
+  if (!detail) return null;
+  if (/https?:\/\//i.test(detail) || /[<>]/.test(detail) || /(?:\/(?:tmp|var\/tmp|app|opt|home|Users)\/)/.test(detail)) {
+    return null;
+  }
+  if (!/^[A-Za-z0-9[\]'" .,;:()/+_-]+$/.test(detail)) return null;
+  return detail;
+}
+
 export function openSnaAnalysisErrorMessage(status: number, payload: unknown) {
   const code = payload && typeof payload === "object"
     ? (payload as OpenSnaErrorPayload).code
     : undefined;
+  const detail = payload && typeof payload === "object"
+    ? safeOpenSnaAnalysisDetail((payload as OpenSnaErrorPayload).detail)
+    : null;
 
   if (status === 429 && code === "WORKER_BUSY") {
     return "Another analysis is already running. Wait for it to finish, then try again. (WORKER_BUSY)";
   }
+  if ((status === 500 || status === 502) && code === "R_ANALYSIS_FAILED") {
+    if (!detail) return OPEN_SNA_ANALYSIS_FAILED_MESSAGE;
+    const combined = `${OPEN_SNA_ANALYSIS_FAILED_MESSAGE} ${detail}`;
+    return combined.length <= 240 ? combined : OPEN_SNA_ANALYSIS_FAILED_MESSAGE;
+  }
   if (status === 502 && code === "R_ENGINE_UNAVAILABLE") {
     return "The R analysis service is temporarily unavailable. Try again later. (R_ENGINE_UNAVAILABLE)";
-  }
-  if ((status === 500 || status === 502) && code === "R_ANALYSIS_FAILED") {
-    return "The R analysis engine failed before producing a valid result. Try again later. (R_ANALYSIS_FAILED)";
   }
   if (status === 503 && code === "R_ENGINE_DISABLED") {
     return "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result. (R_ENGINE_DISABLED)";

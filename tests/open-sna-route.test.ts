@@ -280,9 +280,12 @@ test("local R analysis failures log a redacted one-line diagnostic", async () =>
 
   try {
     const response = await POST(analysisRequest());
-    const payload = await response.json() as { code?: string };
+    const payload = await response.json() as { code?: string; detail?: string };
     assert.equal(response.status, 500);
     assert.equal(payload.code, "R_ANALYSIS_FAILED");
+    assert.match(payload.detail || "", /cannot open file/i);
+    assert.match(payload.detail || "", /\[path\]/);
+    assert.doesNotMatch(payload.detail || "", /open-sna-jobs|input\.xlsx/);
     const diagnostic = logged.find((entry) => entry.includes("open_sna_r_failed"));
     assert.ok(diagnostic, "worker/local R failures must log open_sna_r_failed");
     const parsed = JSON.parse(diagnostic) as {
@@ -453,6 +456,7 @@ test("the web adapter preserves worker R_ANALYSIS_FAILED instead of mapping it t
     {
       code: "R_ANALYSIS_FAILED",
       error: "private R stderr and /tmp/open-sna-jobs/job-xyz/input.xlsx",
+      detail: "cannot open file '[path]'",
     },
     { status: 500 },
   )) as typeof fetch;
@@ -473,12 +477,13 @@ test("the web adapter preserves worker R_ANALYSIS_FAILED instead of mapping it t
 
   try {
     const response = await POST(analysisRequest());
-    const payload = await response.json() as { code?: string; error?: string };
+    const payload = await response.json() as { code?: string; error?: string; detail?: string };
     assert.equal(response.status, 502);
     assert.equal(payload.code, "R_ANALYSIS_FAILED");
     assert.match(payload.error || "", /analysis engine failed/i);
+    assert.equal(payload.detail, "cannot open file '[path]'");
     assert.doesNotMatch(payload.error || "", /temporarily unavailable/i);
-    assert.doesNotMatch(payload.error || "", /private R stderr|open-sna-jobs|input\.xlsx/i);
+    assert.doesNotMatch(JSON.stringify(payload), /private R stderr|open-sna-jobs|input\.xlsx/i);
   } finally {
     restoreEnvironment(originalEnvironment);
     globalThis.fetch = originalFetch;

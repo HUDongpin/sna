@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { precheckOpenSnaWorkbook } from "../lib/open-sna-workbook-schema";
 import { isOpenSnaValidationResult } from "../lib/open-sna-workbook-validation";
-import { buildMinimalXlsx } from "./helpers/minimal-xlsx";
+import { buildMinimalXlsx, buildProgrammingResilienceSampleXlsx } from "./helpers/minimal-xlsx";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -26,13 +26,16 @@ function asValidationResult(bytes: Uint8Array) {
 }
 
 test("the public sample and empty-network fixtures pass the R-equivalent workbook precheck", () => {
+  const generated = buildProgrammingResilienceSampleXlsx();
   const sample = readBytes("public", "open-sna", "programming-resilience-sample.xlsx");
+  assert.deepEqual(Buffer.from(sample), Buffer.from(generated));
   const sampleResult = asValidationResult(sample);
   assert.equal(isOpenSnaValidationResult(sampleResult), true);
   assert.equal(sampleResult.summary.itemCount, 16);
   assert.equal(sampleResult.summary.communityCount, 4);
   assert.equal(sampleResult.summary.groupColumn, "Gender");
   assert.equal(sampleResult.summary.analyzedRows, 50);
+  assert.ok(sampleResult.summary.analyzedRows >= Math.max(30, sampleResult.summary.itemCount + 5));
   assert.deepEqual(sampleResult.summary.groupCounts, [
     { group: "F", n: 25 },
     { group: "M", n: 25 },

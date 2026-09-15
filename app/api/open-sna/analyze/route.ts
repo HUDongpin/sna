@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
 import { isValidOpenSnaServiceToken, readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
+import { safeOpenSnaAnalysisDetail } from "@/lib/open-sna-errors";
 import { precheckOpenSnaWorkbook } from "@/lib/open-sna-workbook-schema";
 
 export const runtime = "nodejs";
@@ -59,6 +60,7 @@ class RemoteEngineError extends Error {
   constructor(
     readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID",
     readonly status: number,
+    readonly detail: string | null = null,
   ) {
     super(code);
   }
@@ -135,13 +137,30 @@ function workerAuthenticationFailure(request: Request) {
   return null;
 }
 
+function readRemoteErrorRecord(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { code: undefined, detail: null as string | null };
+  }
+  const record = payload as { code?: unknown; detail?: unknown };
+  return { code: record.code, detail: safeOpenSnaAnalysisDetail(record.detail) };
+}
+
+function analysisFailedResponse(status: number, detail: string | null = null) {
+  return noStoreJson(
+    {
+      error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
+      code: "R_ANALYSIS_FAILED",
+      ...(detail ? { detail } : {}),
+    },
+    status,
+  );
+}
+
 function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError {
-  const code = payload && typeof payload === "object" && "code" in payload
-    ? (payload as { code?: unknown }).code
-    : undefined;
+  const { code, detail } = readRemoteErrorRecord(payload);
   if (code === "WORKBOOK_INVALID" && status === 422) return new RemoteEngineError(code, 422);
   if (code === "R_RUNTIME_NOT_READY" && status === 503) return new RemoteEngineError(code, 503);
-  if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502);
+  if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502, detail);
   if (code === "WORKER_BUSY" && status === 429) return new RemoteEngineError(code, 429);
   if (code === "R_ANALYSIS_TIMEOUT" && status === 504) return new RemoteEngineError(code, 504);
   return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
@@ -199,13 +218,7 @@ function remoteFailureResponse(error: RemoteEngineError) {
     );
   }
   if (error.code === "R_ANALYSIS_FAILED") {
-    return noStoreJson(
-      {
-        error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
-        code: error.code,
-      },
-      error.status,
-    );
+    return analysisFailedResponse(error.status, error.detail);
   }
   return noStoreJson(
     { error: "The production R analysis service is temporarily unavailable. Try again later.", code: error.code },
@@ -343,7 +356,7 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (responseBytes === 0 || responseBytes > MAX_RESULT_BYTES) {
       throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
     }
-    const payload: unknown = JSON.parse(responseText);
+    const payload: unknown = JSON.parse(responseText.replace(/^\uFEFF/, ""));
     if (!response.ok) throw safeRemoteFailure(payload, response.status);
     const normalizedResult = normalizeRemoteResult(payload);
     if (!normalizedResult || !matchesOpenSnaRequest(normalizedResult, bootstraps, permutations)) {
@@ -496,12 +509,9 @@ export async function POST(request: Request) {
         );
       }
       if (failureCode === "R_ANALYSIS_FAILED") {
-        return noStoreJson(
-          {
-            error: "The R analysis engine failed before producing a valid result. Check the server runtime and try again.",
-            code: failureCode,
-          },
-          500
+        return analysisFailedResponse(
+          500,
+          safeOpenSnaAnalysisDetail(summarizeRFailureDetail(processResult.stderr)),
         );
       }
       return workbookInvalidResponse();

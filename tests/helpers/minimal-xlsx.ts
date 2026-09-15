@@ -98,7 +98,19 @@ function zipUtf8Files(files: Record<string, string>) {
   return output;
 }
 
-export function buildMinimalXlsx(headers: string[], rows: Array<Array<string | number>>) {
+export const OPEN_SNA_SAMPLE_SHEET_NAME = "Data";
+export const OPEN_SNA_SAMPLE_ITEM_HEADERS = [
+  "Cmt1", "Cmt2", "Cmt3", "Cmt4",
+  "Cnf1", "Cnf2", "Cnf3", "Cnf4",
+  "Cop1", "Cop2", "Cop3", "Cop4",
+  "Cmp1", "Cmp2", "Cmp3", "Cmp4",
+] as const;
+
+export function buildMinimalXlsx(
+  headers: string[],
+  rows: Array<Array<string | number>>,
+  sheetName = OPEN_SNA_SAMPLE_SHEET_NAME,
+) {
   const headerCells = headers.map((header, index) => cellXml(index + 1, 1, header)).join("");
   const dataRows = rows.map((row, rowIndex) => {
     const cells = row.map((value, column) => cellXml(column + 1, rowIndex + 2, value)).join("");
@@ -126,7 +138,7 @@ export function buildMinimalXlsx(headers: string[], rows: Array<Array<string | n
 </Relationships>`,
     "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Data" sheetId="1" r:id="rId1"/></sheets>
+  <sheets><sheet name="${xmlEscape(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
 </workbook>`,
     "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -134,4 +146,13 @@ export function buildMinimalXlsx(headers: string[], rows: Array<Array<string | n
 </Relationships>`,
     "xl/worksheets/sheet1.xml": sheet,
   });
+}
+
+export function buildProgrammingResilienceSampleXlsx() {
+  const headers = [...OPEN_SNA_SAMPLE_ITEM_HEADERS, "Gender"];
+  const rows = Array.from({ length: 50 }, (_, row) => [
+    ...OPEN_SNA_SAMPLE_ITEM_HEADERS.map((_, column) => ((row + column) % 5) + 1),
+    row < 25 ? "F" : "M",
+  ]);
+  return buildMinimalXlsx(headers, rows, OPEN_SNA_SAMPLE_SHEET_NAME);
 }

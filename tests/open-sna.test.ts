@@ -195,6 +195,8 @@ test("the upload adapter is bounded, cleans temporary files, and fails closed on
   assert.match(route, /503/);
   assert.match(route, /precheckOpenSnaWorkbook/);
   assert.match(route, /engineDisabledResponse/);
+  assert.match(route, /analysisFailedResponse/);
+  assert.match(route, /safeOpenSnaAnalysisDetail/);
   assert.doesNotMatch(route, /shell:\s*true/);
 });
 
