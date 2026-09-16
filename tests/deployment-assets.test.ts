@@ -617,6 +617,9 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(workflow, /steps\.web_build\.outputs\.digest/, "release workflow must work with web digests");
   expectContains(workflow, /steps\.worker_build\.outputs\.digest/, "release workflow must work with worker digests");
   expectContains(workflow, /aquasecurity\/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25/, "release workflow must pin the official Trivy action to the requested commit");
+  expectContains(workflow, /severity:\s*HIGH,CRITICAL/, "release workflow must fail on HIGH and CRITICAL findings");
+  expectContains(workflow, /exit-code:\s*1/, "release workflow Trivy scans must fail closed");
+  expectContains(workflow, /ignore-unfixed:\s*true/, "release workflow may ignore only unfixed findings");
   expectContains(workflow, /Confirm prebuilt images are loaded locally/, "release workflow must verify the prebuilds are local before scanning");
   expectContains(workflow, /file: Dockerfile\.web/, "release workflow must use the root web Dockerfile");
   expectContains(workflow, /file: Dockerfile\.open-sna-worker/, "release workflow must use the root worker Dockerfile");
@@ -651,6 +654,20 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
 
   assert.ok(!existsSync(fromRoot("deploy/aliyun/Dockerfile.web")), "duplicate deploy web Dockerfile should be removed");
   assert.ok(!existsSync(fromRoot("deploy/aliyun/Dockerfile.open-sna-worker")), "duplicate deploy worker Dockerfile should be removed");
+});
+
+test("container images pin patched Next.js and sharp for the Trivy HIGH/CRITICAL gate", () => {
+  const packageJson = JSON.parse(read("package.json")) as {
+    dependencies?: Record<string, string>;
+  };
+  const lockfile = JSON.parse(read("package-lock.json")) as {
+    packages?: Record<string, { version?: string }>;
+  };
+
+  assert.equal(packageJson.dependencies?.next, "16.3.5", "Next.js must be patched at 16.3.5 for CVE-2026-75604 and GHSA-2xp9-vwfh-vxw4");
+  assert.equal(packageJson.dependencies?.sharp, "0.35.4", "sharp must be patched at 0.35.4 for GHSA-rgj7-g3m4-5g8c");
+  assert.equal(lockfile.packages?.["node_modules/next"]?.version, "16.3.5", "lockfile must resolve next to 16.3.5");
+  assert.equal(lockfile.packages?.["node_modules/sharp"]?.version, "0.35.4", "lockfile must resolve sharp to 0.35.4");
 });
 
 test("origin-only verification applies bounded curl timeouts and accepts the five-second boundary", () => {
