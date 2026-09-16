@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { POST } from "../app/api/open-sna/analyze/route";
+import { GET, POST } from "../app/api/open-sna/analyze/route";
+import { OPEN_SNA_ASYNC_DELIVERY, OPEN_SNA_JOB_QUERY } from "../lib/open-sna-job";
 import {
   DELETE as deleteOpenSnaApiRoot,
   GET as getOpenSnaApiRoot,
@@ -26,7 +27,11 @@ function createWorkerTestTemporaryRoot() {
   return mkdtempSync(path.join(workerTestTemporaryParent, "open-sna-worker-tests-"));
 }
 
-function analysisRequest(authorization?: string, workbookBytes: Uint8Array = validWorkbookBytes) {
+function analysisRequest(
+  authorization?: string,
+  workbookBytes: Uint8Array = validWorkbookBytes,
+  delivery?: string,
+) {
   const formData = new FormData();
   formData.set(
     "workbook",
@@ -34,8 +39,30 @@ function analysisRequest(authorization?: string, workbookBytes: Uint8Array = val
   );
   formData.set("bootstraps", "100");
   formData.set("permutations", "1000");
+  if (delivery) formData.set("delivery", delivery);
   const headers = authorization ? { Authorization: authorization } : undefined;
   return new Request("http://localhost/api/open-sna/analyze", { method: "POST", body: formData, headers });
+}
+
+function asyncAnalysisRequest(authorization?: string, workbookBytes: Uint8Array = validWorkbookBytes) {
+  return analysisRequest(authorization, workbookBytes, OPEN_SNA_ASYNC_DELIVERY);
+}
+
+function jobPollRequest(jobId: string, authorization?: string) {
+  const headers = authorization ? { Authorization: authorization } : undefined;
+  return new Request(`http://localhost/api/open-sna/analyze?${OPEN_SNA_JOB_QUERY}=${jobId}`, {
+    method: "GET",
+    headers,
+  });
+}
+
+async function waitForLocalJob(jobId: string, authorization?: string) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const response = await GET(jobPollRequest(jobId, authorization));
+    if (response.status !== 202) return response;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("async Open SNA job did not leave the queued or running state");
 }
 
 function workerResult(schemaVersion: "1.0" | "1.1") {
@@ -787,3 +814,159 @@ test("the Open SNA engine config requires HTTPS and the exact planned analyze en
     restoreEnvironment(originalEnvironment);
   }
 });
+
+test("async local analysis returns a job id immediately and yields the result on poll", async () => {
+  const environmentKeys = [
+    "OPEN_SNA_RSCRIPT_BIN",
+    "OPEN_SNA_TMP_ROOT",
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_TEST_OUTPUT_JSON",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
+  process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-async-route-tests");
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
+  process.env.OPEN_SNA_TEST_OUTPUT_JSON = JSON.stringify(workerResult("1.1"));
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+
+  try {
+    const accepted = await POST(asyncAnalysisRequest());
+    const acceptedPayload = await accepted.json() as { jobId?: string; status?: string };
+    assert.equal(accepted.status, 202);
+    assert.equal(acceptedPayload.status, "queued");
+    assert.match(acceptedPayload.jobId || "", /^[0-9a-f-]{36}$/);
+
+    const completed = await waitForLocalJob(acceptedPayload.jobId || "");
+    const result = await completed.json() as { schemaVersion?: string; dataSource?: string };
+    assert.equal(completed.status, 200);
+    assert.equal(result.schemaVersion, "1.1");
+    assert.equal(result.dataSource, "uploaded-workbook");
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
+});
+
+test("async enqueue stays accepted while a synchronous worker job holds the slot", async () => {
+  const environmentKeys = [
+    "OPEN_SNA_RSCRIPT_BIN",
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "OPEN_SNA_R_WORKER_TMP_ROOT",
+    "OPEN_SNA_TEST_DELAY_MS",
+    "OPEN_SNA_TEST_OUTPUT_JSON",
+    "OPEN_SNA_TEST_FAILURE_CODE",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  const workerToken = "test-worker-token-with-32-characters";
+  const workerTemporaryRoot = createWorkerTestTemporaryRoot();
+  process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
+  process.env.OPEN_SNA_R_WORKER_MODE = "1";
+  process.env.OPEN_SNA_R_WORKER_TOKEN = workerToken;
+  process.env.OPEN_SNA_R_WORKER_TMP_ROOT = workerTemporaryRoot;
+  process.env.OPEN_SNA_TEST_DELAY_MS = "150";
+  process.env.OPEN_SNA_TEST_OUTPUT_JSON = JSON.stringify(workerResult("1.1"));
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+
+  try {
+    const firstAnalysis = POST(analysisRequest(`Bearer ${workerToken}`));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const accepted = await POST(asyncAnalysisRequest(`Bearer ${workerToken}`));
+    const acceptedPayload = await accepted.json() as { jobId?: string; status?: string };
+    assert.equal(accepted.status, 202);
+    assert.equal(acceptedPayload.status, "queued");
+
+    const busyResponse = await POST(analysisRequest(`Bearer ${workerToken}`));
+    const busyPayload = await busyResponse.json() as { code?: string };
+    assert.equal(busyResponse.status, 429);
+    assert.equal(busyPayload.code, "WORKER_BUSY");
+
+    const firstResponse = await firstAnalysis;
+    assert.equal(firstResponse.status, 200);
+
+    const completed = await waitForLocalJob(acceptedPayload.jobId || "", `Bearer ${workerToken}`);
+    assert.equal(completed.status, 200);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    rmSync(workerTemporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("the web adapter forwards async enqueue and poll without waiting for R", async () => {
+  const jobId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  let postedDelivery = "";
+  let polledUrl = "";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const method = (init?.method || "GET").toUpperCase();
+    if (method === "POST") {
+      const body = init?.body;
+      postedDelivery = body instanceof FormData ? String(body.get("delivery") || "") : "";
+      return Response.json({ jobId, status: "queued" }, { status: 202 });
+    }
+    polledUrl = url;
+    return Response.json(workerResult("1.1"), { status: 200 });
+  }) as typeof fetch;
+
+  const environmentKeys = [
+    "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_API_TOKEN",
+    "OPEN_SNA_R_WORKER_MODE",
+    "OPEN_SNA_R_WORKER_TOKEN",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_R_API_URL = "https://worker.invalid/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_TOKEN = "test-forwarding-token-with-32-characters";
+  process.env.VERCEL = "1";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_R_WORKER_TOKEN;
+
+  try {
+    const accepted = await POST(asyncAnalysisRequest());
+    const acceptedPayload = await accepted.json() as { jobId?: string; status?: string };
+    assert.equal(accepted.status, 202);
+    assert.equal(acceptedPayload.jobId, jobId);
+    assert.equal(acceptedPayload.status, "queued");
+    assert.equal(postedDelivery, OPEN_SNA_ASYNC_DELIVERY);
+
+    const completed = await GET(jobPollRequest(jobId));
+    const result = await completed.json() as { schemaVersion?: string };
+    assert.equal(completed.status, 200);
+    assert.equal(result.schemaVersion, "1.1");
+    assert.equal(polledUrl, `https://worker.invalid/api/open-sna/analyze?${OPEN_SNA_JOB_QUERY}=${jobId}`);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("job poll maps a missing job without leaking diagnostics", async () => {
+  const environmentKeys = [
+    "OPEN_SNA_TMP_ROOT",
+    "OPEN_SNA_R_API_URL",
+    "VERCEL",
+  ] as const;
+  const originalEnvironment = isolateRouteEnvironment(environmentKeys);
+  process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-missing-job-tests");
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+
+  try {
+    const response = await GET(jobPollRequest("ffffffff-ffff-4fff-8fff-ffffffffffff"));
+    const payload = await response.json() as { code?: string; error?: string };
+    assert.equal(response.status, 404);
+    assert.equal(payload.code, "JOB_NOT_FOUND");
+    assert.match(payload.error || "", /not found/i);
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
+});
+

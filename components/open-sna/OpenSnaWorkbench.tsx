@@ -11,10 +11,9 @@ import {
   type ReactNode,
 } from "react";
 import NetworkGraph from "@/components/open-sna/NetworkGraph";
-import {
-  decodeOpenSnaAnalysisResponse,
-  OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE,
-} from "@/lib/open-sna-errors";
+import { OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE } from "@/lib/open-sna-errors";
+import { OPEN_SNA_ASYNC_DELIVERY } from "@/lib/open-sna-job";
+import { runOpenSnaWorkbookAnalysis } from "@/lib/open-sna-job-client";
 import {
   formatOpenSnaNumber,
   isOpenSnaResult,
@@ -550,21 +549,15 @@ export default function OpenSnaWorkbench() {
       formData.set("workbook", workbook);
       formData.set("bootstraps", bootstraps);
       formData.set("permutations", "1000");
-      const response = await fetch("/api/open-sna/analyze", { method: "POST", body: formData });
-      const decoded = await decodeOpenSnaAnalysisResponse(response);
+      formData.set("delivery", OPEN_SNA_ASYNC_DELIVERY);
+      const decoded = await runOpenSnaWorkbookAnalysis(formData);
       if (!decoded.ok) {
         setError(decoded.message);
         setMessage("No uploaded-workbook result was substituted with reference data.");
         setSetupOpen(true);
         return;
       }
-      const payload = decoded.payload;
-      if (!isOpenSnaResult(payload)) {
-        setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
-        setMessage("No uploaded-workbook result was substituted with reference data.");
-        setSetupOpen(true);
-        return;
-      }
+      const payload = decoded.result;
       setResult(payload);
       setMessage(payload.interpretation.thirdPartyAiUsed
         ? "Workbook analysis and LUNA interpretation complete. Temporary source data was removed."
@@ -617,7 +610,7 @@ export default function OpenSnaWorkbench() {
           <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-[var(--ink)]">
             <li>The service processes one analysis at a time.</li>
             <li>A second concurrent request may return WORKER_BUSY.</li>
-            <li>Large workbooks or analyses with 1,000 bootstrap replicates may time out.</li>
+            <li>Large workbooks or analyses with 1,000 bootstrap replicates are queued and polled so the browser does not hold one request open.</li>
             <li>Uploaded workbooks and row-level data are not retained.</li>
             <li>This Public Beta has no high-availability or availability commitment.</li>
           </ul>
