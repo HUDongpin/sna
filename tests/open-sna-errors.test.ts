@@ -20,6 +20,7 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
     [503, "R_ENGINE_NOT_CONFIGURED"],
     [504, "R_ANALYSIS_TIMEOUT"],
     [422, "WORKBOOK_INVALID"],
+    [404, "JOB_NOT_FOUND"],
   ] as const;
   const messages = cases.map(([status, code]) => openSnaAnalysisErrorMessage(status, {
     code,
@@ -39,6 +40,7 @@ test("Open SNA maps public API failures to distinct bounded messages", async () 
   assert.match(messages[5], /not configured/i);
   assert.match(messages[6], /time limit|timed out/i);
   assert.match(messages[7], /workbook/i);
+  assert.match(messages[8], /job was not found/i);
 });
 
 test("Open SNA shows a safe R_ANALYSIS_FAILED excerpt and ignores untrusted error text", async () => {
@@ -117,6 +119,7 @@ test("Open SNA guarded decoding preserves distinct status and code mappings", as
     [503, "R_ENGINE_NOT_CONFIGURED"],
     [504, "R_ANALYSIS_TIMEOUT"],
     [422, "WORKBOOK_INVALID"],
+    [404, "JOB_NOT_FOUND"],
   ] as const;
   for (const [status, code] of cases) {
     const response = new Response(JSON.stringify({ code, error: "untrusted server text" }), {

@@ -57,6 +57,9 @@ export function openSnaAnalysisErrorMessage(status: number, payload: unknown) {
   if (status === 422 && code === "WORKBOOK_INVALID") {
     return "The workbook is not valid for Open SNA. Check its worksheet, item columns, grouping column, and analyzed group sizes. (WORKBOOK_INVALID)";
   }
+  if (status === 404 && code === "JOB_NOT_FOUND") {
+    return "That analysis job was not found. Submit the workbook again. (JOB_NOT_FOUND)";
+  }
   return OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE;
 }
 

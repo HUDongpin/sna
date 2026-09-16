@@ -71,6 +71,24 @@ server {
   add_header Strict-Transport-Security "max-age=31536000" always;
 
   location = /api/open-sna/analyze {
+    error_page 418 = @open_sna_analyze_post;
+    if ($request_method = POST) {
+      return 418;
+    }
+    limit_conn sna_conn 1;
+    proxy_pass http://127.0.0.1:3101;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header Authorization $http_authorization;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+
+  location @open_sna_analyze_post {
     limit_req zone=sna_api burst=1 nodelay;
     limit_conn sna_conn 1;
     proxy_pass http://127.0.0.1:3101;

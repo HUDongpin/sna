@@ -54,7 +54,8 @@ Client pre-checks: `.xlsx` suffix, non-empty, ≤ 5 MiB. It does **not** parse L
 | Method | Path | File | Notes |
 | --- | --- | --- | --- |
 | GET | `/api/health` | `app/api/health/route.ts` | JSON: `status`, `releaseSha`, `deploymentRole`, `rAnalysis` |
-| POST | `/api/open-sna/analyze` | `app/api/open-sna/analyze/route.ts` | Only exported handler; GET is framework 405 |
+| POST | `/api/open-sna/analyze` | `app/api/open-sna/analyze/route.ts` | Sync analyze, or `delivery=async` enqueue (202) |
+| GET | `/api/open-sna/analyze` | `app/api/open-sna/analyze/route.ts` | Poll `?job=<uuid>` |
 | GET/POST/… | `/api/open-sna` | `app/api/open-sna/route.ts` | JSON 404 `NOT_FOUND`; occupies the path so `[locale]` cannot match `locale=api` |
 
 The analyze POST envelope is parsed even when the kill switch is on. If a workbook is present, the Node precheck (`lib/open-sna-workbook-schema.ts`, same rules as R `read_and_validate_workbook` / `--mode validate`) can return **`422 WORKBOOK_INVALID`**. A valid workbook with `OPEN_SNA_R_DISABLED=1` still returns **`503 R_ENGINE_DISABLED`** and never substitutes the demo JSON. Empty or non-workbook requests stay `R_ENGINE_DISABLED` while disabled.

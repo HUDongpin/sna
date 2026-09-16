@@ -65,7 +65,7 @@ test("the Open SNA upload UI shows the complete English Public Beta notice", () 
   assert.match(workbench, /Public Beta/);
   assert.match(workbench, /one analysis at a time/i);
   assert.match(workbench, /second concurrent request may return WORKER_BUSY/i);
-  assert.match(workbench, /large[^.]*1,000[^.]*bootstrap[^.]*may time out/i);
+  assert.match(workbench, /large[^.]*1,000[^.]*bootstrap[^.]*queued and polled/i);
   assert.match(workbench, /uploaded workbooks and row-level data are not retained/i);
   assert.match(workbench, /no high-availability or availability commitment/i);
 });
@@ -76,7 +76,8 @@ test("the Open SNA workbench uses bounded response decoding and never displays c
     workbench.indexOf("async function analyzeWorkbook"),
     workbench.indexOf("function handleTabKeyboard"),
   );
-  assert.match(analysisPath, /decodeOpenSnaAnalysisResponse/);
+  assert.match(analysisPath, /runOpenSnaWorkbookAnalysis/);
+  assert.match(analysisPath, /OPEN_SNA_ASYNC_DELIVERY/);
   assert.doesNotMatch(analysisPath, /await response\.json\(\)/);
   assert.doesNotMatch(analysisPath, /caught instanceof Error\s*\?\s*caught\.message/);
   assert.match(analysisPath, /catch\s*\{[\s\S]*setError\(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE\)/);
@@ -179,7 +180,7 @@ test("GET /api/open-sna is an API stub so locale=api cannot capture the workbenc
   assert.match(stub, /NOT_FOUND/);
   assert.doesNotMatch(stub, /spawn\(|analyze\.R|workbook/);
   assert.match(analyze, /export async function POST/);
-  assert.doesNotMatch(analyze, /export function GET/);
+  assert.match(analyze, /export async function GET/);
   assert.match(localeLayout, /export const dynamicParams = false/);
   assert.match(openSnaPage, /if \(!isLocale\(locale\)\) notFound\(\)/);
 });
