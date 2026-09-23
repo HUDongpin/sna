@@ -4,7 +4,9 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import sitemap from "../app/sitemap";
+import { getLocaleMeta } from "../lib/i18n";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "../lib/open-sna";
+import { getOpenSnaCopy } from "../lib/open-sna-copy";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -33,6 +35,8 @@ test("Open SNA is a localized route placed between Mission and News", () => {
 
 test("the English Open SNA workbench exposes the eight requested analysis areas", () => {
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const page = read("app/[locale]/open-sna/page.tsx");
+  const english = getOpenSnaCopy("en");
   const expectedLabels = [
     "Data Overview",
     "Network Visualization",
@@ -43,28 +47,35 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
     "Stability Analysis",
     "AI Interpretation",
   ];
-  for (const label of expectedLabels) assert.ok(workbench.includes(label), `${label} is required`);
+  assert.deepEqual(Object.values(english.panels).map((panel) => panel.label), expectedLabels);
+  assert.match(workbench, /panelHeadings\(copy\)/);
   assert.match(workbench, /role="tablist"/);
   assert.match(workbench, /role="tab"/);
   assert.match(workbench, /role="tabpanel"/);
   assert.match(workbench, /accept="\.xlsx"/);
-  assert.match(workbench, /lang="en"/);
-  assert.match(workbench, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
+  assert.match(workbench, /lang=\{htmlLang\}/);
+  assert.equal(getLocaleMeta("en").htmlLang, "en-HK");
+  assert.match(english.setup.help, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
+  assert.match(workbench, /copy\.setup\.help/);
+  assert.equal(english.setup.sampleDownload, "Download a synthetic sample workbook");
+  assert.ok(existsSync(fromRoot("public/open-sna/programming-resilience-sample.xlsx")));
   assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });
 
 test("the Open SNA upload UI shows the complete English Public Beta notice", () => {
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const english = getOpenSnaCopy("en");
   assert.ok(
-    workbench.indexOf("Public Beta") < workbench.indexOf('id="open-sna-setup-controls"'),
+    workbench.indexOf("copy.beta.title") < workbench.indexOf('id="open-sna-setup-controls"'),
     "the Public Beta notice must remain visible outside the mobile-collapsed setup controls",
   );
-  assert.match(workbench, /Public Beta/);
-  assert.match(workbench, /one analysis at a time/i);
-  assert.match(workbench, /second concurrent request may return WORKER_BUSY/i);
-  assert.match(workbench, /large[^.]*1,000[^.]*bootstrap[^.]*may time out/i);
-  assert.match(workbench, /uploaded workbooks and row-level data are not retained/i);
-  assert.match(workbench, /no high-availability or availability commitment/i);
+  assert.equal(english.beta.title, "Public Beta");
+  assert.match(english.beta.items[0], /one analysis at a time/i);
+  assert.match(english.beta.items[1], /second concurrent request may return WORKER_BUSY/i);
+  assert.match(english.beta.items[2], /large[^.]*1,000[^.]*bootstrap[^.]*may time out/i);
+  assert.match(english.beta.items[3], /uploaded workbooks and row-level data are not retained/i);
+  assert.match(english.beta.items[4], /no high-availability or availability commitment/i);
+  assert.match(workbench, /analysisDisabled \? <p[^>]*role="status"/);
 });
 
 test("the Open SNA workbench uses bounded response decoding and never displays caught exception text", () => {
@@ -76,7 +87,7 @@ test("the Open SNA workbench uses bounded response decoding and never displays c
   assert.match(analysisPath, /decodeOpenSnaAnalysisResponse/);
   assert.doesNotMatch(analysisPath, /await response\.json\(\)/);
   assert.doesNotMatch(analysisPath, /caught instanceof Error\s*\?\s*caught\.message/);
-  assert.match(analysisPath, /catch\s*\{[\s\S]*setError\(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE\)/);
+  assert.match(analysisPath, /catch\s*\{[\s\S]*setError\(copy\.errors\.generic\)/);
 });
 
 test("reference load failures do not pass untrusted response errors to the UI", async () => {
@@ -105,8 +116,8 @@ test("reference load failures do not pass untrusted response errors to the UI", 
   assert.equal(uiError === "The reference result could not be loaded.", true, "reference failure text must be bounded before it reaches the UI");
   assert.ok(uiError);
   assert.doesNotMatch(uiError, /https?:\/\/|203\.0\.113\.8|sk_live_reference_secret/i);
-  assert.match(workbench, /const OPEN_SNA_REFERENCE_ERROR_MESSAGE = [\"']The reference result could not be loaded\.[\"']/);
-  assert.match(referencePath, /setError\(openSnaReferenceErrorMessage\(caught\)\)/);
+  assert.equal(getOpenSnaCopy("en").errors.referenceLoad, "The reference result could not be loaded.");
+  assert.match(referencePath, /setError\(openSnaReferenceErrorMessage\(caught/);
   assert.doesNotMatch(referencePath, /caught instanceof Error\s*\?\s*caught\.message/);
 });
 
@@ -121,8 +132,10 @@ test("the Open SNA interface provides accessible interactive exploration", () =>
   assert.match(graph, /type="range"/);
   assert.match(graph, /aria-pressed=/);
   assert.match(graph, /onKeyDown=/);
-  assert.match(graph, /Zoom in/);
-  assert.match(graph, /Node inspector/);
+  assert.equal(getOpenSnaCopy("en").graph.zoomIn, "Zoom in");
+  assert.equal(getOpenSnaCopy("en").graph.inspector, "Node inspector");
+  assert.match(graph, /graph\.zoomIn/);
+  assert.match(graph, /graph\.inspector/);
 });
 
 test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () => {

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -11,10 +13,21 @@ import {
   type ReactNode,
 } from "react";
 import NetworkGraph from "@/components/open-sna/NetworkGraph";
+import type { Locale } from "@/lib/locales";
 import {
   decodeOpenSnaAnalysisResponse,
-  OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE,
 } from "@/lib/open-sna-errors";
+import {
+  fillOpenSna,
+  getOpenSnaCopy,
+  localizeOpenSnaKnownPhrase,
+  openSnaMetricName,
+  openSnaRelationshipLabel,
+  openSnaStabilityLabel,
+  presentOpenSnaCaution,
+  presentOpenSnaInsight,
+  type OpenSnaCopy,
+} from "@/lib/open-sna-copy";
 import {
   formatOpenSnaNumber,
   isOpenSnaResult,
@@ -25,22 +38,28 @@ import {
 } from "@/lib/open-sna";
 import { cn } from "@/lib/utils";
 
-const panelHeadings: Array<{ id: OpenSnaTabId; label: string; shortLabel: string; summary: string }> = [
-  { id: "overview", label: "Data Overview", shortLabel: "Overview", summary: "Sample, model, and data-quality context" },
-  { id: "network", label: "Network Visualization", shortLabel: "Network", summary: "Filter, zoom, and inspect node connections" },
-  { id: "centrality", label: "Centrality Analysis", shortLabel: "Centrality", summary: "Search and sort ordinary centrality estimates" },
-  { id: "bridge", label: "Bridge Node Analysis", shortLabel: "Bridge nodes", summary: "Compare cross-community bridge measures" },
-  { id: "predictability", label: "Predictability Analysis", shortLabel: "Predictability", summary: "Review node-level explained variance" },
-  { id: "comparison", label: "Subgroup Comparison (NCT)", shortLabel: "Subgroups", summary: "Inspect permutation-based group differences" },
-  { id: "stability", label: "Stability Analysis", shortLabel: "Stability", summary: "Check which centrality findings are dependable" },
-  { id: "interpretation", label: "AI Interpretation", shortLabel: "Interpretation", summary: "Read an evidence-bounded automated summary" },
+const MAX_WORKBOOK_BYTES = 5 * 1024 * 1024;
+const OPEN_SNA_TABS: ReadonlyArray<{ id: OpenSnaTabId }> = [
+  { id: "overview" }, { id: "network" }, { id: "centrality" }, { id: "bridge" },
+  { id: "predictability" }, { id: "comparison" }, { id: "stability" }, { id: "interpretation" },
 ];
 
-const MAX_WORKBOOK_BYTES = 5 * 1024 * 1024;
-const OPEN_SNA_REFERENCE_ERROR_MESSAGE = "The reference result could not be loaded.";
+type OpenSnaUi = { copy: OpenSnaCopy; locale: Locale; htmlLang: string };
 
-export function openSnaReferenceErrorMessage(_caught: unknown) {
-  return OPEN_SNA_REFERENCE_ERROR_MESSAGE;
+const OpenSnaUiContext = createContext<OpenSnaUi | null>(null);
+
+function useOpenSnaUi() {
+  const value = useContext(OpenSnaUiContext);
+  if (!value) throw new Error("Open SNA UI copy is unavailable.");
+  return value;
+}
+
+export function openSnaReferenceErrorMessage(_caught: unknown, locale: Locale = "en") {
+  return getOpenSnaCopy(locale).errors.referenceLoad;
+}
+
+function panelHeadings(copy: OpenSnaCopy) {
+  return OPEN_SNA_TABS.map((tab) => ({ id: tab.id, ...copy.panels[tab.id] }));
 }
 
 type IconName = "arrow" | "check" | "chevron" | "close" | "download" | "info" | "search" | "upload";
@@ -68,8 +87,8 @@ function downloadText(fileName: string, contents: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function metricValue(value: number | null, digits = 3) {
-  return formatOpenSnaNumber(value, digits);
+function metricValue(value: number | null, notAvailable: string, digits = 3) {
+  return formatOpenSnaNumber(value, digits, notAvailable);
 }
 
 function MetricCard({ label, value, detail }: { label: string; value: string; detail: string }) {
@@ -92,15 +111,16 @@ function MethodNote({ children }: { children: ReactNode }) {
 }
 
 function EmptyResult() {
+  const { copy } = useOpenSnaUi();
   return (
     <div className="flex min-h-[24rem] items-center justify-center rounded-[1.75rem] border border-dashed border-[var(--line)] bg-[var(--page)] p-8 text-center">
       <div className="max-w-md">
         <span aria-hidden="true" className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[var(--surface-soft)] text-sm font-black tracking-[0.14em] text-[var(--indigo)] shadow-sm">
           SNA
         </span>
-        <h2 className="mt-5 text-2xl font-black tracking-[-0.03em] text-[var(--ink)]">Choose an analysis source</h2>
+        <h2 className="mt-5 text-2xl font-black tracking-[-0.03em] text-[var(--ink)]">{copy.empty.title}</h2>
         <p className="mt-3 leading-7 text-[var(--muted)]">
-          Open the aggregate Programming Resilience reference analysis, or upload a compatible XLSX workbook and run the local R engine.
+          {copy.empty.body}
         </p>
       </div>
     </div>
@@ -116,12 +136,13 @@ function ResultsTable({
   columns: Array<{ key: keyof OpenSnaNode; label: string }>;
   rows: OpenSnaNode[];
 }) {
+  const { copy, htmlLang } = useOpenSnaUi();
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<keyof OpenSnaNode>(() => columns[0]?.key ?? "label");
   const [sortDirection, setSortDirection] = useState<"ascending" | "descending">("descending");
   const allColumns: Array<{ key: keyof OpenSnaNode; label: string; align: "left" | "right" }> = [
-    { key: "label", label: "Node", align: "left" },
-    { key: "community", label: "Community", align: "left" },
+    { key: "label", label: copy.table.node, align: "left" },
+    { key: "community", label: copy.table.community, align: "left" },
     ...columns.map((column) => ({ ...column, align: "right" as const })),
   ];
   const visibleRows = useMemo(() => {
@@ -136,10 +157,10 @@ function ResultsTable({
       if (typeof leftValue === "number" && typeof rightValue === "number") comparison = leftValue - rightValue;
       else if (leftValue === null && rightValue !== null) comparison = 1;
       else if (leftValue !== null && rightValue === null) comparison = -1;
-      else comparison = String(leftValue ?? "").localeCompare(String(rightValue ?? ""), "en", { numeric: true });
+      else comparison = String(leftValue ?? "").localeCompare(String(rightValue ?? ""), htmlLang, { numeric: true });
       return sortDirection === "ascending" ? comparison : -comparison;
     });
-  }, [query, rows, sortDirection, sortKey]);
+  }, [htmlLang, query, rows, sortDirection, sortKey]);
 
   function toggleSort(key: keyof OpenSnaNode) {
     if (sortKey === key) setSortDirection((current) => current === "ascending" ? "descending" : "ascending");
@@ -153,15 +174,15 @@ function ResultsTable({
     <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
       <div className="flex flex-col gap-3 border-b border-[var(--line)] bg-[var(--page)] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
         <label className="relative block w-full sm:max-w-xs">
-          <span className="sr-only">Search nodes in {caption}</span>
+          <span className="sr-only">{fillOpenSna(copy.table.searchLabel, { caption })}</span>
           <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} type="search" placeholder="Search node or community" className="focus-ring min-h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pl-10 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--muted)]" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} type="search" placeholder={copy.table.searchPlaceholder} className="focus-ring min-h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pl-10 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--muted)]" />
         </label>
-        <p className="text-xs font-bold tabular-nums text-[var(--muted)]" aria-live="polite">Showing {visibleRows.length} of {rows.length} nodes</p>
+        <p className="text-xs font-bold tabular-nums text-[var(--muted)]" aria-live="polite">{fillOpenSna(copy.table.showing, { visible: visibleRows.length, total: rows.length })}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
-          <caption className="sr-only">{caption}. Use column headers to sort the table.</caption>
+          <caption className="sr-only">{fillOpenSna(copy.table.sortCaption, { caption })}</caption>
           <thead className="bg-[var(--page-strong)] text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
             <tr>
               {allColumns.map((column) => (
@@ -186,13 +207,13 @@ function ResultsTable({
                   const value = node[column.key];
                   return (
                     <td key={column.key} className="px-4 py-3 text-right tabular-nums text-[var(--ink)]">
-                      {typeof value === "number" ? metricValue(value) : "Not available"}
+                      {typeof value === "number" ? metricValue(value, copy.common.notAvailable) : copy.common.notAvailable}
                     </td>
                   );
                 })}
               </tr>
             ))}
-            {!visibleRows.length ? <tr><td colSpan={allColumns.length} className="px-4 py-10 text-center text-[var(--muted)]">No nodes match “{query}”.</td></tr> : null}
+            {!visibleRows.length ? <tr><td colSpan={allColumns.length} className="px-4 py-10 text-center text-[var(--muted)]">{fillOpenSna(copy.table.noMatch, { query })}</td></tr> : null}
           </tbody>
         </table>
       </div>
@@ -201,47 +222,52 @@ function ResultsTable({
 }
 
 function OverviewPanel({ result }: { result: OpenSnaResult }) {
+  const { copy, htmlLang } = useOpenSnaUi();
+  const overview = copy.overview;
+  const count = (value: number) => value.toLocaleString(htmlLang);
   const communities = Array.from(new Set(result.nodes.map((node) => node.community)));
+  const profileNote = fillOpenSna(overview.profileNote, { profile: result.analysisProfile, gamma: result.settings.gamma });
+  const profileParts = profileNote.split(result.analysisProfile);
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Analyzed responses" value={result.overview.analyzedRows.toLocaleString("en")} detail={`${result.source.droppedRows} rows removed by listwise deletion`} />
-        <MetricCard label="Network size" value={`${result.overview.nodeCount} nodes`} detail={`${result.overview.edgeCount} of ${result.overview.possibleEdges} possible edges`} />
-        <MetricCard label="Network density" value={metricValue(result.overview.density)} detail={`${result.overview.positiveEdges} positive and ${result.overview.negativeEdges} negative edges`} />
-        <MetricCard label="Mean predictability" value={metricValue(result.overview.meanPredictability)} detail="Mean R-squared from a separate MGM model" />
+        <MetricCard label={overview.analyzedResponses} value={count(result.overview.analyzedRows)} detail={fillOpenSna(overview.analyzedDetail, { count: count(result.source.droppedRows) })} />
+        <MetricCard label={overview.networkSize} value={fillOpenSna(overview.networkSizeValue, { count: result.overview.nodeCount })} detail={fillOpenSna(overview.networkSizeDetail, { edges: result.overview.edgeCount, possible: result.overview.possibleEdges })} />
+        <MetricCard label={overview.density} value={metricValue(result.overview.density, copy.common.notAvailable)} detail={fillOpenSna(overview.densityDetail, { positive: result.overview.positiveEdges, negative: result.overview.negativeEdges })} />
+        <MetricCard label={overview.meanPredictability} value={metricValue(result.overview.meanPredictability, copy.common.notAvailable)} detail={overview.meanPredictabilityDetail} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
-          <h3 className="text-lg font-black text-[var(--ink)]">Data contract</h3>
+          <h3 className="text-lg font-black text-[var(--ink)]">{overview.contractTitle}</h3>
           <dl className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-3 text-sm">
-            <dt className="text-[var(--muted)]">Worksheet</dt><dd className="text-right font-bold text-[var(--ink)]">{result.source.sheet}</dd>
-            <dt className="text-[var(--muted)]">Original rows</dt><dd className="text-right font-bold text-[var(--ink)]">{result.source.originalRows.toLocaleString("en")}</dd>
-            <dt className="text-[var(--muted)]">Item scale</dt><dd className="text-right font-bold text-[var(--ink)]">Integer 1 to 5</dd>
-            <dt className="text-[var(--muted)]">Communities</dt><dd className="max-w-[18rem] text-right font-bold text-[var(--ink)]">{communities.join(", ")}</dd>
-            <dt className="text-[var(--muted)]">Missing-data rule</dt><dd className="text-right font-bold text-[var(--ink)]">{result.settings.missingData}</dd>
+            <dt className="text-[var(--muted)]">{overview.worksheet}</dt><dd className="text-right font-bold text-[var(--ink)]">{localizeOpenSnaKnownPhrase(copy, result.source.sheet)}</dd>
+            <dt className="text-[var(--muted)]">{overview.originalRows}</dt><dd className="text-right font-bold text-[var(--ink)]">{count(result.source.originalRows)}</dd>
+            <dt className="text-[var(--muted)]">{overview.itemScale}</dt><dd className="text-right font-bold text-[var(--ink)]">{overview.itemScaleValue}</dd>
+            <dt className="text-[var(--muted)]">{overview.communities}</dt><dd className="max-w-[18rem] text-right font-bold text-[var(--ink)]">{communities.join(", ")}</dd>
+            <dt className="text-[var(--muted)]">{overview.missingDataRule}</dt><dd className="text-right font-bold text-[var(--ink)]">{localizeOpenSnaKnownPhrase(copy, result.settings.missingData)}</dd>
           </dl>
         </section>
         <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
-          <h3 className="text-lg font-black text-[var(--ink)]">Subgroup counts</h3>
+          <h3 className="text-lg font-black text-[var(--ink)]">{overview.subgroupCounts}</h3>
           <ul className="mt-4 space-y-3">
             {result.source.groupCounts.map((entry) => (
               <li key={entry.group} className="flex items-center justify-between rounded-xl bg-[var(--surface)] px-4 py-3">
                 <span className="font-bold text-[var(--ink)]">{entry.group}</span>
-                <span className="tabular-nums text-[var(--muted)]">n = {entry.n.toLocaleString("en")}</span>
+                <span className="tabular-nums text-[var(--muted)]">{fillOpenSna(copy.comparison.sampleSize, { count: count(entry.n) })}</span>
               </li>
             ))}
           </ul>
         </section>
       </div>
       <MethodNote>
-        All network-based panels use the same <strong>{result.analysisProfile}</strong> profile: nonparanormal transformation, Pearson correlation, and EBICglasso with gamma {result.settings.gamma}. This prevents incompatible network specifications from being combined silently.
+        {profileParts.length === 2 ? <>{profileParts[0]}<strong>{result.analysisProfile}</strong>{profileParts[1]}</> : profileNote}
       </MethodNote>
       {result.warnings.length ? (
         <section className="rounded-2xl border border-[var(--amber-line)] bg-[var(--amber-tint)] p-5" aria-labelledby="open-sna-runtime-warnings">
-          <h3 id="open-sna-runtime-warnings" className="font-black text-[var(--ink)]">Runtime cautions</h3>
+          <h3 id="open-sna-runtime-warnings" className="font-black text-[var(--ink)]">{overview.runtimeCautions}</h3>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-[var(--muted)]">
-            {result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+            {result.warnings.map((warning) => <li key={warning}>{localizeOpenSnaKnownPhrase(copy, warning)}</li>)}
           </ul>
         </section>
       ) : null}
@@ -250,21 +276,22 @@ function OverviewPanel({ result }: { result: OpenSnaResult }) {
 }
 
 function NetworkPanel({ result }: { result: OpenSnaResult }) {
+  const { copy } = useOpenSnaUi();
   return (
     <div className="space-y-5">
-      <NetworkGraph result={result} />
+      <NetworkGraph result={result} copy={copy} />
       <details className="rounded-2xl border border-[var(--line)] bg-[var(--page)] p-5">
-        <summary className="cursor-pointer font-black text-[var(--ink)]">Accessible edge list</summary>
+        <summary className="cursor-pointer font-black text-[var(--ink)]">{copy.network.edgeList}</summary>
         <div className="mt-4 max-h-80 overflow-auto">
           <table className="w-full min-w-[36rem] text-left text-sm">
-            <caption className="sr-only">Nonzero regularized network edges</caption>
+            <caption className="sr-only">{copy.network.edgeListCaption}</caption>
             <thead className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-              <tr><th className="py-2">Source</th><th>Target</th><th className="text-right">Weight</th><th className="text-right">Type</th></tr>
+              <tr><th className="py-2">{copy.network.source}</th><th>{copy.network.target}</th><th className="text-right">{copy.network.weight}</th><th className="text-right">{copy.network.type}</th></tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {result.edges.map((edge) => (
                 <tr key={`${edge.source}-${edge.target}`}>
-                  <td className="py-2 font-bold">{edge.source}</td><td>{edge.target}</td><td className="text-right tabular-nums">{metricValue(edge.weight)}</td><td className="text-right text-[var(--muted)]">{edge.relationship}</td>
+                  <td className="py-2 font-bold">{edge.source}</td><td>{edge.target}</td><td className="text-right tabular-nums">{metricValue(edge.weight, copy.common.notAvailable)}</td><td className="text-right text-[var(--muted)]">{openSnaRelationshipLabel(copy, edge.relationship)}</td>
                 </tr>
               ))}
             </tbody>
@@ -276,18 +303,19 @@ function NetworkPanel({ result }: { result: OpenSnaResult }) {
 }
 
 function CentralityPanel({ result }: { result: OpenSnaResult }) {
+  const { copy } = useOpenSnaUi();
   const rows = [...result.nodes].sort((left, right) => (right.strength ?? -Infinity) - (left.strength ?? -Infinity));
   return (
     <div className="space-y-5">
-      <MethodNote>Ordinary centrality and bridge centrality are reported separately. Only strength has a corresponding ordinary-centrality CS check in this profile; closeness and betweenness remain descriptive. High centrality does not establish causation or an intervention target.</MethodNote>
+      <MethodNote>{copy.centrality.note}</MethodNote>
       <ResultsTable
-        caption="Ordinary node centrality estimates"
+        caption={copy.centrality.caption}
         rows={rows}
         columns={[
-          { key: "strength", label: "Strength" },
-          { key: "expectedInfluence", label: "Expected influence" },
-          { key: "betweenness", label: "Betweenness" },
-          { key: "closeness", label: "Closeness" },
+          { key: "strength", label: copy.centrality.strength },
+          { key: "expectedInfluence", label: copy.centrality.expectedInfluence },
+          { key: "betweenness", label: copy.centrality.betweenness },
+          { key: "closeness", label: copy.centrality.closeness },
         ]}
       />
     </div>
@@ -295,124 +323,137 @@ function CentralityPanel({ result }: { result: OpenSnaResult }) {
 }
 
 function BridgePanel({ result }: { result: OpenSnaResult }) {
+  const { copy } = useOpenSnaUi();
   const rows = [...result.nodes].sort((left, right) => (right.bridgeStrength ?? -Infinity) - (left.bridgeStrength ?? -Infinity));
   const bridgeCs = result.stability.metrics.find((metric) => metric.id === "bridgeStrength");
   const communityCount = new Set(result.nodes.map((node) => node.community)).size;
+  const topValue = metricValue(rows[0]?.bridgeStrength ?? null, copy.common.notAvailable);
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <MetricCard label="Top bridge-strength node" value={rows[0]?.label ?? "Not available"} detail={rows[0]?.bridgeStrength === null ? "Estimate unavailable" : `Bridge strength ${metricValue(rows[0]?.bridgeStrength ?? null)}`} />
-        <MetricCard label="Bridge-strength stability" value={bridgeCs?.coefficient === null || !bridgeCs ? "Not available" : metricValue(bridgeCs.coefficient)} detail={bridgeCs?.interpretation ?? "Not available"} />
+        <MetricCard label={copy.bridge.topNode} value={rows[0]?.label ?? copy.common.notAvailable} detail={rows[0]?.bridgeStrength === null || rows[0]?.bridgeStrength === undefined ? copy.bridge.estimateUnavailable : fillOpenSna(copy.bridge.topDetail, { value: topValue })} />
+        <MetricCard label={copy.bridge.stability} value={bridgeCs?.coefficient === null || !bridgeCs ? copy.common.notAvailable : metricValue(bridgeCs.coefficient, copy.common.notAvailable)} detail={bridgeCs ? openSnaStabilityLabel(copy, bridgeCs.interpretation) : copy.common.notAvailable} />
       </div>
       <ResultsTable
-        caption="Bridge-node centrality estimates"
+        caption={copy.bridge.caption}
         rows={rows}
         columns={[
-          { key: "bridgeStrength", label: "Bridge strength" },
-          { key: "bridgeExpectedInfluence", label: "Bridge expected influence" },
-          { key: "bridgeBetweenness", label: "Bridge betweenness" },
-          { key: "bridgeCloseness", label: "Bridge closeness" },
+          { key: "bridgeStrength", label: copy.bridge.bridgeStrength },
+          { key: "bridgeExpectedInfluence", label: copy.bridge.bridgeExpectedInfluence },
+          { key: "bridgeBetweenness", label: copy.bridge.bridgeBetweenness },
+          { key: "bridgeCloseness", label: copy.bridge.bridgeCloseness },
         ]}
       />
-      <MethodNote>Bridge metrics use the {communityCount} detected construct-prefix communities. Any metric with a case-dropping CS coefficient below 0.25 is shown but must not be interpreted.</MethodNote>
+      <MethodNote>{fillOpenSna(copy.bridge.note, { count: communityCount })}</MethodNote>
     </div>
   );
 }
 
 function PredictabilityPanel({ result }: { result: OpenSnaResult }) {
+  const { copy } = useOpenSnaUi();
   const rows = [...result.nodes].sort((left, right) => (right.predictability ?? -Infinity) - (left.predictability ?? -Infinity));
   return (
     <div className="space-y-5">
       <div className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div><h3 className="text-lg font-black text-[var(--ink)]">Node-level explained variance</h3><p className="mt-1 text-sm text-[var(--muted)]">Higher values indicate more variance explained by the remaining nodes.</p></div>
-          <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-black text-[var(--indigo)]">Mean R-squared {metricValue(result.overview.meanPredictability)}</span>
+          <div><h3 className="text-lg font-black text-[var(--ink)]">{copy.predictability.title}</h3><p className="mt-1 text-sm text-[var(--muted)]">{copy.predictability.body}</p></div>
+          <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-black text-[var(--indigo)]">{fillOpenSna(copy.predictability.meanBadge, { value: metricValue(result.overview.meanPredictability, copy.common.notAvailable) })}</span>
         </div>
         <ol className="space-y-3">
           {rows.map((node) => (
             <li key={node.id} className="grid grid-cols-[3.5rem_minmax(8rem,1fr)_4rem] items-center gap-3 text-sm">
               <span className="font-black text-[var(--ink)]">{node.label}</span>
               <span className="h-2.5 overflow-hidden rounded-full bg-[var(--line)]" aria-hidden="true"><span className="block h-full rounded-full bg-[var(--teal-solid)] transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, (node.predictability ?? 0) * 100))}%` }} /></span>
-              <span className="text-right tabular-nums text-[var(--muted)]">{metricValue(node.predictability)}</span>
+              <span className="text-right tabular-nums text-[var(--muted)]">{metricValue(node.predictability, copy.common.notAvailable)}</span>
             </li>
           ))}
         </ol>
       </div>
-      <MethodNote>Predictability uses a separate MGM model ({result.models.predictability.id}) fitted to the same input and preprocessing provenance. It is not computed from the displayed EBICglasso edge matrix.</MethodNote>
+      <MethodNote>{fillOpenSna(copy.predictability.note, { model: result.models.predictability.id })}</MethodNote>
     </div>
   );
 }
 
 function ComparisonPanel({ result }: { result: OpenSnaResult }) {
+  const { copy, htmlLang } = useOpenSnaUi();
   const comparison = result.subgroupComparison;
+  const count = (value: number) => value.toLocaleString(htmlLang);
+  const value = (metric: number | null) => metricValue(metric, copy.common.notAvailable);
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label={`${comparison.groupA} global strength`} value={metricValue(comparison.globalStrengthA)} detail={`n = ${comparison.nA.toLocaleString("en")}`} />
-        <MetricCard label={`${comparison.groupB} global strength`} value={metricValue(comparison.globalStrengthB)} detail={`n = ${comparison.nB.toLocaleString("en")}`} />
-        <MetricCard label="Global-strength test" value={`p = ${metricValue(comparison.globalStrengthPValue)}`} detail={`Absolute difference ${metricValue(comparison.globalStrengthDifference)}`} />
-        <MetricCard label="Structure-invariance test" value={`p = ${metricValue(comparison.networkStructurePValue)}`} detail={`Maximum edge difference ${metricValue(comparison.networkStructureDifference)}`} />
+        <MetricCard label={fillOpenSna(copy.comparison.groupStrength, { group: comparison.groupA })} value={value(comparison.globalStrengthA)} detail={fillOpenSna(copy.comparison.sampleSize, { count: count(comparison.nA) })} />
+        <MetricCard label={fillOpenSna(copy.comparison.groupStrength, { group: comparison.groupB })} value={value(comparison.globalStrengthB)} detail={fillOpenSna(copy.comparison.sampleSize, { count: count(comparison.nB) })} />
+        <MetricCard label={copy.comparison.globalTest} value={`p = ${value(comparison.globalStrengthPValue)}`} detail={fillOpenSna(copy.comparison.globalDetail, { value: value(comparison.globalStrengthDifference) })} />
+        <MetricCard label={copy.comparison.structureTest} value={`p = ${value(comparison.networkStructurePValue)}`} detail={fillOpenSna(copy.comparison.structureDetail, { value: value(comparison.networkStructureDifference) })} />
       </div>
       <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
         <table className="w-full min-w-[38rem] text-left text-sm">
-          <caption className="px-4 py-4 text-left font-black text-[var(--ink)]">Largest subgroup edge differences</caption>
-          <thead className="bg-[var(--page-strong)] text-xs uppercase tracking-[0.12em] text-[var(--muted)]"><tr><th className="px-4 py-3">Edge</th><th className="px-4 py-3 text-right">Absolute difference</th><th className="px-4 py-3 text-right">Holm-adjusted p</th></tr></thead>
+          <caption className="px-4 py-4 text-left font-black text-[var(--ink)]">{copy.comparison.caption}</caption>
+          <thead className="bg-[var(--page-strong)] text-xs uppercase tracking-[0.12em] text-[var(--muted)]"><tr><th className="px-4 py-3">{copy.comparison.edge}</th><th className="px-4 py-3 text-right">{copy.comparison.absoluteDifference}</th><th className="px-4 py-3 text-right">{copy.comparison.holmP}</th></tr></thead>
           <tbody className="divide-y divide-[var(--line)]">
             {comparison.strongestEdgeDifferences.slice(0, 12).map((edge) => (
-              <tr key={`${edge.source}-${edge.target}`}><th scope="row" className="px-4 py-3 font-bold">{edge.source} to {edge.target}</th><td className="px-4 py-3 text-right tabular-nums">{metricValue(edge.absoluteDifference)}</td><td className="px-4 py-3 text-right tabular-nums">{metricValue(edge.pValueHolm)}</td></tr>
+              <tr key={`${edge.source}-${edge.target}`}><th scope="row" className="px-4 py-3 font-bold">{fillOpenSna(copy.comparison.edgePair, { source: edge.source, target: edge.target })}</th><td className="px-4 py-3 text-right tabular-nums">{value(edge.absoluteDifference)}</td><td className="px-4 py-3 text-right tabular-nums">{value(edge.pValueHolm)}</td></tr>
             ))}
           </tbody>
         </table>
       </div>
-      <MethodNote>{comparison.method} from NetworkComparisonTest {comparison.packageVersion}; {comparison.permutations.toLocaleString("en")} independent-group permutations with Holm correction. A p-value is evidence about the tested difference, not evidence of causation.</MethodNote>
+      <MethodNote>{fillOpenSna(copy.comparison.note, { method: comparison.method, version: comparison.packageVersion, permutations: count(comparison.permutations) })}</MethodNote>
     </div>
   );
 }
 
 function StabilityPanel({ result }: { result: OpenSnaResult }) {
-  const badgeClass = (label: string) => label === "Desirable" ? "bg-[var(--teal-tint-strong)] text-[var(--teal-ink)]" : label === "Acceptable" ? "bg-[var(--amber-tint-strong)] text-[var(--amber-ink)]" : "bg-[var(--danger-tint-strong)] text-[var(--danger)]";
+  const { copy, htmlLang } = useOpenSnaUi();
+  const badgeClass = (label: OpenSnaResult["stability"]["metrics"][number]["interpretation"]) => label === "Desirable" ? "bg-[var(--teal-tint-strong)] text-[var(--teal-ink)]" : label === "Acceptable" ? "bg-[var(--amber-tint-strong)] text-[var(--amber-ink)]" : "bg-[var(--danger-tint-strong)] text-[var(--danger)]";
+  const acceptable = result.stability.acceptableThreshold.toFixed(2);
+  const desirable = result.stability.desirableThreshold.toFixed(2);
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         {result.stability.metrics.map((metric) => (
           <article key={metric.id} className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5">
-            <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black text-[var(--ink)]">{metric.metric}</p><p className="mt-2 text-3xl font-black tabular-nums tracking-[-0.04em]">{metricValue(metric.coefficient)}</p></div><span className={cn("rounded-full px-3 py-1 text-xs font-black", badgeClass(metric.interpretation))}>{metric.interpretation}</span></div>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black text-[var(--ink)]">{openSnaMetricName(copy, metric.id, metric.metric)}</p><p className="mt-2 text-3xl font-black tabular-nums tracking-[-0.04em]">{metricValue(metric.coefficient, copy.common.notAvailable)}</p></div><span className={cn("rounded-full px-3 py-1 text-xs font-black", badgeClass(metric.interpretation))}>{openSnaStabilityLabel(copy, metric.interpretation)}</span></div>
           </article>
         ))}
       </div>
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--page)] p-5 text-sm leading-7 text-[var(--muted)]">
-        <p><strong className="text-[var(--ink)]">Decision rule:</strong> CS below {result.stability.acceptableThreshold.toFixed(2)} must not be interpreted; {result.stability.acceptableThreshold.toFixed(2)} to {(result.stability.desirableThreshold - 0.01).toFixed(2)} is acceptable; {result.stability.desirableThreshold.toFixed(2)} or above is desirable.</p>
-        <p className="mt-2">Method: {result.stability.method}, correlation threshold {result.stability.correlationThreshold.toFixed(2)}, {result.stability.bootstraps.toLocaleString("en")} case-dropping bootstrap samples, {result.stability.cores} core.</p>
+        <p><strong className="text-[var(--ink)]">{copy.stability.ruleLabel}</strong> {fillOpenSna(copy.stability.rule, { acceptable, acceptableTop: (result.stability.desirableThreshold - 0.01).toFixed(2), desirable })}</p>
+        <p className="mt-2">{fillOpenSna(copy.stability.method, { method: localizeOpenSnaKnownPhrase(copy, result.stability.method), threshold: result.stability.correlationThreshold.toFixed(2), bootstraps: result.stability.bootstraps.toLocaleString(htmlLang), cores: result.stability.cores })}</p>
       </div>
     </div>
   );
 }
 
 function InterpretationPanel({ result }: { result: OpenSnaResult }) {
+  const { copy } = useOpenSnaUi();
   const lunaUsed = result.interpretation.thirdPartyAiUsed;
   const referenceResult = result.dataSource === "aggregate-demo";
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-[var(--amber-line)] bg-[var(--amber-tint)] p-5">
-        <div className="flex flex-wrap items-center gap-2"><h3 className="font-black text-[var(--ink)]">Automated evidence summary</h3><span className="rounded-full bg-[var(--surface)] px-2.5 py-1 text-xs font-black text-[var(--muted)]">{lunaUsed ? "GPT-5.6 Luna via OpenRouter" : referenceResult ? "Precomputed R reference" : "Deterministic R fallback"}</span></div>
+        <div className="flex flex-wrap items-center gap-2"><h3 className="font-black text-[var(--ink)]">{copy.interpretation.title}</h3><span className="rounded-full bg-[var(--surface)] px-2.5 py-1 text-xs font-black text-[var(--muted)]">{lunaUsed ? copy.interpretation.lunaBadge : referenceResult ? copy.interpretation.referenceBadge : copy.interpretation.fallbackBadge}</span></div>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
           {lunaUsed
-            ? "GPT-5.6 Luna generated this interpretation from aggregate statistics only. The server sends no row-level workbook data or respondent IDs and requires zero-data-retention routing."
+            ? copy.interpretation.lunaBody
             : referenceResult
-              ? "This precomputed reference preserves the deterministic R evidence summary and does not make an AI request. Run a workbook analysis to generate an aggregate-only LUNA interpretation."
-              : "LUNA was unavailable or not configured for this result, so Open SNA is showing its deterministic R evidence summary. No row-level workbook data was sent to an AI provider."}
+              ? copy.interpretation.referenceBody
+              : copy.interpretation.fallbackBody}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {result.interpretation.insights.map((insight) => (
-          <article key={insight.id} className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--indigo)]">Evidence {insight.evidence}</p>
-            <h3 className="mt-3 text-lg font-black text-[var(--ink)]">{insight.title}</h3>
-            <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{insight.text}</p>
-          </article>
-        ))}
+        {result.interpretation.insights.map((insight) => {
+          const presented = presentOpenSnaInsight(copy, result, insight);
+          return (
+            <article key={insight.id} className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--indigo)]">{fillOpenSna(copy.interpretation.evidence, { value: presented.evidence })}</p>
+              <h3 className="mt-3 text-lg font-black text-[var(--ink)]">{presented.title}</h3>
+              <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{presented.text}</p>
+            </article>
+          );
+        })}
       </div>
-      <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5"><h3 className="font-black text-[var(--ink)]">Interpretation limits</h3><ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-[var(--muted)]">{result.interpretation.cautions.map((caution) => <li key={caution}>{caution}</li>)}</ul></section>
+      <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5"><h3 className="font-black text-[var(--ink)]">{copy.interpretation.limits}</h3><ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-[var(--muted)]">{result.interpretation.cautions.map((caution) => <li key={caution}>{presentOpenSnaCaution(copy, caution, lunaUsed)}</li>)}</ul></section>
     </div>
   );
 }
@@ -430,7 +471,7 @@ function ActivePanel({ result, activeTab }: { result: OpenSnaResult; activeTab: 
 
 function tabFromHash(hash: string): OpenSnaTabId | null {
   const candidate = hash.replace(/^#analysis-/, "");
-  return panelHeadings.some((panel) => panel.id === candidate) ? candidate as OpenSnaTabId : null;
+  return OPEN_SNA_TABS.some((panel) => panel.id === candidate) ? candidate as OpenSnaTabId : null;
 }
 
 function formatFileSize(bytes: number) {
@@ -438,14 +479,15 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
-export default function OpenSnaWorkbench() {
+export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisabled }: { copy: OpenSnaCopy; locale: Locale; htmlLang: string; analysisDisabled: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panels = panelHeadings(copy);
   const [activeTab, setActiveTab] = useState<OpenSnaTabId>("overview");
   const [result, setResult] = useState<OpenSnaResult | null>(null);
   const [workbook, setWorkbook] = useState<File | null>(null);
   const [bootstraps, setBootstraps] = useState("1000");
   const [busySource, setBusySource] = useState<"reference" | "workbook" | null>(null);
-  const [message, setMessage] = useState("Loading the aggregate reference analysis...");
+  const [message, setMessage] = useState(copy.status.loadingReference);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -469,13 +511,13 @@ export default function OpenSnaWorkbench() {
   async function loadReference(options: { scroll?: boolean } = {}) {
     setBusySource("reference");
     setError(null);
-    setMessage("Loading the aggregate reference analysis...");
+    setMessage(copy.status.loadingReference);
     try {
       const response = await fetch("/open-sna/programming-resilience-demo.json", { cache: "no-store" });
       const payload: unknown = await response.json();
       if (!response.ok || !isOpenSnaResult(payload)) throw new Error("The reference result does not match the Open SNA contract.");
       setResult(payload);
-      setMessage("Programming Resilience aggregate reference loaded and ready to explore.");
+      setMessage(copy.status.referenceReady);
       const deepLinkedTab = typeof window === "undefined" ? null : tabFromHash(window.location.hash);
       if (deepLinkedTab) setActiveTab(deepLinkedTab);
       else setActiveTab("overview");
@@ -483,7 +525,7 @@ export default function OpenSnaWorkbench() {
       if (options.scroll) scrollToResults();
     } catch (caught) {
       setResult(null);
-      setError(openSnaReferenceErrorMessage(caught));
+      setError(openSnaReferenceErrorMessage(caught, locale));
     } finally {
       setBusySource(null);
     }
@@ -509,19 +551,19 @@ export default function OpenSnaWorkbench() {
     }
     if (!file.name.toLocaleLowerCase("en").endsWith(".xlsx")) {
       setWorkbook(null);
-      setError("Choose an XLSX workbook. Other file types are not accepted.");
+      setError(copy.errors.notXlsx);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     if (file.size === 0 || file.size > MAX_WORKBOOK_BYTES) {
       setWorkbook(null);
-      setError(file.size === 0 ? "The selected workbook is empty." : "The selected workbook is larger than the 5 MiB upload limit.");
+      setError(file.size === 0 ? copy.errors.emptyWorkbook : copy.errors.workbookTooLarge);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setWorkbook(file);
     setError(null);
-    setMessage(`${file.name} is ready. Review the stability setting, then run the R analysis.`);
+    setMessage(fillOpenSna(copy.status.workbookReady, { name: file.name }));
   }
 
   function handleWorkbookChange(event: ChangeEvent<HTMLInputElement>) {
@@ -536,45 +578,49 @@ export default function OpenSnaWorkbench() {
   function removeWorkbook() {
     setWorkbook(null);
     setError(null);
-    setMessage(result ? "The current result remains open. Choose another workbook whenever you are ready." : "Choose an XLSX workbook or open the aggregate reference.");
+    setMessage(result ? copy.status.removedWithResult : copy.status.removedEmpty);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function analyzeWorkbook() {
     if (!workbook) return;
+    if (analysisDisabled) {
+      setError(copy.errors.R_ENGINE_DISABLED);
+      return;
+    }
     setBusySource("workbook");
     setError(null);
-    setMessage("Running validation, network estimation, subgroup comparison, and stability analysis in R, followed by an aggregate-only LUNA interpretation. This may take several minutes.");
+    setMessage(copy.status.analysisRunning);
     try {
       const formData = new FormData();
       formData.set("workbook", workbook);
       formData.set("bootstraps", bootstraps);
       formData.set("permutations", "1000");
       const response = await fetch("/api/open-sna/analyze", { method: "POST", body: formData });
-      const decoded = await decodeOpenSnaAnalysisResponse(response);
+      const decoded = await decodeOpenSnaAnalysisResponse(response, locale);
       if (!decoded.ok) {
         setError(decoded.message);
-        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setMessage(copy.status.noSubstitution);
         setSetupOpen(true);
         return;
       }
       const payload = decoded.payload;
       if (!isOpenSnaResult(payload)) {
-        setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
-        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setError(copy.errors.generic);
+        setMessage(copy.status.noSubstitution);
         setSetupOpen(true);
         return;
       }
       setResult(payload);
       setMessage(payload.interpretation.thirdPartyAiUsed
-        ? "Workbook analysis and LUNA interpretation complete. Temporary source data was removed."
-        : "Workbook analysis complete. LUNA was unavailable, so the deterministic R interpretation is shown. Temporary source data was removed.");
+        ? copy.status.completeLuna
+        : copy.status.completeFallback);
       selectPanel("overview");
       setSetupOpen(false);
       scrollToResults();
     } catch {
-      setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
-      setMessage("No uploaded-workbook result was substituted with reference data.");
+      setError(copy.errors.generic);
+      setMessage(copy.status.noSubstitution);
       setSetupOpen(true);
     } finally {
       setBusySource(null);
@@ -583,44 +629,42 @@ export default function OpenSnaWorkbench() {
 
   function handleTabKeyboard(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let nextIndex = index;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % panelHeadings.length;
-    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + panelHeadings.length) % panelHeadings.length;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % panels.length;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + panels.length) % panels.length;
     else if (event.key === "Home") nextIndex = 0;
-    else if (event.key === "End") nextIndex = panelHeadings.length - 1;
+    else if (event.key === "End") nextIndex = panels.length - 1;
     else return;
     event.preventDefault();
-    const next = panelHeadings[nextIndex];
+    const next = panels[nextIndex];
     selectPanel(next.id);
     document.getElementById(`open-sna-tab-${next.id}`)?.focus();
   }
 
-  const activeIndex = panelHeadings.findIndex((entry) => entry.id === activeTab);
-  const activeHeading = panelHeadings[activeIndex] ?? panelHeadings[0];
-  const previousPanel = panelHeadings[(activeIndex - 1 + panelHeadings.length) % panelHeadings.length];
-  const nextPanel = panelHeadings[(activeIndex + 1) % panelHeadings.length];
+  const activeIndex = panels.findIndex((entry) => entry.id === activeTab);
+  const activeHeading = panels[activeIndex] ?? panels[0];
+  const previousPanel = panels[(activeIndex - 1 + panels.length) % panels.length];
+  const nextPanel = panels[(activeIndex + 1) % panels.length];
 
   return (
-    <section id="open-sna-workbench" lang="en" aria-label="Open SNA analysis workbench" className="scroll-mt-24 grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start">
+    <OpenSnaUiContext.Provider value={{ copy, locale, htmlLang }}>
+    <section id="open-sna-workbench" lang={htmlLang} aria-label={copy.workbenchLabel} className="scroll-mt-24 grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start">
       <aside id="open-sna-setup" className="surface-card scroll-mt-24 h-fit overflow-hidden xl:sticky xl:top-24">
         <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] bg-[var(--surface-soft)] p-4 sm:p-5">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--indigo)]">Analysis setup</p>
-            <h2 className="mt-1 text-xl font-black tracking-[-0.025em] text-[var(--ink)]">Data and model</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--indigo)]">{copy.setup.eyebrow}</p>
+            <h2 className="mt-1 text-xl font-black tracking-[-0.025em] text-[var(--ink)]">{copy.setup.title}</h2>
           </div>
-          <button type="button" onClick={() => setSetupOpen((open) => !open)} aria-expanded={setupOpen} aria-controls="open-sna-setup-controls" className="focus-ring grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)] transition hover:border-[var(--indigo)] xl:hidden" aria-label={`${setupOpen ? "Collapse" : "Expand"} analysis setup`}>
+          <button type="button" onClick={() => setSetupOpen((open) => !open)} aria-expanded={setupOpen} aria-controls="open-sna-setup-controls" className="focus-ring grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)] transition hover:border-[var(--indigo)] xl:hidden" aria-label={setupOpen ? copy.setup.collapse : copy.setup.expand}>
             <Icon name="chevron" className={cn("h-5 w-5 transition-transform", setupOpen && "rotate-180")} />
           </button>
         </div>
 
-        <aside className="m-4 mb-0 rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-4 sm:m-5 sm:mb-0" aria-label="Open SNA Public Beta notice">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--teal-ink)]">Public Beta</p>
+        <aside className="m-4 mb-0 rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-4 sm:m-5 sm:mb-0" aria-label={copy.beta.ariaLabel}>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--teal-ink)]">{copy.beta.title}</p>
           <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-[var(--ink)]">
-            <li>The service processes one analysis at a time.</li>
-            <li>A second concurrent request may return WORKER_BUSY.</li>
-            <li>Large workbooks or analyses with 1,000 bootstrap replicates may time out.</li>
-            <li>Uploaded workbooks and row-level data are not retained.</li>
-            <li>This Public Beta has no high-availability or availability commitment.</li>
+            {copy.beta.items.map((item, index) => <li key={index}>{item}</li>)}
           </ul>
+          {analysisDisabled ? <p className="mt-3 font-bold" role="status">{copy.errors.R_ENGINE_DISABLED}</p> : null}
         </aside>
 
         <div id="open-sna-setup-controls" className={cn("space-y-5 p-4 sm:p-5", setupOpen ? "block" : "hidden", "xl:block")}>
@@ -637,29 +681,29 @@ export default function OpenSnaWorkbench() {
               {workbook ? (
                 <div className="mt-3">
                   <p className="break-all text-sm font-black text-[var(--ink)]">{workbook.name}</p>
-                  <p className="mt-1 text-xs tabular-nums text-[var(--muted)]">{formatFileSize(workbook.size)} · ready to validate</p>
+                  <p className="mt-1 text-xs tabular-nums text-[var(--muted)]">{formatFileSize(workbook.size)} · {copy.setup.readyToValidate}</p>
                 </div>
               ) : (
                 <div className="mt-3">
-                  <p className="text-sm font-black text-[var(--ink)]">Drop a workbook here</p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">or browse from this device</p>
+                  <p className="text-sm font-black text-[var(--ink)]">{copy.setup.dropHere}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">{copy.setup.browse}</p>
                 </div>
               )}
               <div className="mt-3 flex flex-wrap justify-center gap-2">
-                <label htmlFor="open-sna-workbook" className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-[#403A8F] px-4 text-sm font-black text-[#F8FAFC] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#302B78]">{workbook ? "Replace file" : "Choose file"}</label>
-                {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />Remove</button> : null}
+                <label htmlFor="open-sna-workbook" className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-[#403A8F] px-4 text-sm font-black text-[#F8FAFC] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#302B78]">{workbook ? copy.setup.replaceFile : copy.setup.chooseFile}</label>
+                {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />{copy.setup.remove}</button> : null}
               </div>
             </div>
-            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion. <a href="/open-sna/programming-resilience-sample.xlsx" download="programming-resilience-sample.xlsx" className="font-black text-[var(--indigo)] underline decoration-[var(--teal-line)] underline-offset-2 hover:text-[var(--teal-ink)]">Download a synthetic sample workbook</a>.</p>
+            <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">{copy.setup.help} <a href="/open-sna/programming-resilience-sample.xlsx" download="programming-resilience-sample.xlsx" className="font-black text-[var(--indigo)] underline decoration-[var(--teal-line)] underline-offset-2 hover:text-[var(--teal-ink)]">{copy.setup.sampleDownload}</a>.</p>
           </div>
 
           <div>
-            <label htmlFor="open-sna-bootstrap" className="text-sm font-black text-[var(--ink)]">2. Stability precision</label>
+            <label htmlFor="open-sna-bootstrap" className="text-sm font-black text-[var(--ink)]">{copy.setup.stabilityPrecision}</label>
             <div className="relative mt-2">
               <select id="open-sna-bootstrap" value={bootstraps} onChange={(event) => setBootstraps(event.target.value)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 pr-10 text-sm font-bold text-[var(--ink)]">
-                <option value="100">100 - development check</option>
-                <option value="500">500 - extended check</option>
-                <option value="1000">1,000 - recommended result</option>
+                <option value="100">{copy.setup.bootstrap100}</option>
+                <option value="500">{copy.setup.bootstrap500}</option>
+                <option value="1000">{copy.setup.bootstrap1000}</option>
               </select>
               <Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
             </div>
@@ -667,44 +711,44 @@ export default function OpenSnaWorkbench() {
 
           <details className="group rounded-xl border border-[var(--line)] bg-[var(--page)]">
             <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 text-sm font-black text-[var(--ink)] marker:content-none">
-              Method settings
+              {copy.setup.methodSettings}
               <Icon name="chevron" className="h-4 w-4 text-[var(--muted)] transition-transform group-open:rotate-180" />
             </summary>
             <dl className="space-y-3 border-t border-[var(--line)] px-4 py-3 text-xs">
-              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">Profile</dt><dd className="text-right font-black">NPN EBICglasso v1</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">EBIC gamma</dt><dd className="font-black">0.50</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">NCT</dt><dd className="font-black">1,000 permutations</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">Seed</dt><dd className="font-black">2026</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">{copy.setup.profile}</dt><dd className="text-right font-black">{copy.setup.profileValue}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">{copy.setup.ebicGamma}</dt><dd className="font-black">0.50</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">{copy.setup.nct}</dt><dd className="font-black">{copy.setup.nctValue}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-[var(--muted)]">{copy.setup.seed}</dt><dd className="font-black">2026</dd></div>
             </dl>
           </details>
 
           <button type="button" onClick={() => void analyzeWorkbook()} disabled={!workbook || busy} className="focus-ring inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#403A8F] px-4 font-black text-[#F8FAFC] shadow-[0_12px_24px_rgba(64,58,143,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#302B78] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-45">
             {busySource === "workbook" ? <span className="open-sna-spinner h-4 w-4 rounded-full border-2 border-white/35 border-t-white" aria-hidden="true" /> : <Icon name="arrow" />}
-            {busySource === "workbook" ? "Analysis running" : "Run R + LUNA analysis"}
+            {busySource === "workbook" ? copy.setup.running : copy.setup.run}
           </button>
-          {!workbook ? <p className="-mt-3 text-center text-xs text-[var(--muted)]">Choose a valid workbook to enable analysis.</p> : null}
+          {!workbook ? <p className="-mt-3 text-center text-xs text-[var(--muted)]">{copy.setup.chooseToEnable}</p> : null}
 
           {busySource === "workbook" ? (
-            <div className="rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-3" aria-label="Analysis sequence">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--teal-ink)]">Analysis sequence</p>
+            <div className="rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-3" aria-label={copy.setup.sequenceLabel}>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--teal-ink)]">{copy.setup.sequenceLabel}</p>
               <ol className="mt-2 grid grid-cols-2 gap-2 text-xs text-[var(--muted)]">
-                {["Validate", "Estimate", "Compare", "Stabilize", "Interpret"].map((step) => <li key={step} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[var(--teal-solid)]" aria-hidden="true" />{step}</li>)}
+                {copy.setup.sequence.map((step) => <li key={step} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[var(--teal-solid)]" aria-hidden="true" />{step}</li>)}
               </ol>
             </div>
           ) : null}
 
           <div className="border-t border-[var(--line)] pt-5">
-            <div className="flex items-center justify-between gap-3"><p className="text-sm font-black text-[var(--ink)]">Reference result</p>{result?.dataSource === "aggregate-demo" ? <span className="rounded-full bg-[var(--teal-tint-strong)] px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.1em] text-[var(--teal-ink)]">Open</span> : null}</div>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Explore precomputed aggregate statistics without uploading row-level data.</p>
+            <div className="flex items-center justify-between gap-3"><p className="text-sm font-black text-[var(--ink)]">{copy.setup.referenceTitle}</p>{result?.dataSource === "aggregate-demo" ? <span className="rounded-full bg-[var(--teal-tint-strong)] px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.1em] text-[var(--teal-ink)]">{copy.setup.referenceOpen}</span> : null}</div>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{copy.setup.referenceBody}</p>
             <button type="button" onClick={() => void loadReference({ scroll: true })} disabled={busy} className="focus-ring mt-3 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-black text-[var(--indigo)] transition hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-45">
               {busySource === "reference" ? <span className="open-sna-spinner h-4 w-4 rounded-full border-2 border-[var(--line)] border-t-[var(--indigo)]" aria-hidden="true" /> : null}
-              {result?.dataSource === "aggregate-demo" ? "Reset reference view" : "Open aggregate reference"}
+              {result?.dataSource === "aggregate-demo" ? copy.setup.resetReference : copy.setup.openReference}
             </button>
           </div>
 
           <details className="group rounded-xl border border-[var(--line)] bg-[var(--page)] text-xs leading-5 text-[var(--muted)]">
-            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 font-black text-[var(--ink)] marker:content-none">Privacy and production note<Icon name="chevron" className="h-4 w-4 transition-transform group-open:rotate-180" /></summary>
-            <p className="border-t border-[var(--line)] p-3">Production uploads require a separately configured R analysis service. If unavailable, Open SNA fails closed and never substitutes example results. LUNA receives aggregate statistics only through a server-side, zero-data-retention request; the workbook, source rows, and respondent IDs are never sent to OpenRouter.</p>
+            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 font-black text-[var(--ink)] marker:content-none">{copy.setup.privacyTitle}<Icon name="chevron" className="h-4 w-4 transition-transform group-open:rotate-180" /></summary>
+            <p className="border-t border-[var(--line)] p-3">{copy.setup.privacyBody}</p>
           </details>
         </div>
       </aside>
@@ -716,7 +760,7 @@ export default function OpenSnaWorkbench() {
             <span className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full", error ? "bg-[var(--danger-tint-strong)]" : busy ? "bg-[var(--teal-tint-strong)] text-[var(--teal-ink)]" : "bg-[var(--surface-soft)] text-[var(--indigo)]")}>
               {busy ? <span className="open-sna-spinner h-4 w-4 rounded-full border-2 border-[var(--line)] border-t-[var(--teal-ink)]" aria-hidden="true" /> : <Icon name={error ? "info" : "check"} />}
             </span>
-            <div className="min-w-0 [overflow-wrap:anywhere]"><p className="font-black text-[var(--ink)]">{error ? "Action needed" : busy ? "Open SNA is working" : "Ready"}</p><p className="mt-0.5 leading-6">{error ?? message}</p></div>
+            <div className="min-w-0 [overflow-wrap:anywhere]"><p className="font-black text-[var(--ink)]">{error ? copy.status.actionNeeded : busy ? copy.status.working : copy.status.ready}</p><p className="mt-0.5 leading-6">{error ?? message}</p></div>
           </div>
         </div>
 
@@ -724,50 +768,50 @@ export default function OpenSnaWorkbench() {
           <div id="open-sna-results" className="scroll-mt-24 space-y-4" aria-busy={busy}>
             <header className="surface-card flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[var(--teal-tint-strong)] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--teal-ink)]">{result.dataSource === "aggregate-demo" ? "Aggregate reference" : "Uploaded workbook"}</span><span className="text-xs font-bold text-[var(--muted)]">Schema {result.schemaVersion}</span></div>
-                <h2 className="mt-3 break-words text-balance text-xl font-black leading-tight tracking-[-0.025em] text-[var(--ink)] [overflow-wrap:anywhere] sm:text-2xl">{result.source.fileName}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{result.overview.analyzedRows.toLocaleString("en")} responses · {result.overview.nodeCount} nodes · {result.overview.edgeCount} nonzero edges</p>
+                <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[var(--teal-tint-strong)] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--teal-ink)]">{result.dataSource === "aggregate-demo" ? copy.results.aggregateReference : copy.results.uploadedWorkbook}</span><span className="text-xs font-bold text-[var(--muted)]">{fillOpenSna(copy.results.schema, { version: result.schemaVersion })}</span></div>
+                <h2 className="mt-3 break-words text-balance text-xl font-black leading-tight tracking-[-0.025em] text-[var(--ink)] [overflow-wrap:anywhere] sm:text-2xl">{localizeOpenSnaKnownPhrase(copy, result.source.fileName)}</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">{fillOpenSna(copy.results.summary, { responses: result.overview.analyzedRows.toLocaleString(htmlLang), nodes: result.overview.nodeCount, edges: result.overview.edgeCount })}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex">
-                <button type="button" onClick={() => downloadText("open-sna-results.json", JSON.stringify(result, null, 2), "application/json")} className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)]"><Icon name="download" />JSON</button>
-                <button type="button" onClick={() => downloadText("open-sna-node-metrics.csv", openSnaNodesCsv(result), "text/csv;charset=utf-8")} className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--teal-solid)] px-3 text-sm font-black text-[#071b18] shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"><Icon name="download" />Node CSV</button>
+                <button type="button" onClick={() => downloadText("open-sna-results.json", JSON.stringify(result, null, 2), "application/json")} className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)]"><Icon name="download" />{copy.results.json}</button>
+                <button type="button" onClick={() => downloadText("open-sna-node-metrics.csv", openSnaNodesCsv(result), "text/csv;charset=utf-8")} className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--teal-solid)] px-3 text-sm font-black text-[#071b18] shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"><Icon name="download" />{copy.results.nodeCsv}</button>
               </div>
             </header>
 
             <div className="surface-card">
               <div id="open-sna-results-nav" className="sticky top-20 z-20 rounded-t-[2rem] border-b border-[var(--line)] bg-[var(--surface-glass)] p-2 backdrop-blur-xl">
                 <div className="flex items-center gap-2 sm:hidden">
-                  <button type="button" onClick={() => selectPanel(previousPanel.id)} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={`Previous analysis: ${previousPanel.label}`}><Icon name="arrow" className="h-5 w-5 rotate-180" /></button>
-                  <label className="relative min-w-0 flex-1"><span className="sr-only">Jump to analysis</span><select value={activeTab} onChange={(event) => selectPanel(event.target.value as OpenSnaTabId)} className="focus-ring min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 pr-9 text-sm font-black text-[var(--ink)]">{panelHeadings.map((panel, index) => <option key={panel.id} value={panel.id}>{index + 1}. {panel.shortLabel}</option>)}</select><Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" /></label>
-                  <button type="button" onClick={() => selectPanel(nextPanel.id)} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={`Next analysis: ${nextPanel.label}`}><Icon name="arrow" className="h-5 w-5" /></button>
+                  <button type="button" onClick={() => selectPanel(previousPanel.id)} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={fillOpenSna(copy.navigation.previousAnalysis, { label: previousPanel.label })}><Icon name="arrow" className="h-5 w-5 rotate-180" /></button>
+                  <label className="relative min-w-0 flex-1"><span className="sr-only">{copy.navigation.jump}</span><select value={activeTab} onChange={(event) => selectPanel(event.target.value as OpenSnaTabId)} className="focus-ring min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 pr-9 text-sm font-black text-[var(--ink)]">{panels.map((panel, index) => <option key={panel.id} value={panel.id}>{index + 1}. {panel.shortLabel}</option>)}</select><Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" /></label>
+                  <button type="button" onClick={() => selectPanel(nextPanel.id)} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={fillOpenSna(copy.navigation.nextAnalysis, { label: nextPanel.label })}><Icon name="arrow" className="h-5 w-5" /></button>
                 </div>
 
-                <div role="tablist" aria-label="Open SNA analyses" aria-orientation="horizontal" className="hidden grid-cols-2 gap-1 sm:grid lg:grid-cols-4">
-                  {panelHeadings.map((panel, index) => (
+                <div role="tablist" aria-label={copy.navigation.tablist} aria-orientation="horizontal" className="hidden grid-cols-2 gap-1 sm:grid lg:grid-cols-4">
+                  {panels.map((panel, index) => (
                     <button key={panel.id} id={`open-sna-tab-${panel.id}`} type="button" role="tab" aria-label={panel.label} aria-selected={activeTab === panel.id} aria-controls={`open-sna-panel-${panel.id}`} tabIndex={activeTab === panel.id ? 0 : -1} onClick={() => selectPanel(panel.id)} onKeyDown={(event) => handleTabKeyboard(event, index)} className={cn("focus-ring group flex min-h-14 cursor-pointer items-center gap-2 rounded-xl px-3 text-left text-sm font-black transition duration-200", activeTab === panel.id ? "bg-[#403A8F] text-[#F8FAFC] shadow-[0_8px_20px_rgba(64,58,143,0.2)]" : "text-[var(--muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--ink)]")}>
                       <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[0.68rem] tabular-nums", activeTab === panel.id ? "bg-white/15 text-white" : "bg-[var(--page)] text-[var(--indigo)] group-hover:bg-[var(--surface)]")}>{String(index + 1).padStart(2, "0")}</span>
                       <span className="leading-tight">{panel.shortLabel}</span>
                     </button>
                   ))}
                 </div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--line)]" aria-hidden="true"><span className="block h-full rounded-full bg-[var(--teal-solid)] transition-[width] duration-300" style={{ width: `${((activeIndex + 1) / panelHeadings.length) * 100}%` }} /></div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--line)]" aria-hidden="true"><span className="block h-full rounded-full bg-[var(--teal-solid)] transition-[width] duration-300" style={{ width: `${((activeIndex + 1) / panels.length) * 100}%` }} /></div>
               </div>
 
               <div className="p-4 sm:p-6 lg:p-7">
                 <div className="mb-6 flex flex-col gap-2 border-b border-[var(--line)] pb-5 sm:flex-row sm:items-end sm:justify-between">
-                  <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--indigo)]">Analysis {activeIndex + 1} of {panelHeadings.length}</p><h2 className="mt-2 text-2xl font-black tracking-[-0.035em] text-[var(--ink)] sm:text-3xl">{activeHeading.label}</h2></div>
+                  <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--indigo)]">{fillOpenSna(copy.navigation.progress, { current: activeIndex + 1, total: panels.length })}</p><h2 className="mt-2 text-2xl font-black tracking-[-0.035em] text-[var(--ink)] sm:text-3xl">{activeHeading.label}</h2></div>
                   <p className="max-w-sm text-sm leading-6 text-[var(--muted)] sm:text-right">{activeHeading.summary}</p>
                 </div>
 
-                {panelHeadings.map((panel) => (
+                {panels.map((panel) => (
                   <div key={panel.id} id={`open-sna-panel-${panel.id}`} role="tabpanel" aria-labelledby={`open-sna-tab-${panel.id}`} tabIndex={activeTab === panel.id ? 0 : -1} hidden={activeTab !== panel.id}>
                     {activeTab === panel.id ? <div key={`${result.generatedAt}-${panel.id}`} className="open-sna-panel-enter"><ActivePanel result={result} activeTab={panel.id} /></div> : null}
                   </div>
                 ))}
 
-                <nav className="mt-8 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-5" aria-label="Analysis panel navigation">
-                  <button type="button" onClick={() => selectPanel(previousPanel.id, { scroll: true })} className="focus-ring group flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 text-left text-sm font-black text-[var(--ink)] transition hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)]"><Icon name="arrow" className="h-4 w-4 shrink-0 rotate-180 text-[var(--indigo)] transition-transform group-hover:-translate-x-0.5" /><span className="min-w-0"><span className="block text-[0.68rem] uppercase tracking-[0.1em] text-[var(--muted)]">Previous</span><span className="block break-words leading-tight">{previousPanel.shortLabel}</span></span></button>
-                  <button type="button" onClick={() => selectPanel(nextPanel.id, { scroll: true })} className="focus-ring group flex min-h-12 cursor-pointer items-center justify-end gap-2 rounded-xl bg-[#403A8F] px-3 text-right text-sm font-black text-[#F8FAFC] shadow-sm transition hover:bg-[#302B78]"><span className="min-w-0"><span className="block text-[0.68rem] uppercase tracking-[0.1em] text-white/70">Next</span><span className="block break-words leading-tight">{nextPanel.shortLabel}</span></span><Icon name="arrow" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" /></button>
+                <nav className="mt-8 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-5" aria-label={copy.navigation.panelNav}>
+                  <button type="button" onClick={() => selectPanel(previousPanel.id, { scroll: true })} className="focus-ring group flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 text-left text-sm font-black text-[var(--ink)] transition hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)]"><Icon name="arrow" className="h-4 w-4 shrink-0 rotate-180 text-[var(--indigo)] transition-transform group-hover:-translate-x-0.5" /><span className="min-w-0"><span className="block text-[0.68rem] uppercase tracking-[0.1em] text-[var(--muted)]">{copy.navigation.previous}</span><span className="block break-words leading-tight">{previousPanel.shortLabel}</span></span></button>
+                  <button type="button" onClick={() => selectPanel(nextPanel.id, { scroll: true })} className="focus-ring group flex min-h-12 cursor-pointer items-center justify-end gap-2 rounded-xl bg-[#403A8F] px-3 text-right text-sm font-black text-[#F8FAFC] shadow-sm transition hover:bg-[#302B78]"><span className="min-w-0"><span className="block text-[0.68rem] uppercase tracking-[0.1em] text-white/70">{copy.navigation.next}</span><span className="block break-words leading-tight">{nextPanel.shortLabel}</span></span><Icon name="arrow" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" /></button>
                 </nav>
               </div>
             </div>
@@ -775,5 +819,6 @@ export default function OpenSnaWorkbench() {
         ) : <EmptyResult />}
       </div>
     </section>
+    </OpenSnaUiContext.Provider>
   );
 }

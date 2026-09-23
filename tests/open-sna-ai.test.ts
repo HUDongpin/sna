@@ -188,14 +188,16 @@ test("the Open SNA upload route and interface are wired to the server-only LUNA 
     workbench.indexOf("function InterpretationPanel"),
     workbench.indexOf("function ActivePanel"),
   );
+  const copy = readFileSync(`${repositoryRoot}/lib/open-sna-copy.ts`, "utf8");
   const envExample = readFileSync(`${repositoryRoot}/.env.example`, "utf8");
 
   assert.match(route, /withLunaInterpretation/);
   assert.ok((route.match(/withLunaInterpretation\(/g) ?? []).length >= 2);
-  assert.match(workbench, /GPT-5\.6 Luna/);
-  assert.match(workbench, /aggregate statistics only/i);
+  assert.match(copy, /GPT-5\.6 Luna/);
+  assert.match(copy, /aggregate statistics only/i);
   assert.match(interpretationPanel, /result\.dataSource === "aggregate-demo"/);
-  assert.match(interpretationPanel, /precomputed reference/i);
+  assert.match(copy, /precomputed reference/i);
+  assert.match(interpretationPanel, /presentOpenSnaInsight/);
   assert.doesNotMatch(workbench, /No third-party AI used/);
   assert.match(envExample, /^OPENROUTER_API_KEY=$/m);
   assert.doesNotMatch(envExample, /NEXT_PUBLIC_(?:OPENROUTER|LUNA)/);
