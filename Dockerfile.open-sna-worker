@@ -25,6 +25,7 @@ ARG RENV_VERSION=1.1.8
 ARG RENV_SHA256=141b3a77a9e405eb1b586db7bda43088825b955ceacc1a2de0322a4fcf78ae08
 
 RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes \
   && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
     ca-certificates \
     cmake \
