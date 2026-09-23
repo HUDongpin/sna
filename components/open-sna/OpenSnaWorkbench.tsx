@@ -11,7 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import NetworkGraph from "@/components/open-sna/NetworkGraph";
-import { decodeOpenSnaAnalysisResponse } from "@/lib/open-sna-errors";
+import {
+  decodeOpenSnaAnalysisResponse,
+  OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE,
+} from "@/lib/open-sna-errors";
 import {
   formatOpenSnaNumber,
   isOpenSnaResult,
@@ -34,6 +37,11 @@ const panelHeadings: Array<{ id: OpenSnaTabId; label: string; shortLabel: string
 ];
 
 const MAX_WORKBOOK_BYTES = 5 * 1024 * 1024;
+const OPEN_SNA_REFERENCE_ERROR_MESSAGE = "The reference result could not be loaded.";
+
+export function openSnaReferenceErrorMessage(_caught: unknown) {
+  return OPEN_SNA_REFERENCE_ERROR_MESSAGE;
+}
 
 type IconName = "arrow" | "check" | "chevron" | "close" | "download" | "info" | "search" | "upload";
 
@@ -475,7 +483,7 @@ export default function OpenSnaWorkbench() {
       if (options.scroll) scrollToResults();
     } catch (caught) {
       setResult(null);
-      setError(caught instanceof Error ? caught.message : "The reference result could not be loaded.");
+      setError(openSnaReferenceErrorMessage(caught));
     } finally {
       setBusySource(null);
     }
@@ -551,7 +559,12 @@ export default function OpenSnaWorkbench() {
         return;
       }
       const payload = decoded.payload;
-      if (!isOpenSnaResult(payload)) throw new Error("The analysis engine returned an invalid result.");
+      if (!isOpenSnaResult(payload)) {
+        setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
+        setMessage("No uploaded-workbook result was substituted with reference data.");
+        setSetupOpen(true);
+        return;
+      }
       setResult(payload);
       setMessage(payload.interpretation.thirdPartyAiUsed
         ? "Workbook analysis and LUNA interpretation complete. Temporary source data was removed."
@@ -559,8 +572,8 @@ export default function OpenSnaWorkbench() {
       selectPanel("overview");
       setSetupOpen(false);
       scrollToResults();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The workbook could not be analyzed.");
+    } catch {
+      setError(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE);
       setMessage("No uploaded-workbook result was substituted with reference data.");
       setSetupOpen(true);
     } finally {
@@ -598,6 +611,17 @@ export default function OpenSnaWorkbench() {
             <Icon name="chevron" className={cn("h-5 w-5 transition-transform", setupOpen && "rotate-180")} />
           </button>
         </div>
+
+        <aside className="m-4 mb-0 rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-4 sm:m-5 sm:mb-0" aria-label="Open SNA Public Beta notice">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--teal-ink)]">Public Beta</p>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-[var(--ink)]">
+            <li>The service processes one analysis at a time.</li>
+            <li>A second concurrent request may return WORKER_BUSY.</li>
+            <li>Large workbooks or analyses with 1,000 bootstrap replicates may time out.</li>
+            <li>Uploaded workbooks and row-level data are not retained.</li>
+            <li>This Public Beta has no high-availability or availability commitment.</li>
+          </ul>
+        </aside>
 
         <div id="open-sna-setup-controls" className={cn("space-y-5 p-4 sm:p-5", setupOpen ? "block" : "hidden", "xl:block")}>
           <div>

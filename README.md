@@ -161,6 +161,8 @@ The source repository is [HUDongpin/sna](https://github.com/HUDongpin/sna) and t
 
 Vercel can serve the Open SNA interface and its precomputed aggregate reference, but it does not supply the R runtime in this repository. Set `OPEN_SNA_R_API_URL` only after a version-locked, privacy-reviewed R worker is deployed and verified. Set the server-only `OPENROUTER_API_KEY` for GPT-5.6 Luna interpretation; never expose it through a `NEXT_PUBLIC_` variable. When the R service variable is absent, production workbook analysis returns a clear `503 R_ENGINE_NOT_CONFIGURED` response and never substitutes the reference result.
 
+For the Vercel backup path, `deploy/aliyun/env/vercel.env.example` records the non-secret contract only: `SNA_RELEASE_SHA`, `SNA_DEPLOYMENT_ROLE=vercel-backup`, `NEXT_PUBLIC_SITE_URL`, and `OPEN_SNA_R_DISABLED=1`.
+
 The apex host `sna.hk` is attached for discoverability and permanently redirects to the canonical `www.sna.hk` host while preserving the requested path and query string.
 
 A release should only be described as complete after all of the following are independently verified:

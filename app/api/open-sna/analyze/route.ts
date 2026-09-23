@@ -6,6 +6,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { withLunaInterpretation } from "@/lib/open-sna-ai";
 import { isOpenSnaResult, matchesOpenSnaRequest, type OpenSnaResult } from "@/lib/open-sna";
+import { readOpenSnaEngineConfigurationStatus } from "@/lib/open-sna-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,7 +52,7 @@ async function readBoundedResult(outputPath: string) {
 
 type RProcessResult = { exitCode: number; timedOut: boolean; stderr: string };
 type RFailureCode = "R_RUNTIME_NOT_READY" | "WORKBOOK_INVALID" | "R_ANALYSIS_FAILED";
-type RemoteFailureCode = RFailureCode | "WORKER_BUSY";
+type RemoteFailureCode = RFailureCode | "WORKER_BUSY" | "R_ANALYSIS_TIMEOUT";
 
 class RemoteEngineError extends Error {
   constructor(
@@ -116,6 +117,7 @@ function safeRemoteFailure(payload: unknown, status: number): RemoteEngineError 
   if (code === "R_RUNTIME_NOT_READY" && status === 503) return new RemoteEngineError(code, 503);
   if (code === "R_ANALYSIS_FAILED" && status >= 500) return new RemoteEngineError(code, 502);
   if (code === "WORKER_BUSY" && status === 429) return new RemoteEngineError(code, 429);
+  if (code === "R_ANALYSIS_TIMEOUT" && status === 504) return new RemoteEngineError(code, 504);
   return new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
 }
 
@@ -155,6 +157,12 @@ function remoteFailureResponse(error: RemoteEngineError) {
   }
   if (error.code === "R_ENGINE_CONTRACT_FAILED") {
     return noStoreJson({ error: "The R analysis service returned a result that could not be used.", code: error.code }, error.status);
+  }
+  if (error.code === "R_ANALYSIS_TIMEOUT") {
+    return noStoreJson(
+      { error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.", code: error.code },
+      error.status,
+    );
   }
   return noStoreJson(
     { error: "The production R analysis service is temporarily unavailable. Try again later.", code: error.code },
@@ -264,22 +272,9 @@ function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
 }
 
 async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, permutations: string) {
-  const engineUrl = process.env.OPEN_SNA_R_API_URL;
-  if (!engineUrl) return null;
-  const engineToken = process.env.OPEN_SNA_R_API_TOKEN || "";
-  let parsedEngineUrl: URL;
-  try {
-    parsedEngineUrl = new URL(engineUrl);
-  } catch {
-    throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
-  }
-  const loopbackHost = ["localhost", "127.0.0.1", "[::1]"].includes(parsedEngineUrl.hostname);
-  if (
-    engineToken.length < 32 ||
-    parsedEngineUrl.username ||
-    parsedEngineUrl.password ||
-    (parsedEngineUrl.protocol !== "https:" && !loopbackHost)
-  ) {
+  const engineConfiguration = readOpenSnaEngineConfigurationStatus();
+  if (!engineConfiguration.configured) {
+    if (engineConfiguration.reason === "missing") return null;
     throw new RemoteEngineError("R_ENGINE_CONFIGURATION_INVALID", 503);
   }
   try {
@@ -291,8 +286,8 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     outgoing.set("permutations", permutations);
 
     const headers = new Headers({ Accept: "application/json" });
-    headers.set("Authorization", `Bearer ${engineToken}`);
-    const response = await fetch(engineUrl, {
+    headers.set("Authorization", `Bearer ${engineConfiguration.apiToken}`);
+    const response = await fetch(engineConfiguration.apiUrl, {
       method: "POST",
       body: outgoing,
       headers,
@@ -325,11 +320,23 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (error instanceof Error && error.message === "REMOTE_ENGINE_CONTRACT_FAILED") {
       throw new RemoteEngineError("R_ENGINE_CONTRACT_FAILED", 502);
     }
+    if (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new RemoteEngineError("R_ANALYSIS_TIMEOUT", 504);
+    }
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }
 }
 
 export async function POST(request: Request) {
+  if (process.env.OPEN_SNA_R_DISABLED === "1") {
+    return noStoreJson(
+      {
+        error: "Public workbook analysis is temporarily disabled. You can still inspect the aggregate reference result.",
+        code: "R_ENGINE_DISABLED",
+      },
+      503,
+    );
+  }
   let jobDirectory: string | null = null;
   let claimedWorkerSlot = false;
   try {
@@ -437,7 +444,13 @@ export async function POST(request: Request) {
 
     const processResult = await runRAnalysis({ inputPath, outputPath, bootstraps, permutations });
     if (processResult.timedOut) {
-      return noStoreJson({ error: "The R analysis exceeded the local five-minute execution limit." }, 504);
+      return noStoreJson(
+        {
+          error: "The R analysis exceeded the service time limit. Try again with fewer bootstrap replicates or a smaller workbook.",
+          code: "R_ANALYSIS_TIMEOUT",
+        },
+        504,
+      );
     }
     if (processResult.exitCode !== 0) {
       const failureCode = parseRFailureCode(processResult.stderr);

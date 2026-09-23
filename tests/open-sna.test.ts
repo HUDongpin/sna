@@ -53,6 +53,61 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });
 
+test("the Open SNA upload UI shows the complete English Public Beta notice", () => {
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  assert.ok(
+    workbench.indexOf("Public Beta") < workbench.indexOf('id="open-sna-setup-controls"'),
+    "the Public Beta notice must remain visible outside the mobile-collapsed setup controls",
+  );
+  assert.match(workbench, /Public Beta/);
+  assert.match(workbench, /one analysis at a time/i);
+  assert.match(workbench, /second concurrent request may return WORKER_BUSY/i);
+  assert.match(workbench, /large[^.]*1,000[^.]*bootstrap[^.]*may time out/i);
+  assert.match(workbench, /uploaded workbooks and row-level data are not retained/i);
+  assert.match(workbench, /no high-availability or availability commitment/i);
+});
+
+test("the Open SNA workbench uses bounded response decoding and never displays caught exception text", () => {
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const analysisPath = workbench.slice(
+    workbench.indexOf("async function analyzeWorkbook"),
+    workbench.indexOf("function handleTabKeyboard"),
+  );
+  assert.match(analysisPath, /decodeOpenSnaAnalysisResponse/);
+  assert.doesNotMatch(analysisPath, /await response\.json\(\)/);
+  assert.doesNotMatch(analysisPath, /caught instanceof Error\s*\?\s*caught\.message/);
+  assert.match(analysisPath, /catch\s*\{[\s\S]*setError\(OPEN_SNA_GENERIC_ANALYSIS_ERROR_MESSAGE\)/);
+});
+
+test("reference load failures do not pass untrusted response errors to the UI", async () => {
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const referencePath = workbench.slice(
+    workbench.indexOf("async function loadReference"),
+    workbench.indexOf("useEffect", workbench.indexOf("async function loadReference")),
+  );
+  const { openSnaReferenceErrorMessage } = await import("../components/open-sna/OpenSnaWorkbench");
+  const untrustedFailure = "reference body https://private.invalid/result 203.0.113.8 bearer sk_live_reference_secret";
+  const response = new Response("not-json", { status: 502 });
+  Object.defineProperty(response, "json", {
+    configurable: true,
+    value: async () => {
+      throw new Error(untrustedFailure);
+    },
+  });
+
+  let uiError: string | null = null;
+  try {
+    await response.json();
+  } catch (caught) {
+    uiError = openSnaReferenceErrorMessage(caught);
+  }
+
+  assert.equal(uiError === "The reference result could not be loaded.", true, "reference failure text must be bounded before it reaches the UI");
+  assert.match(workbench, /const OPEN_SNA_REFERENCE_ERROR_MESSAGE = [\"']The reference result could not be loaded\.[\"']/);
+  assert.match(referencePath, /setError\(openSnaReferenceErrorMessage\(caught\)\)/);
+  assert.doesNotMatch(referencePath, /caught instanceof Error\s*\?\s*caught\.message/);
+});
+
 test("the Open SNA interface provides accessible interactive exploration", () => {
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
   const graph = read("components/open-sna/NetworkGraph.tsx");
