@@ -425,6 +425,6 @@ export function openSnaNodesCsv(result: OpenSnaResult) {
   ].join("\n");
 }
 
-export function formatOpenSnaNumber(value: number | null, digits = 3) {
-  return value === null || !Number.isFinite(value) ? "Not available" : value.toFixed(digits);
+export function formatOpenSnaNumber(value: number | null, digits = 3, fallback = "Not available") {
+  return value === null || !Number.isFinite(value) ? fallback : value.toFixed(digits);
 }
