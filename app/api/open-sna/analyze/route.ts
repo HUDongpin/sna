@@ -55,7 +55,7 @@ type RemoteFailureCode = RFailureCode | "WORKER_BUSY";
 
 class RemoteEngineError extends Error {
   constructor(
-    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID",
+    readonly code: RemoteFailureCode | "R_ENGINE_UNAVAILABLE" | "R_ENGINE_CONFIGURATION_INVALID" | "R_ENGINE_CONTRACT_FAILED",
     readonly status: number,
   ) {
     super(code);
@@ -149,6 +149,12 @@ function remoteFailureResponse(error: RemoteEngineError) {
       { error: "The production R analysis service is busy. Wait for the current analysis to finish and try again.", code: error.code },
       error.status,
     );
+  }
+  if (error.code === "R_ANALYSIS_FAILED") {
+    return noStoreJson({ error: "The R analysis engine failed before producing a valid result.", code: error.code }, error.status);
+  }
+  if (error.code === "R_ENGINE_CONTRACT_FAILED") {
+    return noStoreJson({ error: "The R analysis service returned a result that could not be used.", code: error.code }, error.status);
   }
   return noStoreJson(
     { error: "The production R analysis service is temporarily unavailable. Try again later.", code: error.code },
@@ -278,7 +284,9 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
   }
   try {
     const outgoing = new FormData();
-    outgoing.set("workbook", new File([bytes], "input.xlsx", { type: XLSX_MIME }));
+    const workbookBytes = new Uint8Array(bytes.byteLength);
+    workbookBytes.set(bytes);
+    outgoing.append("workbook", new Blob([workbookBytes], { type: XLSX_MIME }), "input.xlsx");
     outgoing.set("bootstraps", bootstraps);
     outgoing.set("permutations", permutations);
 
@@ -300,7 +308,12 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     if (responseBytes === 0 || responseBytes > MAX_RESULT_BYTES) {
       throw new Error("REMOTE_ENGINE_RESULT_TOO_LARGE");
     }
-    const payload: unknown = JSON.parse(responseText);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(responseText.replace(/^\uFEFF/, ""));
+    } catch {
+      throw new Error(response.ok ? "REMOTE_ENGINE_CONTRACT_FAILED" : "REMOTE_ENGINE_JSON_INVALID");
+    }
     if (!response.ok) throw safeRemoteFailure(payload, response.status);
     const normalizedResult = normalizeRemoteResult(payload);
     if (!normalizedResult || !matchesOpenSnaRequest(normalizedResult, bootstraps, permutations)) {
@@ -309,6 +322,9 @@ async function forwardToConfiguredEngine(bytes: Uint8Array, bootstraps: string, 
     return normalizedResult;
   } catch (error) {
     if (error instanceof RemoteEngineError) throw error;
+    if (error instanceof Error && error.message === "REMOTE_ENGINE_CONTRACT_FAILED") {
+      throw new RemoteEngineError("R_ENGINE_CONTRACT_FAILED", 502);
+    }
     throw new RemoteEngineError("R_ENGINE_UNAVAILABLE", 502);
   }
 }

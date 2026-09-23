@@ -68,7 +68,7 @@ test("the upload route distinguishes R runtime, workbook, and analysis failures"
 
   process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
   process.env.OPEN_SNA_TMP_ROOT = path.join(tmpdir(), "open-sna-route-tests");
-  process.env.NODE_ENV = "test";
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
   delete process.env.OPEN_SNA_R_API_URL;
   delete process.env.OPEN_SNA_R_LIBS_USER;
   delete process.env.R_LIBS_USER;
@@ -305,7 +305,7 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
       const response = await POST(analysisRequest());
       const payload = await response.json() as { code?: string };
       assert.equal(response.status, 502, invalid.name);
-      assert.equal(payload.code, "R_ENGINE_UNAVAILABLE", invalid.name);
+      assert.equal(payload.code, "R_ENGINE_CONTRACT_FAILED", invalid.name);
     }
   } finally {
     restoreEnvironment(originalEnvironment);
@@ -401,4 +401,36 @@ test("the web adapter refuses an unauthenticated remote worker configuration", a
   } finally {
     restoreEnvironment(originalEnvironment);
   }
+});
+
+test("reviewed forwarding keeps exact XLSX bytes and distinguishes contract failure from R failure", async () => {
+  const originalEnvironment=isolateRouteEnvironment(["OPEN_SNA_R_API_URL","OPEN_SNA_R_API_TOKEN","OPEN_SNA_R_WORKER_MODE","VERCEL"]);
+  const originalFetch=globalThis.fetch;
+  process.env.OPEN_SNA_R_API_URL="https://worker.invalid/api/open-sna/analyze";
+  process.env.OPEN_SNA_R_API_TOKEN="test-forwarding-token-with-32-characters";
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.VERCEL;
+  const bytes=readFileSync(path.join(repositoryRoot,"public","open-sna","programming-resilience-sample.xlsx"));
+  let remoteStatus=200;
+  globalThis.fetch=async (_input,init)=>{
+    assert.ok(init?.body instanceof FormData);
+    const part=init.body.get("workbook");
+    assert.ok(part instanceof File);
+    assert.equal(part.name,"input.xlsx");
+    assert.deepEqual(Buffer.from(await part.arrayBuffer()),bytes);
+    return remoteStatus===200 ? new Response("<html>invalid result</html>",{status:200}) : Response.json({code:"R_ANALYSIS_FAILED",error:"private diagnostics"},{status:500});
+  };
+  try {
+    for (const [status,code] of [[200,"R_ENGINE_CONTRACT_FAILED"],[500,"R_ANALYSIS_FAILED"]] as const) {
+      remoteStatus=status;
+      const body=new FormData();
+      body.set("workbook",new Blob([bytes],{type:xlsxMime}),"sample.xlsx");
+      body.set("bootstraps","100");body.set("permutations","1000");
+      const response=await POST(new Request("http://localhost/api/open-sna/analyze",{method:"POST",body}));
+      assert.equal(response.status,502);
+      const payload=await response.json();
+      assert.equal(payload.code,code);
+      assert.doesNotMatch(JSON.stringify(payload),/private diagnostics/);
+    }
+  } finally { globalThis.fetch=originalFetch;restoreEnvironment(originalEnvironment); }
 });

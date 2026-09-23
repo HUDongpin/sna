@@ -86,6 +86,75 @@ cat(sprintf(
   sensitivity_topology_equal
 ))
 
+cyclic_duplicate_items <- as.data.frame(
+  lapply(0:15, function(column) ((seq_len(50L) - 1L + column) %% 5L) + 1L),
+  stringsAsFactors = FALSE,
+  optional = TRUE
+)
+names(cyclic_duplicate_items) <- c(
+  paste0("Cmt", 1:4),
+  paste0("Cnf", 1:4),
+  paste0("Cop", 1:4),
+  paste0("Cmp", 1:4)
+)
+stopifnot(length(unique(lapply(cyclic_duplicate_items, identity))) == 5L)
+
+cyclic_transformed <- huge::huge.npn(
+  as.matrix(cyclic_duplicate_items),
+  npn.func = "shrinkage",
+  verbose = FALSE
+)
+cyclic_raw_correlation <- stats::cor(cyclic_transformed)
+stopifnot(min(eigen(cyclic_raw_correlation, symmetric = TRUE, only.values = TRUE)$values) <= 0)
+
+unconditioned_ebicglasso_error <- tryCatch(
+  suppressWarnings(suppressMessages(
+    qgraph::EBICglasso(cyclic_raw_correlation, n = nrow(cyclic_duplicate_items), gamma = 0.5)
+  )),
+  error = function(error) error
+)
+stopifnot(inherits(unconditioned_ebicglasso_error, "error"))
+stopifnot(grepl("positive definite", conditionMessage(unconditioned_ebicglasso_error), ignore.case = TRUE))
+
+cyclic_estimate <- suppressWarnings(suppressMessages(
+  npn_ebicglasso_estimate(cyclic_duplicate_items, gamma = 0.5)
+))
+stopifnot(min(eigen(cyclic_estimate$correlation, symmetric = TRUE, only.values = TRUE)$values) > 0)
+stopifnot(identical(
+  cyclic_estimate$weights,
+  suppressWarnings(suppressMessages(
+    nct_npn_ebicglasso_estimator(cyclic_duplicate_items, gamma = 0.5)
+  ))
+))
+
+default_bootnet_error <- tryCatch(
+  suppressWarnings(suppressMessages(
+    bootnet::estimateNetwork(
+      cyclic_duplicate_items,
+      default = "EBICglasso",
+      corMethod = "npn",
+      tuning = 0.5,
+      verbose = FALSE
+    )
+  )),
+  error = function(error) error
+)
+stopifnot(inherits(default_bootnet_error, "error"))
+stopifnot(grepl("positive definite", conditionMessage(default_bootnet_error), ignore.case = TRUE))
+
+conditioned_bootnet <- suppressWarnings(suppressMessages(
+  bootnet::estimateNetwork(
+    cyclic_duplicate_items,
+    default = "none",
+    fun = nct_npn_ebicglasso_estimator,
+    gamma = 0.5,
+    verbose = FALSE
+  )
+))
+stopifnot(isTRUE(all.equal(conditioned_bootnet$graph, cyclic_estimate$weights, tolerance = 1e-8, check.attributes = TRUE)))
+stopifnot(identical(conditioned_bootnet$estimator, nct_npn_ebicglasso_estimator))
+stopifnot(isTRUE(all.equal(conditioned_bootnet$arguments$gamma, 0.5)))
+
 named_non_finite_weights <- matrix(
   c(0, NA_real_, NA_real_, 0),
   nrow = 2L,

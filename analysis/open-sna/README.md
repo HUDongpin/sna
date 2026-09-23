@@ -16,7 +16,7 @@ Open SNA v1 uses one named profile for every network-based result:
 | Bridge metrics | `networktools::bridge` with declared item communities |
 | Predictability | Separate `mgm` EBIC model with nodewise R-squared |
 | Subgroup comparison | `NetworkComparisonTest::NCT` with the same NPN → Pearson → conditional-PD → EBICglasso estimator, independent groups, weighted, all edges, Holm correction |
-| Stability | `bootnet` case-dropping bootstrap, correlation threshold `0.70`, one core |
+| Stability | `bootnet` case-dropping bootstrap with the shared conditioned NPN–EBICglasso estimator, correlation threshold `0.70`, one core |
 | Seed | `2026` |
 
 Predictability shares the same input and preprocessing provenance but comes from a separate MGM fit. It is not presented as a derivative of the EBICglasso edge matrix. Polychoric and Pearson sensitivity analyses in the research folder are valid reference analyses, but Open SNA does not mix them into this profile.
@@ -105,3 +105,12 @@ Vercel does not provide this repository's R runtime. `Dockerfile.open-sna-worker
 The observed local empty-network regression averages about **193 seconds per analysis**, which is close to the current 255-second synchronous endpoint limit. This synchronous path is therefore transitional and is **not production-qualified**. No release, push, or deployment qualification follows from the local regression or release gate. Production qualification remains blocked until the approved asynchronous job route removes browser/Vercel long-connection dependence and target-container timing is measured against the final worker configuration.
 
 See [WORKER_DEPLOYMENT.md](./WORKER_DEPLOYMENT.md) for the deployment and verification gates.
+
+
+### Reviewed cloud fixes (2026-09-19)
+
+Stability uses `bootnet::estimateNetwork(default = "none", fun = nct_npn_ebicglasso_estimator, gamma = gamma)` so pooled, NCT and bootstrap estimation share the same correlation conditioning. The conditioning regression verifies that singular cyclic items fail under the unconditioned estimator and succeed under the shared estimator. Analyze mode opens a null PDF device when no graphics device exists, avoiding `Rplots.pdf` writes on a read-only worker. NCT edge tables returned as matrices are converted to data frames and checked for required columns.
+
+The downloadable `public/open-sna/programming-resilience-sample.xlsx` is synthetic: 50 rows, 16 distinct Likert columns in four constructs, and 25 rows per Gender group. Its generator is `tests/helpers/minimal-xlsx.ts`. It demonstrates the input format and is not empirical research evidence. The existing empty-network fixture is unchanged.
+
+The September cloud ZIP/XML precheck and asynchronous queue were excluded after review. The existing R workbook validator remains authoritative, and analysis submission remains synchronous.
