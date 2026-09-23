@@ -71,15 +71,19 @@ RUN mkdir -p "${R_LIBS_USER}" \
 
 FROM worker-base AS verify
 
+WORKDIR /app
+
 COPY analysis/open-sna/tests/conditioning-regression.R ./analysis/open-sna/tests/conditioning-regression.R
 COPY analysis/open-sna/tests/group-selection-regression.R ./analysis/open-sna/tests/group-selection-regression.R
 COPY analysis/open-sna ./analysis/open-sna
 
-RUN Rscript --vanilla analysis/open-sna/preflight.R \
-  && Rscript --vanilla analysis/open-sna/verify-conditioning.R \
-  && Rscript --vanilla analysis/open-sna/verify-group-selection.R
+RUN Rscript --vanilla /app/analysis/open-sna/preflight.R \
+  && Rscript --vanilla /app/analysis/open-sna/verify-conditioning.R \
+  && Rscript --vanilla /app/analysis/open-sna/verify-group-selection.R
 
 FROM worker-base AS final
+
+WORKDIR /app
 
 COPY --from=web-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=web-build /app/.next/standalone ./
@@ -108,4 +112,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "-e", "const port=process.env.PORT||'3000';fetch('http://127.0.0.1:'+port+'/api/open-sna/analyze',{method:'POST'}).then(r=>{if(r.status!==401)process.exit(1)}).catch(()=>process.exit(1))"]
 
-CMD ["sh", "-c", "Rscript --vanilla analysis/preflight.R && exec node server.js"]
+CMD ["sh", "-c", "Rscript --vanilla /app/analysis/preflight.R && exec node /app/server.js"]
