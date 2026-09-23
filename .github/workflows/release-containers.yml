@@ -16,19 +16,25 @@ jobs:
       packages: write
       id-token: write
     steps:
+      - name: Validate requested release SHA
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
       - name: Checkout exact main commit
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_sha }}
           fetch-depth: 0
       - name: Guard exact SHA
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
-          [[ "${{ inputs.release_sha }}" =~ ^[0-9a-f]{40}$ ]]
           git fetch origin main
           git rev-parse --verify HEAD
-          test "$(git rev-parse --verify HEAD)" = "${{ inputs.release_sha }}"
+          test "$(git rev-parse --verify HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor HEAD origin/main
-          test "$(git rev-parse --verify HEAD^{commit})" = "${{ inputs.release_sha }}"
+          test "$(git rev-parse --verify HEAD^{commit})" = "$RELEASE_SHA"
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
       - name: Node source gate
@@ -87,9 +93,11 @@ jobs:
             org.opencontainers.image.revision=${{ inputs.release_sha }}
           tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
       - name: Confirm prebuilt images are loaded locally
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
-          docker image inspect ghcr.io/hudongpin/sna-web:${{ inputs.release_sha }} >/dev/null
-          docker image inspect ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }} >/dev/null
+          docker image inspect "ghcr.io/hudongpin/sna-web:$RELEASE_SHA" >/dev/null
+          docker image inspect "ghcr.io/hudongpin/sna-worker:$RELEASE_SHA" >/dev/null
       - name: Scan web image with Trivy
         # Trivy action v0.36.0, pinned to peeled commit ed142fd0673e97e23eac54620cfb913e5ce36c25.
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
@@ -147,10 +155,12 @@ jobs:
             org.opencontainers.image.revision=${{ inputs.release_sha }}
           tags: ghcr.io/hudongpin/sna-worker:${{ inputs.release_sha }}
       - name: Write digest manifest
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
-          cat > release-digests.json <<'JSON'
+          cat > release-digests.json <<JSON
           {
-            "release_sha": "${{ inputs.release_sha }}",
+            "release_sha": "$RELEASE_SHA",
             "web_image": "ghcr.io/hudongpin/sna-web@${{ steps.web_build.outputs.digest }}",
             "worker_image": "ghcr.io/hudongpin/sna-worker@${{ steps.worker_build.outputs.digest }}"
           }

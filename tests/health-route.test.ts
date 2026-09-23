@@ -115,10 +115,136 @@ test("health fails closed for missing or invalid deployment and R configuration"
         OPEN_SNA_R_API_TOKEN: "short-token-value",
       },
       {
+        SNA_RELEASE_SHA: "6".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.invalid/api/open-sna/analyze?next=/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "r".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "7".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.invalid/api/open-sna/analyze#/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "s".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "8".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://bad%zz.invalid/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "t".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "9".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://bad%.invalid/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "u".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "a".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://[2001:db8:::1]/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "v".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "b".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker..internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "w".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "c".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://-worker.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "x".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "d".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker-.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "y".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "e".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker_name.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "z".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "f".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: `https://${"a".repeat(64)}.internal/api/open-sna/analyze`,
+        OPEN_SNA_R_API_TOKEN: "A".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "0".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: `https://${Array(5).fill("a".repeat(63)).join(".")}/api/open-sna/analyze`,
+        OPEN_SNA_R_API_TOKEN: "B".repeat(32),
+      },
+      {
         SNA_RELEASE_SHA: "5".repeat(40),
         SNA_DEPLOYMENT_ROLE: "aliyun-primary",
         OPEN_SNA_R_API_URL: "http://127.0.0.1:1234/api/open-sna/analyze",
         OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "http://localhost:1234/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "http://[::1]:1234/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: " https://worker.internal/api/open-sna/analyze ",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.internal:/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://%77orker.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://127.1/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.internal/api/open-sna/../open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "q".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "replace-with-a-unique-32-byte-token",
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: "界".repeat(32),
+      },
+      {
+        SNA_RELEASE_SHA: "5".repeat(40),
+        SNA_DEPLOYMENT_ROLE: "aliyun-primary",
+        OPEN_SNA_R_API_URL: "https://worker.internal/api/open-sna/analyze",
+        OPEN_SNA_R_API_TOKEN: `${"q".repeat(16)} ${"q".repeat(16)}`,
       },
     ] as const;
 
@@ -127,26 +253,43 @@ test("health fails closed for missing or invalid deployment and R configuration"
       Object.assign(process.env, environment);
       const response = await GET();
       const payload = await response.json() as { status?: string; code?: string };
-      const isLoopbackHttp =
-        "OPEN_SNA_R_API_URL" in environment &&
-        environment.OPEN_SNA_R_API_URL.startsWith("http://127.0.0.1:");
-      if (isLoopbackHttp) {
-        assert.equal(response.status, 200);
-        assert.equal(response.headers.get("cache-control"), "no-store");
-        assert.deepEqual(payload, {
-          status: "ok",
-          releaseSha: environment.SNA_RELEASE_SHA,
-          deploymentRole: "aliyun-primary",
-          rAnalysis: "configured",
-        });
-      } else {
-        assert.equal(response.status, 503);
-        assert.equal(response.headers.get("cache-control"), "no-store");
-        assert.deepEqual(payload, {
-          status: "unavailable",
-          code: "DEPLOYMENT_HEALTH_MISCONFIGURED",
-        });
-      }
+      assert.equal(response.status, 503);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      assert.deepEqual(payload, {
+        status: "unavailable",
+        code: "DEPLOYMENT_HEALTH_MISCONFIGURED",
+      });
+    }
+  } finally {
+    restoreEnvironment(original);
+  }
+});
+
+test("health accepts normal DNS, IPv4, and bracketed IPv6 worker hosts", async () => {
+  const original = isolateEnvironment();
+  try {
+    const { GET } = await loadHealthRoute();
+    const urls = [
+      "https://normal.example/api/open-sna/analyze",
+      "https://192.0.2.10:443/api/open-sna/analyze",
+      "https://[2001:db8::1]:8443/api/open-sna/analyze",
+    ];
+    for (const apiUrl of urls) {
+      for (const key of environmentKeys) delete process.env[key];
+      process.env.SNA_RELEASE_SHA = "a".repeat(40);
+      process.env.SNA_DEPLOYMENT_ROLE = "aliyun-primary";
+      process.env.OPEN_SNA_R_API_URL = apiUrl;
+      process.env.OPEN_SNA_R_API_TOKEN = "V".repeat(32);
+
+      const response = await GET();
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(payload, {
+        status: "ok",
+        releaseSha: "a".repeat(40),
+        deploymentRole: "aliyun-primary",
+        rAnalysis: "configured",
+      });
     }
   } finally {
     restoreEnvironment(original);

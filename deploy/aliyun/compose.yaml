@@ -15,8 +15,6 @@ services:
       SNA_RELEASE_SHA: ${SNA_RELEASE_SHA:?set the release SHA for this deployment}
       # SNA_DEPLOYMENT_ROLE=aliyun-primary
       SNA_DEPLOYMENT_ROLE: aliyun-primary
-      OPEN_SNA_R_DISABLED: "0"
-      OPEN_SNA_R_API_URL: https://worker.sna.hk/api/open-sna/analyze
       NEXT_PUBLIC_SITE_URL: https://www.sna.hk
     tmpfs:
       - /tmp:mode=1777,size=64m
