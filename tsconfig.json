@@ -38,6 +38,8 @@
   "exclude": [
     "node_modules",
     "output",
-    "outputs"
+    "outputs",
+    "tmp",
+    ".playwright-cli"
   ]
 }

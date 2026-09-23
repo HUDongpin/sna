@@ -1,9 +1,6 @@
 import type { Locale } from "@/lib/i18n";
 import { backfillAcademyLessons } from "@/lib/academy-backfill-data";
-import {
-  type AcademyLessonRecord,
-  type LocalizedAcademyLesson,
-} from "@/lib/academy-types";
+import type { AcademyLessonRecord, LocalizedAcademyLesson } from "@/lib/academy-types";
 
 const reviewedAcademyLessons: AcademyLessonRecord[] = [
   {

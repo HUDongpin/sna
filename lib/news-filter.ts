@@ -1,6 +1,6 @@
 import { NEWS_PAGE_SIZE, type LocalizedNewsArticle, type NewsArticleType } from "@/lib/news-types";
 
-export type NewsFilterOptions = {
+type NewsFilterOptions = {
   q?: string;
   type?: string;
   year?: string;
@@ -8,7 +8,7 @@ export type NewsFilterOptions = {
   pageSize?: number;
 };
 
-export type NewsFilterResult = {
+type NewsFilterResult = {
   items: LocalizedNewsArticle[];
   total: number;
   page: number;
