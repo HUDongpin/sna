@@ -103,6 +103,7 @@ test("reference load failures do not pass untrusted response errors to the UI", 
   }
 
   assert.equal(uiError === "The reference result could not be loaded.", true, "reference failure text must be bounded before it reaches the UI");
+  assert.doesNotMatch(uiError, /https?:\/\/|203\.0\.113\.8|sk_live_reference_secret/i);
   assert.match(workbench, /const OPEN_SNA_REFERENCE_ERROR_MESSAGE = [\"']The reference result could not be loaded\.[\"']/);
   assert.match(referencePath, /setError\(openSnaReferenceErrorMessage\(caught\)\)/);
   assert.doesNotMatch(referencePath, /caught instanceof Error\s*\?\s*caught\.message/);
