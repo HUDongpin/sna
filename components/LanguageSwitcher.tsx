@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { localeMeta, locales, type Locale } from "@/lib/i18n";
+import { localeMeta, locales, type Locale } from "@/lib/locales";
 
 export default function LanguageSwitcher({ locale }: { locale: Locale }) {
   const pathname = usePathname();
