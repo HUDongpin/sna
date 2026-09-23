@@ -159,6 +159,7 @@ test("aliyun deployment assets are present and pinned to the requested bases", (
   expectContains(nginx, /ssl_certificate_key\s+\/etc\/nginx\/ssl\/sna\.hk\.key;/, "nginx config must declare a key placeholder");
   expectContains(nginx, /Strict-Transport-Security/i, "nginx config must emit HSTS when verify enforces it");
   expectContains(nginx, /limit_req_zone\s+\$binary_remote_addr\s+zone=sna_api:10m\s+rate=2r\/m;/, "nginx config must use the strict 2r/m worker limit");
+  expectContains(nginx, /limit_req zone=sna_api burst=1 nodelay;/, "nginx config must allow only a burst of one request");
   expectContains(nginx, /limit_conn\s+sna_conn\s+1;/, "nginx config must limit worker concurrency to one");
   expectNotContains(nginx, /(?:access_log|log_format)[^\n]*(?:authorization|request_body|body|auth)/i, "nginx config must not log authorization or request bodies");
 
