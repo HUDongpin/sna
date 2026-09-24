@@ -58,6 +58,10 @@ export function openSnaReferenceErrorMessage(_caught: unknown, locale: Locale = 
   return getOpenSnaCopy(locale).errors.referenceLoad;
 }
 
+export function openSnaWorkbookRunDisabled(analysisDisabled: boolean, hasWorkbook: boolean, busy: boolean) {
+  return analysisDisabled || !hasWorkbook || busy;
+}
+
 function panelHeadings(copy: OpenSnaCopy) {
   return OPEN_SNA_TABS.map((tab) => ({ id: tab.id, ...copy.panels[tab.id] }));
 }
@@ -545,6 +549,12 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
 
   function acceptWorkbook(file: File | null) {
     setDragging(false);
+    if (analysisDisabled) {
+      setWorkbook(null);
+      setError(copy.errors.R_ENGINE_DISABLED);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     if (!file) {
       setWorkbook(null);
       return;
@@ -670,15 +680,17 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
         <div id="open-sna-setup-controls" className={cn("space-y-5 p-4 sm:p-5", setupOpen ? "block" : "hidden", "xl:block")}>
           <div>
             <div className="flex items-center justify-between gap-3">
-              <p id="open-sna-workbook-label" className="text-sm font-black text-[var(--ink)]">1. Choose workbook</p>
-              <span className="text-xs font-bold text-[var(--muted)]">XLSX · max 5 MiB</span>
+              <p id="open-sna-workbook-label" className="text-sm font-black text-[var(--ink)]">{analysisDisabled ? copy.setup.uploadClosed : copy.setup.chooseWorkbook}</p>
+              <span className="text-xs font-bold text-[var(--muted)]">{copy.setup.fileLimit}</span>
             </div>
-            <input ref={fileInputRef} id="open-sna-workbook" type="file" accept=".xlsx" onChange={handleWorkbookChange} className="sr-only" aria-label="Choose XLSX workbook" aria-describedby="open-sna-workbook-help" />
-            <div onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={handleWorkbookDrop} className={cn("mt-2 rounded-2xl border border-dashed p-4 text-center transition duration-200", dragging ? "scale-[1.01] border-[var(--indigo)] bg-[var(--surface-soft)] shadow-[0_12px_30px_rgba(64,58,143,0.12)]" : workbook ? "border-[var(--teal-line)] bg-[var(--teal-tint)]" : "border-[var(--line-strong)] bg-[var(--page)] hover:border-[var(--indigo)]")}>
-              <span className={cn("mx-auto grid h-11 w-11 place-items-center rounded-xl", workbook ? "bg-[var(--teal-tint-strong)] text-[var(--teal-ink)]" : "bg-[var(--surface-soft)] text-[var(--indigo)]")}>
-                {workbook ? <Icon name="check" className="h-5 w-5" /> : <Icon name="upload" className="h-5 w-5" />}
+            <input ref={fileInputRef} id="open-sna-workbook" type="file" accept=".xlsx" disabled={analysisDisabled} onChange={handleWorkbookChange} className="sr-only" aria-label={copy.setup.chooseFileAria} aria-describedby={analysisDisabled ? "open-sna-workbook-help open-sna-upload-closed" : "open-sna-workbook-help"} />
+            <div onDragEnter={(event) => { event.preventDefault(); if (!analysisDisabled) setDragging(true); }} onDragOver={(event) => { event.preventDefault(); if (!analysisDisabled) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={handleWorkbookDrop} aria-disabled={analysisDisabled} className={cn("mt-2 rounded-2xl border border-dashed p-4 text-center transition duration-200", analysisDisabled ? "border-[var(--line)] bg-[var(--page)]" : dragging ? "scale-[1.01] border-[var(--indigo)] bg-[var(--surface-soft)] shadow-[0_12px_30px_rgba(64,58,143,0.12)]" : workbook ? "border-[var(--teal-line)] bg-[var(--teal-tint)]" : "border-[var(--line-strong)] bg-[var(--page)] hover:border-[var(--indigo)]")}>
+              <span className={cn("mx-auto grid h-11 w-11 place-items-center rounded-xl", analysisDisabled ? "bg-[var(--surface-soft)] text-[var(--muted)]" : workbook ? "bg-[var(--teal-tint-strong)] text-[var(--teal-ink)]" : "bg-[var(--surface-soft)] text-[var(--indigo)]")}>
+                {analysisDisabled ? <Icon name="info" className="h-5 w-5" /> : workbook ? <Icon name="check" className="h-5 w-5" /> : <Icon name="upload" className="h-5 w-5" />}
               </span>
-              {workbook ? (
+              {analysisDisabled ? (
+                <p id="open-sna-upload-closed" className="mt-3 text-sm leading-6 text-[var(--muted)]">{copy.setup.uploadClosedDetail}</p>
+              ) : workbook ? (
                 <div className="mt-3">
                   <p className="break-all text-sm font-black text-[var(--ink)]">{workbook.name}</p>
                   <p className="mt-1 text-xs tabular-nums text-[var(--muted)]">{formatFileSize(workbook.size)} · {copy.setup.readyToValidate}</p>
@@ -689,10 +701,12 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
                   <p className="mt-1 text-xs text-[var(--muted)]">{copy.setup.browse}</p>
                 </div>
               )}
-              <div className="mt-3 flex flex-wrap justify-center gap-2">
-                <label htmlFor="open-sna-workbook" className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-[#403A8F] px-4 text-sm font-black text-[#F8FAFC] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#302B78]">{workbook ? copy.setup.replaceFile : copy.setup.chooseFile}</label>
-                {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />{copy.setup.remove}</button> : null}
-              </div>
+              {analysisDisabled ? null : (
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  <label htmlFor="open-sna-workbook" className="focus-ring inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-[#403A8F] px-4 text-sm font-black text-[#F8FAFC] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#302B78]">{workbook ? copy.setup.replaceFile : copy.setup.chooseFile}</label>
+                  {workbook ? <button type="button" onClick={removeWorkbook} className="focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-black text-[var(--muted)] transition hover:text-[var(--danger)]"><Icon name="close" />{copy.setup.remove}</button> : null}
+                </div>
+              )}
             </div>
             <p id="open-sna-workbook-help" className="mt-2 text-xs leading-5 text-[var(--muted)]">{copy.setup.help} <a href="/open-sna/programming-resilience-sample.xlsx" download="programming-resilience-sample.xlsx" className="font-black text-[var(--indigo)] underline decoration-[var(--teal-line)] underline-offset-2 hover:text-[var(--teal-ink)]">{copy.setup.sampleDownload}</a>.</p>
           </div>
@@ -700,7 +714,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
           <div>
             <label htmlFor="open-sna-bootstrap" className="text-sm font-black text-[var(--ink)]">{copy.setup.stabilityPrecision}</label>
             <div className="relative mt-2">
-              <select id="open-sna-bootstrap" value={bootstraps} onChange={(event) => setBootstraps(event.target.value)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 pr-10 text-sm font-bold text-[var(--ink)]">
+              <select id="open-sna-bootstrap" value={bootstraps} disabled={analysisDisabled} onChange={(event) => setBootstraps(event.target.value)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 pr-10 text-sm font-bold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45">
                 <option value="100">{copy.setup.bootstrap100}</option>
                 <option value="500">{copy.setup.bootstrap500}</option>
                 <option value="1000">{copy.setup.bootstrap1000}</option>
@@ -722,11 +736,11 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
             </dl>
           </details>
 
-          <button type="button" onClick={() => void analyzeWorkbook()} disabled={!workbook || busy} className="focus-ring inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#403A8F] px-4 font-black text-[#F8FAFC] shadow-[0_12px_24px_rgba(64,58,143,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#302B78] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-45">
+          <button type="button" onClick={() => void analyzeWorkbook()} disabled={openSnaWorkbookRunDisabled(analysisDisabled, workbook !== null, busy)} className="focus-ring inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#403A8F] px-4 font-black text-[#F8FAFC] shadow-[0_12px_24px_rgba(64,58,143,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#302B78] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-45">
             {busySource === "workbook" ? <span className="open-sna-spinner h-4 w-4 rounded-full border-2 border-white/35 border-t-white" aria-hidden="true" /> : <Icon name="arrow" />}
             {busySource === "workbook" ? copy.setup.running : copy.setup.run}
           </button>
-          {!workbook ? <p className="-mt-3 text-center text-xs text-[var(--muted)]">{copy.setup.chooseToEnable}</p> : null}
+          {analysisDisabled ? <p className="-mt-3 text-center text-xs text-[var(--muted)]">{copy.setup.runUnavailable}</p> : !workbook ? <p className="-mt-3 text-center text-xs text-[var(--muted)]">{copy.setup.chooseToEnable}</p> : null}
 
           {busySource === "workbook" ? (
             <div className="rounded-xl border border-[var(--teal-line)] bg-[var(--teal-tint)] p-3" aria-label={copy.setup.sequenceLabel}>

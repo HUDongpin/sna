@@ -78,6 +78,50 @@ test("the Open SNA upload UI shows the complete English Public Beta notice", () 
   assert.match(workbench, /analysisDisabled \? <p[^>]*role="status"/);
 });
 
+test("disabled public workbook analysis closes the hero invitation and the run affordance", async () => {
+  const page = read("app/[locale]/open-sna/page.tsx");
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const { openSnaWorkbookRunDisabled } = await import("../components/open-sna/OpenSnaWorkbench");
+
+  for (const locale of ["en", "zh-hant", "zh-hans"] as const) {
+    const copy = getOpenSnaCopy(locale);
+    assert.notEqual(copy.page.introDisabled, copy.page.intro);
+    assert.notEqual(copy.page.analysisClosed, copy.page.analyzeWorkbook);
+    assert.doesNotMatch(copy.page.introDisabled, /Analyze your workbook|分析你的活頁簿|分析你的工作簿/);
+    assert.match(copy.page.introDisabled, /reference|參照|参照/);
+  }
+
+  const english = getOpenSnaCopy("en");
+  assert.match(english.page.introDisabled, /temporarily closed/i);
+  assert.match(english.page.introDisabled, /aggregate reference result/i);
+  assert.match(english.page.analysisClosed, /closed/i);
+  assert.match(english.setup.uploadClosed, /upload is closed/i);
+  assert.match(english.setup.uploadClosedDetail, /cannot be selected or run/i);
+  assert.match(english.setup.runUnavailable, /stays off/i);
+  assert.match(getOpenSnaCopy("zh-hant").page.introDisabled, /\p{Script=Han}/u);
+  assert.match(getOpenSnaCopy("zh-hans").page.introDisabled, /\p{Script=Han}/u);
+  assert.notEqual(getOpenSnaCopy("zh-hant").page.analysisClosed, getOpenSnaCopy("zh-hans").page.analysisClosed);
+
+  assert.match(page, /const analysisDisabled = process\.env\.OPEN_SNA_R_DISABLED === "1"/);
+  assert.match(page, /analysisDisabled \? page\.introDisabled : page\.intro/);
+  assert.match(page, /analysisDisabled \? page\.analysisClosed : page\.runsOnR/);
+  assert.match(page, /analysisDisabled \? null : \(/);
+  assert.match(page, /page\.analyzeWorkbook/);
+  assert.match(page, /analysisDisabled=\{analysisDisabled\}/);
+
+  assert.match(workbench, /id="open-sna-workbook"[\s\S]{0,120}disabled=\{analysisDisabled\}/);
+  assert.match(workbench, /openSnaWorkbookRunDisabled\(analysisDisabled, workbook !== null, busy\)/);
+  assert.match(workbench, /copy\.setup\.uploadClosed/);
+  assert.match(workbench, /copy\.setup\.runUnavailable/);
+  const formData = workbench.slice(workbench.indexOf("const formData = new FormData()"), workbench.indexOf("const response = await fetch"));
+  assert.doesNotMatch(formData, /locale|htmlLang|analysisDisabled/);
+
+  assert.equal(openSnaWorkbookRunDisabled(true, true, false), true);
+  assert.equal(openSnaWorkbookRunDisabled(false, true, false), false);
+  assert.equal(openSnaWorkbookRunDisabled(false, false, false), true);
+  assert.equal(openSnaWorkbookRunDisabled(false, true, true), true);
+});
+
 test("the Open SNA workbench uses bounded response decoding and never displays caught exception text", () => {
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
   const analysisPath = workbench.slice(

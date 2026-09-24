@@ -32,6 +32,7 @@ export default async function OpenSnaPage({ params }: { params: Promise<{ locale
   const copy = getOpenSnaCopy(typedLocale);
   const meta = getLocaleMeta(typedLocale);
   const page = copy.page;
+  const analysisDisabled = process.env.OPEN_SNA_R_DISABLED === "1";
 
   return (
     <div className="bg-sna-gradient" lang={meta.htmlLang}>
@@ -41,13 +42,15 @@ export default async function OpenSnaPage({ params }: { params: Promise<{ locale
           <div className="hero-enter min-w-0 max-w-4xl">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--indigo)]">{page.eyebrow}</p>
-              <span className="rounded-full border border-[var(--teal-line)] bg-[var(--teal-tint)] px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.1em] text-[var(--teal-ink)]">{page.runsOnR}</span>
+              <span className={`rounded-full border px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.1em] ${analysisDisabled ? "border-[var(--line-strong)] bg-[var(--surface-soft)] text-[var(--ink)]" : "border-[var(--teal-line)] bg-[var(--teal-tint)] text-[var(--teal-ink)]"}`}>{analysisDisabled ? page.analysisClosed : page.runsOnR}</span>
             </div>
             <h1 className="mt-4 break-words text-balance text-5xl font-black leading-[0.96] tracking-[-0.055em] text-[var(--ink)] [overflow-wrap:anywhere] sm:text-6xl lg:text-7xl">{page.titleLead}<br /><span className="text-[var(--indigo)]">{page.titleAccent}</span></h1>
-            <p className="mt-5 max-w-[68ch] text-base leading-7 text-[var(--muted)] sm:text-lg sm:leading-8">{page.intro}</p>
+            <p className="mt-5 max-w-[68ch] text-base leading-7 text-[var(--muted)] sm:text-lg sm:leading-8">{analysisDisabled ? page.introDisabled : page.intro}</p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <a href="#open-sna-workbench" className="focus-ring inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#403A8F] px-5 font-black text-[#F8FAFC] shadow-[0_14px_28px_rgba(64,58,143,0.24)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#302B78]">{page.exploreReference}<svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg></a>
-              <a href="#open-sna-setup" className="focus-ring inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 font-black text-[var(--ink)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)]"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 text-[var(--indigo)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 20h14" /></svg>{page.analyzeWorkbook}</a>
+              {analysisDisabled ? null : (
+                <a href="#open-sna-setup" className="focus-ring inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-5 font-black text-[var(--ink)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--indigo)] hover:bg-[var(--surface-soft)]"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 text-[var(--indigo)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 20h14" /></svg>{page.analyzeWorkbook}</a>
+              )}
             </div>
             <dl className="mt-7 flex flex-wrap gap-x-6 gap-y-3 border-t border-[var(--line)] pt-5 text-sm">
               <div className="flex items-baseline gap-2"><dd className="text-lg font-black tabular-nums text-[var(--ink)]">8</dd><dt className="text-[var(--muted)]">{page.analysisViews}</dt></div>
@@ -77,7 +80,7 @@ export default async function OpenSnaPage({ params }: { params: Promise<{ locale
       </section>
 
       <section className="container-page pb-24 pt-3">
-        <OpenSnaWorkbench copy={copy} locale={typedLocale} htmlLang={meta.htmlLang} analysisDisabled={process.env.OPEN_SNA_R_DISABLED === "1"} />
+        <OpenSnaWorkbench copy={copy} locale={typedLocale} htmlLang={meta.htmlLang} analysisDisabled={analysisDisabled} />
       </section>
     </div>
   );
