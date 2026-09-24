@@ -15,6 +15,8 @@ export type OpenSnaCopy = {
     titleLead: string;
     titleAccent: string;
     intro: string;
+    introDisabled: string;
+    analysisClosed: string;
     exploreReference: string;
     analyzeWorkbook: string;
     analysisViews: string;
@@ -60,6 +62,9 @@ export type OpenSnaCopy = {
     run: string;
     running: string;
     chooseToEnable: string;
+    uploadClosed: string;
+    uploadClosedDetail: string;
+    runUnavailable: string;
     sequenceLabel: string;
     sequence: [string, string, string, string, string];
     referenceTitle: string;
@@ -345,6 +350,8 @@ const en: OpenSnaCopy = {
     titleLead: "See the network.",
     titleAccent: "Trust the method.",
     intro: "Explore a reproducible Programming Resilience reference network, or bring a compatible XLSX workbook into one evidence-consistent workflow for visualization, centrality, bridge nodes, subgroup comparison, and stability.",
+    introDisabled: "Public workbook analysis is temporarily closed. The aggregate reference result remains available to inspect.",
+    analysisClosed: "Workbook analysis closed",
     exploreReference: "Explore reference result",
     analyzeWorkbook: "Analyze your workbook",
     analysisViews: "analysis views",
@@ -398,6 +405,9 @@ const en: OpenSnaCopy = {
     run: "Run R + LUNA analysis",
     running: "Analysis running",
     chooseToEnable: "Choose a valid workbook to enable analysis.",
+    uploadClosed: "Workbook upload is closed",
+    uploadClosedDetail: "A workbook cannot be selected or run while public analysis is disabled.",
+    runUnavailable: "Run stays off while public workbook analysis is disabled.",
     sequenceLabel: "Analysis sequence",
     sequence: ["Validate", "Estimate", "Compare", "Stabilize", "Interpret"],
     referenceTitle: "Reference result",
@@ -674,6 +684,8 @@ const zhHant: OpenSnaCopy = {
     titleLead: "看見網絡。",
     titleAccent: "信守方法。",
     intro: "探索可重現的 Programming Resilience 參照網絡，或把相容的 XLSX 活頁簿放入同一套證據一致的流程，涵蓋視覺化、中心性、橋接節點、子群組比較與穩定性。",
+    introDisabled: "公開活頁簿分析暫時關閉。匯總參照結果仍可查看。",
+    analysisClosed: "活頁簿分析已關閉",
     exploreReference: "查看參照結果",
     analyzeWorkbook: "分析你的活頁簿",
     analysisViews: "個分析視圖",
@@ -727,6 +739,9 @@ const zhHant: OpenSnaCopy = {
     run: "運行 R + LUNA 分析",
     running: "分析進行中",
     chooseToEnable: "請先選擇有效的活頁簿，才能開始分析。",
+    uploadClosed: "活頁簿上傳已關閉",
+    uploadClosedDetail: "公開分析停用期間，不能選擇或運行活頁簿。",
+    runUnavailable: "公開活頁簿分析停用期間，運行按鈕保持關閉。",
     sequenceLabel: "分析步驟",
     sequence: ["驗證", "估計", "比較", "穩定", "解讀"],
     referenceTitle: "參照結果",
@@ -1003,6 +1018,8 @@ const zhHans: OpenSnaCopy = {
     titleLead: "看见网络。",
     titleAccent: "信守方法。",
     intro: "探索可重现的 Programming Resilience 参照网络，或把兼容的 XLSX 工作簿放入同一套证据一致的流程，涵盖可视化、中心性、桥接节点、子群组比较与稳定性。",
+    introDisabled: "公开工作簿分析暂时关闭。汇总参照结果仍可查看。",
+    analysisClosed: "工作簿分析已关闭",
     exploreReference: "查看参照结果",
     analyzeWorkbook: "分析你的工作簿",
     analysisViews: "个分析视图",
@@ -1056,6 +1073,9 @@ const zhHans: OpenSnaCopy = {
     run: "运行 R + LUNA 分析",
     running: "分析进行中",
     chooseToEnable: "请先选择有效的工作簿，才能开始分析。",
+    uploadClosed: "工作簿上传已关闭",
+    uploadClosedDetail: "公开分析停用期间，不能选择或运行工作簿。",
+    runUnavailable: "公开工作簿分析停用期间，运行按钮保持关闭。",
     sequenceLabel: "分析步骤",
     sequence: ["验证", "估计", "比较", "稳定", "解读"],
     referenceTitle: "参照结果",
