@@ -95,6 +95,19 @@ test("deterministic Chinese insights keep the reference evidence and translate t
 test("known engine phrases and public analysis errors localize without dropping codes", () => {
   const traditional = getOpenSnaCopy("zh-hant");
   assert.equal(localizeOpenSnaKnownPhrase(traditional, OPEN_SNA_KNOWN_PHRASES.listwiseDeletion), traditional.known.listwiseDeletion);
+  assert.equal(localizeOpenSnaKnownPhrase(getOpenSnaCopy("en"), OPEN_SNA_KNOWN_PHRASES.uploadedWorkbook), "Uploaded workbook");
+  assert.equal(localizeOpenSnaKnownPhrase(getOpenSnaCopy("en"), OPEN_SNA_KNOWN_PHRASES.uploadedWorksheet), "Uploaded worksheet");
+  for (const locale of ["zh-hant", "zh-hans"] as const) {
+    const copy = getOpenSnaCopy(locale);
+    for (const phrase of [OPEN_SNA_KNOWN_PHRASES.uploadedWorkbook, OPEN_SNA_KNOWN_PHRASES.uploadedWorksheet] as const) {
+      const localized = localizeOpenSnaKnownPhrase(copy, phrase);
+      assert.match(localized, /\p{Script=Han}/u, `${locale} ${phrase}`);
+      assert.notEqual(localized, phrase, `${locale} ${phrase}`);
+    }
+    assert.notEqual(copy.known.uploadedWorksheet, getOpenSnaCopy("en").known.uploadedWorksheet);
+  }
+  assert.notEqual(getOpenSnaCopy("zh-hans").known.uploadedWorkbook, getOpenSnaCopy("zh-hant").known.uploadedWorkbook);
+  assert.notEqual(getOpenSnaCopy("zh-hans").known.uploadedWorksheet, getOpenSnaCopy("zh-hant").known.uploadedWorksheet);
   assert.equal(localizeOpenSnaKnownPhrase(traditional, "unrecognized engine diagnostic"), "unrecognized engine diagnostic");
   assert.equal(
     localizeOpenSnaKnownPhrase(traditional, "Runtime warning: estimator returned NA"),

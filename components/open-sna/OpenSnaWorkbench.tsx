@@ -244,12 +244,19 @@ function OverviewPanel({ result }: { result: OpenSnaResult }) {
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
           <h3 className="text-lg font-black text-[var(--ink)]">{overview.contractTitle}</h3>
-          <dl className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-3 text-sm">
-            <dt className="text-[var(--muted)]">{overview.worksheet}</dt><dd className="text-right font-bold text-[var(--ink)]">{localizeOpenSnaKnownPhrase(copy, result.source.sheet)}</dd>
-            <dt className="text-[var(--muted)]">{overview.originalRows}</dt><dd className="text-right font-bold text-[var(--ink)]">{count(result.source.originalRows)}</dd>
-            <dt className="text-[var(--muted)]">{overview.itemScale}</dt><dd className="text-right font-bold text-[var(--ink)]">{overview.itemScaleValue}</dd>
-            <dt className="text-[var(--muted)]">{overview.communities}</dt><dd className="max-w-[18rem] text-right font-bold text-[var(--ink)]">{communities.join(", ")}</dd>
-            <dt className="text-[var(--muted)]">{overview.missingDataRule}</dt><dd className="text-right font-bold text-[var(--ink)]">{localizeOpenSnaKnownPhrase(copy, result.settings.missingData)}</dd>
+          <dl className="mt-4 space-y-3 text-sm">
+            {[
+              [overview.worksheet, localizeOpenSnaKnownPhrase(copy, result.source.sheet)],
+              [overview.originalRows, count(result.source.originalRows)],
+              [overview.itemScale, overview.itemScaleValue],
+              [overview.communities, communities.join(", ")],
+              [overview.missingDataRule, localizeOpenSnaKnownPhrase(copy, result.settings.missingData)],
+            ].map(([label, value]) => (
+              <div key={label} className="grid grid-cols-[max-content_minmax(0,1fr)] items-baseline gap-x-4">
+                <dt className="whitespace-nowrap text-[var(--muted)]">{label}</dt>
+                <dd className="min-w-0 text-right font-bold text-[var(--ink)] [overflow-wrap:anywhere]">{value}</dd>
+              </div>
+            ))}
           </dl>
         </section>
         <section className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--page)] p-5 sm:p-6">
@@ -504,12 +511,19 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
     });
   }
 
+  function scrollPanelHeadingIntoView() {
+    window.requestAnimationFrame(() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById("open-sna-panel-heading")?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    });
+  }
+
   function selectPanel(id: OpenSnaTabId, options: { writeHash?: boolean; scroll?: boolean } = {}) {
     setActiveTab(id);
     if (typeof window !== "undefined" && options.writeHash !== false) {
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#analysis-${id}`);
     }
-    if (options.scroll) scrollToResults();
+    if (options.scroll) scrollPanelHeadingIntoView();
   }
 
   async function loadReference(options: { scroll?: boolean } = {}) {
@@ -646,7 +660,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
     else return;
     event.preventDefault();
     const next = panels[nextIndex];
-    selectPanel(next.id);
+    selectPanel(next.id, { scroll: true });
     document.getElementById(`open-sna-tab-${next.id}`)?.focus();
   }
 
@@ -659,7 +673,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
     <OpenSnaUiContext.Provider value={{ copy, locale, htmlLang }}>
     <section id="open-sna-workbench" lang={htmlLang} aria-label={copy.workbenchLabel} className="scroll-mt-24 grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start">
       <aside id="open-sna-setup" className="surface-card scroll-mt-24 h-fit overflow-hidden xl:sticky xl:top-24">
-        <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] bg-[var(--surface-soft)] p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] bg-[var(--surface-soft)] pb-4 pe-20 ps-4 pt-4 sm:pb-5 sm:pe-20 sm:ps-5 sm:pt-5 xl:pe-5">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--indigo)]">{copy.setup.eyebrow}</p>
             <h2 className="mt-1 text-xl font-black tracking-[-0.025em] text-[var(--ink)]">{copy.setup.title}</h2>
@@ -714,18 +728,18 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
           <div>
             <label htmlFor="open-sna-bootstrap" className="text-sm font-black text-[var(--ink)]">{copy.setup.stabilityPrecision}</label>
             <div className="relative mt-2">
-              <select id="open-sna-bootstrap" value={bootstraps} disabled={analysisDisabled} onChange={(event) => setBootstraps(event.target.value)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 pr-10 text-sm font-bold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45">
+              <select id="open-sna-bootstrap" value={bootstraps} disabled={analysisDisabled} onChange={(event) => setBootstraps(event.target.value)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] py-2 pl-3 pr-28 text-sm font-bold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45 xl:pr-10">
                 <option value="100">{copy.setup.bootstrap100}</option>
                 <option value="500">{copy.setup.bootstrap500}</option>
                 <option value="1000">{copy.setup.bootstrap1000}</option>
               </select>
-              <Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
+              <Icon name="chevron" className="pointer-events-none absolute right-20 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)] xl:right-3" />
             </div>
             <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{copy.setup.bootstrapTiming}</p>
           </div>
 
           <details className="group rounded-xl border border-[var(--line)] bg-[var(--page)]">
-            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 text-sm font-black text-[var(--ink)] marker:content-none">
+            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl pe-20 ps-4 text-sm font-black text-[var(--ink)] marker:content-none xl:pe-4">
               {copy.setup.methodSettings}
               <Icon name="chevron" className="h-4 w-4 text-[var(--muted)] transition-transform group-open:rotate-180" />
             </summary>
@@ -762,7 +776,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
           </div>
 
           <details className="group rounded-xl border border-[var(--line)] bg-[var(--page)] text-xs leading-5 text-[var(--muted)]">
-            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 font-black text-[var(--ink)] marker:content-none">{copy.setup.privacyTitle}<Icon name="chevron" className="h-4 w-4 transition-transform group-open:rotate-180" /></summary>
+            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl pe-20 ps-3 font-black text-[var(--ink)] marker:content-none xl:pe-3">{copy.setup.privacyTitle}<Icon name="chevron" className="h-4 w-4 transition-transform group-open:rotate-180" /></summary>
             <p className="border-t border-[var(--line)] p-3">{copy.setup.privacyBody}</p>
           </details>
         </div>
@@ -796,14 +810,14 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
             <div className="surface-card">
               <div id="open-sna-results-nav" className="sticky top-20 z-20 rounded-t-[2rem] border-b border-[var(--line)] bg-[var(--surface-glass)] p-2 backdrop-blur-xl">
                 <div className="flex items-center gap-2 sm:hidden">
-                  <button type="button" onClick={() => selectPanel(previousPanel.id)} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={fillOpenSna(copy.navigation.previousAnalysis, { label: previousPanel.label })}><Icon name="arrow" className="h-5 w-5 rotate-180" /></button>
-                  <label className="relative min-w-0 flex-1"><span className="sr-only">{copy.navigation.jump}</span><select value={activeTab} onChange={(event) => selectPanel(event.target.value as OpenSnaTabId)} className="focus-ring min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 pr-9 text-sm font-black text-[var(--ink)]">{panels.map((panel, index) => <option key={panel.id} value={panel.id}>{index + 1}. {panel.shortLabel}</option>)}</select><Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" /></label>
-                  <button type="button" onClick={() => selectPanel(nextPanel.id)} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={fillOpenSna(copy.navigation.nextAnalysis, { label: nextPanel.label })}><Icon name="arrow" className="h-5 w-5" /></button>
+                  <button type="button" onClick={() => selectPanel(previousPanel.id, { scroll: true })} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={fillOpenSna(copy.navigation.previousAnalysis, { label: previousPanel.label })}><Icon name="arrow" className="h-5 w-5 rotate-180" /></button>
+                  <label className="relative min-w-0 flex-1"><span className="sr-only">{copy.navigation.jump}</span><select value={activeTab} onChange={(event) => selectPanel(event.target.value as OpenSnaTabId, { scroll: true })} className="focus-ring min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 pr-9 text-sm font-black text-[var(--ink)]">{panels.map((panel, index) => <option key={panel.id} value={panel.id}>{index + 1}. {panel.shortLabel}</option>)}</select><Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" /></label>
+                  <button type="button" onClick={() => selectPanel(nextPanel.id, { scroll: true })} className="focus-ring grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--indigo)]" aria-label={fillOpenSna(copy.navigation.nextAnalysis, { label: nextPanel.label })}><Icon name="arrow" className="h-5 w-5" /></button>
                 </div>
 
                 <div role="tablist" aria-label={copy.navigation.tablist} aria-orientation="horizontal" className="hidden grid-cols-2 gap-1 sm:grid lg:grid-cols-4">
                   {panels.map((panel, index) => (
-                    <button key={panel.id} id={`open-sna-tab-${panel.id}`} type="button" role="tab" aria-label={panel.label} aria-selected={activeTab === panel.id} aria-controls={`open-sna-panel-${panel.id}`} tabIndex={activeTab === panel.id ? 0 : -1} onClick={() => selectPanel(panel.id)} onKeyDown={(event) => handleTabKeyboard(event, index)} className={cn("focus-ring group flex min-h-14 cursor-pointer items-center gap-2 rounded-xl px-3 text-left text-sm font-black transition duration-200", activeTab === panel.id ? "bg-[#403A8F] text-[#F8FAFC] shadow-[0_8px_20px_rgba(64,58,143,0.2)]" : "text-[var(--muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--ink)]")}>
+                    <button key={panel.id} id={`open-sna-tab-${panel.id}`} type="button" role="tab" aria-label={panel.label} aria-selected={activeTab === panel.id} aria-controls={`open-sna-panel-${panel.id}`} tabIndex={activeTab === panel.id ? 0 : -1} onClick={() => selectPanel(panel.id, { scroll: true })} onKeyDown={(event) => handleTabKeyboard(event, index)} className={cn("focus-ring group flex min-h-14 cursor-pointer items-center gap-2 rounded-xl px-3 text-left text-sm font-black transition duration-200", activeTab === panel.id ? "bg-[#403A8F] text-[#F8FAFC] shadow-[0_8px_20px_rgba(64,58,143,0.2)]" : "text-[var(--muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--ink)]")}>
                       <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[0.68rem] tabular-nums", activeTab === panel.id ? "bg-white/15 text-white" : "bg-[var(--page)] text-[var(--indigo)] group-hover:bg-[var(--surface)]")}>{String(index + 1).padStart(2, "0")}</span>
                       <span className="leading-tight">{panel.shortLabel}</span>
                     </button>
@@ -813,7 +827,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
               </div>
 
               <div className="p-4 sm:p-6 lg:p-7">
-                <div className="mb-6 flex flex-col gap-2 border-b border-[var(--line)] pb-5 sm:flex-row sm:items-end sm:justify-between">
+                <div id="open-sna-panel-heading" className="mb-6 flex scroll-mt-48 flex-col gap-2 border-b border-[var(--line)] pb-5 sm:scroll-mt-[24rem] sm:flex-row sm:items-end sm:justify-between lg:scroll-mt-64">
                   <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--indigo)]">{fillOpenSna(copy.navigation.progress, { current: activeIndex + 1, total: panels.length })}</p><h2 className="mt-2 text-2xl font-black tracking-[-0.035em] text-[var(--ink)] sm:text-3xl">{activeHeading.label}</h2></div>
                   <p className="max-w-sm text-sm leading-6 text-[var(--muted)] sm:text-right">{activeHeading.summary}</p>
                 </div>

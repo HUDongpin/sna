@@ -279,6 +279,8 @@ export type OpenSnaCopy = {
     emptyNetworkStability: string;
     referenceFileName: string;
     dataWorksheet: string;
+    uploadedWorkbook: string;
+    uploadedWorksheet: string;
     cautionEdges: string;
     cautionStability: string;
     cautionSubgroup: string;
@@ -320,6 +322,8 @@ export const OPEN_SNA_KNOWN_PHRASES = {
   emptyNetworkStability: "The estimated network contains no nonzero edges; case-dropping centrality stability is not available.",
   referenceFileName: "Programming Resilience aggregate reference",
   dataWorksheet: "Data worksheet",
+  uploadedWorkbook: "Uploaded workbook",
+  uploadedWorksheet: "Uploaded worksheet",
   cautionEdges: "Edges are regularized partial correlations and do not establish causal direction.",
   cautionStability: "Centrality and bridge rankings should be interpreted only when their stability is adequate.",
   cautionSubgroup: "Subgroup permutation tests depend on the selected model, grouping variable, and resampling count.",
@@ -641,6 +645,8 @@ const en: OpenSnaCopy = {
     emptyNetworkStability: OPEN_SNA_KNOWN_PHRASES.emptyNetworkStability,
     referenceFileName: OPEN_SNA_KNOWN_PHRASES.referenceFileName,
     dataWorksheet: OPEN_SNA_KNOWN_PHRASES.dataWorksheet,
+    uploadedWorkbook: OPEN_SNA_KNOWN_PHRASES.uploadedWorkbook,
+    uploadedWorksheet: OPEN_SNA_KNOWN_PHRASES.uploadedWorksheet,
     cautionEdges: OPEN_SNA_KNOWN_PHRASES.cautionEdges,
     cautionStability: OPEN_SNA_KNOWN_PHRASES.cautionStability,
     cautionSubgroup: OPEN_SNA_KNOWN_PHRASES.cautionSubgroup,
@@ -976,6 +982,8 @@ const zhHant: OpenSnaCopy = {
     emptyNetworkStability: "估計網絡沒有非零連邊；個案刪除中心性的穩定性未能提供。",
     referenceFileName: "Programming Resilience 匯總參照",
     dataWorksheet: "數據工作表",
+    uploadedWorkbook: "已上傳活頁簿",
+    uploadedWorksheet: "已上傳工作表",
     cautionEdges: "連邊是正則化偏相關，並不確立因果方向。",
     cautionStability: "中心性與橋接排序只應在穩定性充足時解讀。",
     cautionSubgroup: "子群組置換檢驗取決於所選模型、分組變項與再抽樣次數。",
@@ -1311,6 +1319,8 @@ const zhHans: OpenSnaCopy = {
     emptyNetworkStability: "估计网络没有非零连边；个案删除中心性的稳定性未能提供。",
     referenceFileName: "Programming Resilience 汇总参照",
     dataWorksheet: "数据工作表",
+    uploadedWorkbook: "已上传工作簿",
+    uploadedWorksheet: "已上传工作表",
     cautionEdges: "连边是正则化偏相关，并不确立因果方向。",
     cautionStability: "中心性与桥接排序只应在稳定性充足时解读。",
     cautionSubgroup: "子群组置换检验取决于所选模型、分组变量与再抽样次数。",
