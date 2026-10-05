@@ -1,3 +1,4 @@
+// Minimal XLSX writer for the synthetic Open SNA sample. The public workbook is produced by scripts/generate-open-sna-sample.ts.
 import { deflateRawSync } from "node:zlib";
 
 function crc32(bytes: Uint8Array) {
@@ -110,6 +111,7 @@ export function buildMinimalXlsx(
   headers: string[],
   rows: Array<Array<string | number>>,
   sheetName = OPEN_SNA_SAMPLE_SHEET_NAME,
+  options?: { note?: string },
 ) {
   const headerCells = headers.map((header, index) => cellXml(index + 1, 1, header)).join("");
   const dataRows = rows.map((row, rowIndex) => {
@@ -118,23 +120,28 @@ export function buildMinimalXlsx(
   }).join("");
   const lastColumn = columnLetter(headers.length);
   const lastRow = rows.length + 1;
+  const note = options?.note;
   const sheet = `<?xml version="1.0" encoding="UTF-8"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <dimension ref="A1:${lastColumn}${lastRow}"/>
-  <sheetData><row r="1">${headerCells}</row>${dataRows}</sheetData>
+  <sheetData><row r="1">${headerCells}</row>${dataRows}</sheetData>${note ? `<legacyDrawing r:id="rIdNote"/>` : ""}
 </worksheet>`;
 
-  return zipUtf8Files({
+  const files: Record<string, string> = {
     "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>${note ? `
+  <Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>` : ""}
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${note ? `
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/xl/comments1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>` : ""}
 </Types>`,
     "_rels/.rels": `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>${note ? `
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>` : ""}
 </Relationships>`,
     "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
@@ -145,85 +152,39 @@ export function buildMinimalXlsx(
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
 </Relationships>`,
     "xl/worksheets/sheet1.xml": sheet,
-  });
-}
-
-export const OPEN_SNA_SAMPLE_SEED = 2026;
-export const OPEN_SNA_SAMPLE_ROW_COUNT = 50;
-export const OPEN_SNA_SAMPLE_GROUP_SIZE = 25;
-
-function createSampleRng(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
 
-function nextGaussian(rng: () => number) {
-  const u = Math.max(rng(), 1e-12);
-  const v = rng();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
-function latentToLikert(value: number) {
-  if (value < -1.15) return 1;
-  if (value < -0.35) return 2;
-  if (value < 0.35) return 3;
-  if (value < 1.15) return 4;
-  return 5;
-}
-
-const SAMPLE_ITEM_LOADINGS = [
-  0.86, 0.82, 0.88, 0.8,
-  0.84, 0.89, 0.81, 0.85,
-  0.83, 0.87, 0.82, 0.9,
-  0.81, 0.85, 0.86, 0.83,
-] as const;
-
-const SAMPLE_GENDER_SHIFTS = [
-  0.18, 0.14, 0.16, 0.1,
-  -0.12, -0.16, -0.1, -0.08,
-  0.08, 0.12, 0.06, 0.1,
-  -0.06, -0.1, -0.08, -0.09,
-] as const;
-
-function columnSignature(rows: Array<Array<string | number>>, column: number) {
-  return rows.map((row) => row[column]).join("\u0001");
-}
-
-export function buildProgrammingResilienceSampleRows() {
-  const rng = createSampleRng(OPEN_SNA_SAMPLE_SEED);
-  const itemCount = OPEN_SNA_SAMPLE_ITEM_HEADERS.length;
-  const rows = Array.from({ length: OPEN_SNA_SAMPLE_ROW_COUNT }, (_, row) => {
-    const gender = row < OPEN_SNA_SAMPLE_GROUP_SIZE ? "F" : "M";
-    const general = nextGaussian(rng);
-    const constructs = [
-      0.65 * general + 0.6 * nextGaussian(rng),
-      0.65 * general + 0.6 * nextGaussian(rng),
-      0.65 * general + 0.6 * nextGaussian(rng),
-      0.65 * general + 0.6 * nextGaussian(rng),
-    ];
-    const items = SAMPLE_ITEM_LOADINGS.map((loading, column) => {
-      const uniqueness = Math.sqrt(Math.max(0.08, 1 - loading * loading));
-      const shift = SAMPLE_GENDER_SHIFTS[column];
-      const construct = constructs[Math.floor(column / 4)];
-      const genderShift = gender === "F" ? shift : -shift;
-      return latentToLikert(loading * construct + uniqueness * nextGaussian(rng) + genderShift);
-    });
-    return [...items, gender];
-  });
-  const signatures = new Set(Array.from({ length: itemCount }, (_, column) => columnSignature(rows, column)));
-  if (signatures.size !== itemCount) {
-    throw new Error("Open SNA sample items must remain unique after Likert discretization.");
+  if (note) {
+    const escapedNote = xmlEscape(note);
+    files["docProps/core.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>Open SNA synthetic sample</dc:title>
+  <dc:subject>Synthetic data</dc:subject>
+  <dc:description>${escapedNote}</dc:description>
+  <dc:creator>Open SNA sample generator</dc:creator>
+</cp:coreProperties>`;
+    files["xl/comments1.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <authors><author>Open SNA sample generator</author></authors>
+  <commentList>
+    <comment ref="A1" authorId="0"><text><t xml:space="preserve">${escapedNote}</t></text></comment>
+  </commentList>
+</comments>`;
+    files["xl/drawings/vmlDrawing1.vml"] = `<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+  <o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout>
+  <v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>
+  <v:shape id="_x0000_s1025" type="#_x0000_t202" style="position:absolute;margin-left:80pt;margin-top:10pt;width:220pt;height:70pt;z-index:1;visibility:hidden" fillcolor="#ffffe1" o:insetmode="auto">
+    <v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/>
+    <v:textbox style="mso-direction-alt:auto"><div style="text-align:left"></div></v:textbox>
+    <x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>1, 15, 0, 10, 4, 15, 5, 4</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>0</x:Row><x:Column>0</x:Column></x:ClientData>
+  </v:shape>
+</xml>`;
+    files["xl/worksheets/_rels/sheet1.xml.rels"] = `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdNote" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing" Target="../drawings/vmlDrawing1.vml"/>
+  <Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments1.xml"/>
+</Relationships>`;
   }
-  return rows;
-}
 
-export function buildProgrammingResilienceSampleXlsx() {
-  const headers = [...OPEN_SNA_SAMPLE_ITEM_HEADERS, "Gender"];
-  return buildMinimalXlsx(headers, buildProgrammingResilienceSampleRows(), OPEN_SNA_SAMPLE_SHEET_NAME);
+  return zipUtf8Files(files);
 }
