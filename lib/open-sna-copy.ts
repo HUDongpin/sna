@@ -52,6 +52,7 @@ export type OpenSnaCopy = {
     bootstrap100: string;
     bootstrap500: string;
     bootstrap1000: string;
+    bootstrapTiming: string;
     methodSettings: string;
     profile: string;
     profileValue: string;
@@ -392,9 +393,10 @@ const en: OpenSnaCopy = {
     help: "Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
     sampleDownload: "Download a synthetic sample workbook",
     stabilityPrecision: "2. Stability precision",
-    bootstrap100: "100 - development check",
-    bootstrap500: "500 - extended check",
-    bootstrap1000: "1,000 - recommended result",
+    bootstrap100: "100 ≈ 45 s for the sample",
+    bootstrap500: "500 ≈ 1.5 min for the sample",
+    bootstrap1000: "1,000 ≈ 2+ min for the sample",
+    bootstrapTiming: "Approximate for the sample workbook. Larger workbooks take longer.",
     methodSettings: "Method settings",
     profile: "Profile",
     profileValue: "NPN EBICglasso v1",
@@ -726,9 +728,10 @@ const zhHant: OpenSnaCopy = {
     help: "請使用單一工作表，包含 6 至 40 個整數 Likert 題項（1 至 5）、重複的構念前綴，以及一個有效的兩水平 Gender 或後設資料欄；在整列刪除（listwise deletion）後，每個組別至少要有 20 列納入分析。",
     sampleDownload: "下載合成樣本活頁簿",
     stabilityPrecision: "2. 穩定性精度",
-    bootstrap100: "100 － 開發檢查",
-    bootstrap500: "500 － 延伸檢查",
-    bootstrap1000: "1,000 － 建議結果",
+    bootstrap100: "100 ≈ 樣本約 45 秒",
+    bootstrap500: "500 ≈ 樣本約 1.5 分鐘",
+    bootstrap1000: "1,000 ≈ 樣本約 2 分鐘以上",
+    bootstrapTiming: "以樣本活頁簿估計。較大的活頁簿需時更長。",
     methodSettings: "方法設定",
     profile: "設定檔",
     profileValue: "NPN EBICglasso v1",
@@ -1060,9 +1063,10 @@ const zhHans: OpenSnaCopy = {
     help: "请使用单个工作表，包含 6 至 40 个整数 Likert 题项（1 至 5）、重复的构念前缀，以及一个有效的两水平 Gender 或元数据列；在整行删除（listwise deletion）后，每个组别至少要有 20 行纳入分析。",
     sampleDownload: "下载合成样本工作簿",
     stabilityPrecision: "2. 稳定性精度",
-    bootstrap100: "100 － 开发检查",
-    bootstrap500: "500 － 扩展检查",
-    bootstrap1000: "1,000 － 建议结果",
+    bootstrap100: "100 ≈ 样本约 45 秒",
+    bootstrap500: "500 ≈ 样本约 1.5 分钟",
+    bootstrap1000: "1,000 ≈ 样本约 2 分钟以上",
+    bootstrapTiming: "以样本工作簿估计。较大的工作簿需要更长时间。",
     methodSettings: "方法设置",
     profile: "配置",
     profileValue: "NPN EBICglasso v1",

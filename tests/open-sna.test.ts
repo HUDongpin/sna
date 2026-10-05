@@ -58,6 +58,17 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.match(english.setup.help, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
   assert.match(workbench, /copy\.setup\.help/);
   assert.equal(english.setup.sampleDownload, "Download a synthetic sample workbook");
+  assert.match(workbench, /useState\("500"\)/);
+  assert.match(workbench, /<option value="100">/);
+  assert.match(workbench, /<option value="500">/);
+  assert.match(workbench, /<option value="1000">/);
+  assert.equal(english.setup.bootstrap100, "100 ≈ 45 s for the sample");
+  assert.equal(english.setup.bootstrap500, "500 ≈ 1.5 min for the sample");
+  assert.equal(english.setup.bootstrap1000, "1,000 ≈ 2+ min for the sample");
+  assert.match(english.setup.bootstrapTiming, /larger workbooks take longer/i);
+  assert.match(getOpenSnaCopy("zh-hant").setup.bootstrap500, /1\.5/);
+  assert.match(getOpenSnaCopy("zh-hans").setup.bootstrap1000, /2/);
+  assert.notEqual(getOpenSnaCopy("zh-hant").setup.bootstrapTiming, getOpenSnaCopy("zh-hans").setup.bootstrapTiming);
   assert.ok(existsSync(fromRoot("public/open-sna/programming-resilience-sample.xlsx")));
   assert.doesNotMatch(workbench, /No binary subgroup column was detected|NCT unavailable/);
 });

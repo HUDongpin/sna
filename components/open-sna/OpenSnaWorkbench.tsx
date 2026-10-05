@@ -489,7 +489,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
   const [activeTab, setActiveTab] = useState<OpenSnaTabId>("overview");
   const [result, setResult] = useState<OpenSnaResult | null>(null);
   const [workbook, setWorkbook] = useState<File | null>(null);
-  const [bootstraps, setBootstraps] = useState("1000");
+  const [bootstraps, setBootstraps] = useState("500");
   const [busySource, setBusySource] = useState<"reference" | "workbook" | null>(null);
   const [message, setMessage] = useState(copy.status.loadingReference);
   const [error, setError] = useState<string | null>(null);
@@ -721,6 +721,7 @@ export default function OpenSnaWorkbench({ copy, locale, htmlLang, analysisDisab
               </select>
               <Icon name="chevron" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
             </div>
+            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{copy.setup.bootstrapTiming}</p>
           </div>
 
           <details className="group rounded-xl border border-[var(--line)] bg-[var(--page)]">
