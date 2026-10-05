@@ -242,6 +242,20 @@ label[for]:active {
   stroke-width: 6px;
 }
 
+.open-sna-cjk-headline {
+  font-feature-settings: "halt" 1;
+}
+
+@media (max-width: 639px) {
+  .open-sna-node-label {
+    fill: var(--ink);
+    font-size: 32px;
+    paint-order: stroke fill;
+    stroke: var(--surface);
+    stroke-width: 5px;
+  }
+}
+
 summary::-webkit-details-marker {
   display: none;
 }

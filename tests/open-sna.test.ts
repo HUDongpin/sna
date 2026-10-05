@@ -191,6 +191,12 @@ test("the Open SNA interface provides accessible interactive exploration", () =>
   assert.equal(getOpenSnaCopy("en").graph.inspector, "Node inspector");
   assert.match(graph, /graph\.zoomIn/);
   assert.match(graph, /graph\.inspector/);
+  assert.match(graph, /open-sna-node-label/);
+  assert.match(workbench, /id="open-sna-panel-heading"/);
+  assert.match(workbench, /scrollPanelHeadingIntoView/);
+  assert.match(workbench, /whitespace-nowrap/);
+  assert.match(read("app/[locale]/open-sna/page.tsx"), /open-sna-cjk-headline/);
+  assert.match(read("app/globals.css"), /font-feature-settings:\s*"halt"\s*1/);
 });
 
 test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () => {

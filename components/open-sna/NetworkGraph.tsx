@@ -175,11 +175,11 @@ export default function NetworkGraph({ result, copy }: { result: OpenSnaResult; 
           <label className="mt-4 block lg:hidden">
             <span className="text-xs font-black uppercase tracking-[0.13em] text-[var(--muted)]">{graph.inspectNode}</span>
             <span className="relative mt-2 block">
-              <select value={selectedNodeId ?? ""} onChange={(event) => setSelectedNodeId(event.target.value || null)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] px-3 pr-10 text-sm font-black text-[var(--ink)]">
+              <select value={selectedNodeId ?? ""} onChange={(event) => setSelectedNodeId(event.target.value || null)} className="focus-ring min-h-12 w-full cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-[var(--page)] py-2 pl-3 pr-28 text-sm font-black text-[var(--ink)]">
                 <option value="">{graph.chooseNode}</option>
                 {result.nodes.filter((node) => activeCommunities.has(node.community)).map((node) => <option key={node.id} value={node.id}>{node.label} - {node.community}</option>)}
               </select>
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 10 4 4 4-4" /></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="pointer-events-none absolute right-20 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 10 4 4 4-4" /></svg>
             </span>
           </label>
         </div>
@@ -218,7 +218,7 @@ export default function NetworkGraph({ result, copy }: { result: OpenSnaResult; 
                       <circle r={radius} fill={communityStyle.fill} stroke="var(--surface)" strokeWidth="2">
                         <title>{fillOpenSna(graph.nodeTitle, { id: node.id, community: node.community, strength: nodeMetric(node.strength, copy.common.notAvailable), predictability: nodeMetric(node.predictability, copy.common.notAvailable) })}</title>
                       </circle>
-                      <text y="4" textAnchor="middle" fill={communityStyle.label} fontSize={denseLayout ? "10" : "12"} fontWeight="800" pointerEvents="none">{node.label}</text>
+                      <text className="open-sna-node-label" y="4" textAnchor="middle" fill={communityStyle.label} fontSize={denseLayout ? "10" : "12"} fontWeight="800" pointerEvents="none">{node.label}</text>
                     </g>
                   );
                 })}
