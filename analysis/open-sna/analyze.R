@@ -103,10 +103,10 @@ parse_cli_args <- function(args) {
 validated_cli_options <- function(args) {
   options <- parse_cli_args(args)
   mode <- if (is.null(options$mode)) "analyze" else options$mode
-  if (!identical(mode, "analyze") && !identical(mode, "validate")) open_sna_cli_abort()
-  common_options <- c("input", "output", "mode", "sheet", "gender-1-label", "gender-2-label")
+  if (!(mode %in% c("analyze", "validate", "inspect"))) open_sna_cli_abort()
+  common_options <- c("input", "output", "mode", "sheet", "gender-1-label", "gender-2-label", "selection")
   analysis_options <- c("bootstraps", "permutations", "seed", "data-source")
-  allowed_options <- if (identical(mode, "validate")) common_options else c(common_options, analysis_options)
+  allowed_options <- if (identical(mode, "inspect")) c("input", "output", "mode") else if (identical(mode, "validate")) common_options else c(common_options, analysis_options)
   if (length(setdiff(names(options), allowed_options))) open_sna_cli_abort()
   if (is.null(options$input) || is.null(options$output)) open_sna_cli_abort()
   options$mode <- mode
@@ -206,7 +206,48 @@ validate_gender_mapping <- function(gender_mapping) {
   gender_mapping
 }
 
-select_group_column <- function(metadata, analyzed_rows) {
+safe_source_header <- function(value) {
+  is.character(value) && length(value) == 1L && !is.na(value) &&
+    nchar(value, type = "chars") >= 1L && nchar(value, type = "chars") <= 120L &&
+    identical(value, trimws(value, whitespace = "[\\h\\v]")) &&
+    !grepl("[\\x{0000}-\\x{001f}\\x{007f}-\\x{009f}]", value, perl = TRUE)
+}
+
+safe_analysis_id <- function(value) {
+  is.character(value) && length(value) == 1L && !is.na(value) && grepl("^[A-Za-z][A-Za-z0-9_-]{0,39}$", value)
+}
+
+validate_selection <- function(selection, column_names = NULL) {
+  exact_keys <- function(value, keys) is.list(value) && !is.data.frame(value) && length(value) == length(keys) &&
+    !is.null(names(value)) && !anyDuplicated(names(value)) && setequal(names(value), keys)
+  invalid <- function() stop("The item selection must contain 6 to 40 unique mapped items in 2 to 8 communities of 3 to 12 items, safe analysis IDs, Boolean reverse flags, and a separate grouping column.", call. = FALSE)
+  if (!exact_keys(selection, c("items", "groupColumn")) || !safe_source_header(selection$groupColumn)) invalid()
+  items <- selection$items
+  if (!is.list(items) || is.data.frame(items) || !is.null(names(items)) || length(items) < 6L || length(items) > 40L) invalid()
+  for (item in items) {
+    if (!exact_keys(item, c("column", "id", "community", "reverse")) || !safe_source_header(item$column) ||
+        !safe_analysis_id(item$id) || !safe_analysis_id(item$community) ||
+        !is.logical(item$reverse) || length(item$reverse) != 1L || is.na(item$reverse)) invalid()
+  }
+  columns <- vapply(items, `[[`, character(1), "column")
+  ids <- vapply(items, `[[`, character(1), "id")
+  communities <- table(vapply(items, `[[`, character(1), "community"))
+  if (anyDuplicated(columns) || anyDuplicated(ids) || selection$groupColumn %in% columns ||
+      length(communities) < 2L || length(communities) > 8L || any(communities < 3L | communities > 12L)) invalid()
+  if (!is.null(column_names) && !all(c(columns, selection$groupColumn) %in% column_names)) {
+    stop("The selection refers to columns that are absent from this workbook.", call. = FALSE)
+  }
+  selection
+}
+
+read_selection <- function(path) {
+  tryCatch({
+    if (!file.exists(path) || file.info(path)$size > 65536) stop("invalid")
+    validate_selection(jsonlite::read_json(path, simplifyVector = FALSE))
+  }, error = function(error) open_sna_abort("WORKBOOK_INVALID", "The selection JSON is invalid."))
+}
+
+select_group_column <- function(metadata, analyzed_rows, selected_column = NULL) {
   if (!is.data.frame(metadata) || length(analyzed_rows) != nrow(metadata)) {
     stop("Metadata and analyzed-row mask must have matching rows.", call. = FALSE)
   }
@@ -215,7 +256,7 @@ select_group_column <- function(metadata, analyzed_rows) {
 
   safe_column <- function(column) is.character(column) && length(column) == 1L && nzchar(column) && grepl("^[A-Za-z][A-Za-z0-9 _-]{0,39}$", column)
   evaluate <- function(column) {
-    if (!safe_column(column) || !(column %in% names(metadata))) return(NULL)
+    if (!(if (is.null(selected_column)) safe_column(column) else safe_source_header(column)) || !(column %in% names(metadata))) return(NULL)
     values <- trimws(as.character(metadata[[column]]))[analyzed_rows]
     if (any(is.na(values) | !nzchar(values))) return(NULL)
     levels <- sort(unique(values))
@@ -228,6 +269,12 @@ select_group_column <- function(metadata, analyzed_rows) {
       levels = levels,
       counts = data.frame(group = levels, n = as.integer(counts), stringsAsFactors = FALSE)
     )
+  }
+
+  if (!is.null(selected_column)) {
+    selected <- evaluate(selected_column)
+    if (is.null(selected)) stop("The selected grouping column must contain exactly two safe labels and at least 20 complete rows per group.", call. = FALSE)
+    return(selected)
   }
 
   gender_matches <- names(metadata)[tolower(names(metadata)) == "gender"]
@@ -244,10 +291,7 @@ select_group_column <- function(metadata, analyzed_rows) {
   stop("Open SNA requires a safe binary metadata column with at least 20 analyzed rows in each group.", call. = FALSE)
 }
 
-read_and_validate_workbook <- function(
-    input_path,
-    sheet = NULL,
-    gender_mapping = NULL) {
+read_workbook <- function(input_path, sheet = NULL) {
   if (!file.exists(input_path)) {
     stop("The uploaded workbook could not be opened.", call. = FALSE)
   }
@@ -274,11 +318,60 @@ read_and_validate_workbook <- function(
   if (nrow(raw) > 5000L || ncol(raw) > 64L) {
     stop("Open SNA v1 accepts at most 5,000 rows and 64 columns.", call. = FALSE)
   }
-  if (any(!nzchar(names(raw))) || anyDuplicated(names(raw))) {
-    stop("Every workbook column must have a unique, non-empty header.", call. = FALSE)
+  if (any(!vapply(names(raw), safe_source_header, logical(1))) || anyDuplicated(names(raw))) {
+    stop("Every workbook column must have a unique, trimmed header of 1 to 120 characters without control characters.", call. = FALSE)
   }
 
-  item_columns <- discover_item_columns(names(raw))
+  list(raw = raw, sheet = selected_sheet)
+}
+
+inspect_workbook <- function(input_path, output_path, availability = package_available) {
+  assert_packages(validation_required_packages, availability = availability)
+  workbook <- tryCatch(read_workbook(input_path), error = function(error) {
+    open_sna_abort("WORKBOOK_INVALID", conditionMessage(error))
+  })
+  raw <- workbook$raw
+  columns <- lapply(names(raw), function(column) {
+    values <- raw[[column]]
+    missing <- is.na(values) | trimws(as.character(values)) == ""
+    present <- values[!missing]
+    numeric <- suppressWarnings(as.numeric(present))
+    eligible_item <- length(numeric) > 0L && all(is.finite(numeric) & numeric >= 1 & numeric <= 5 & numeric == round(numeric)) && length(unique(numeric)) > 1L
+    groups <- trimws(as.character(present))
+    levels <- sort(unique(groups))
+    eligible_group <- length(levels) == 2L && all(grepl("^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$", levels)) && all(table(groups) >= 20L)
+    suggested <- if (eligible_item && grepl("^[A-Za-z]{2,12}[1-9][0-9]?$", column)) community_from_item(column) else NULL
+    list(name = column, missingCount = sum(missing), eligibleItem = eligible_item, eligibleGroup = eligible_group, suggestedCommunity = suggested)
+  })
+  # Only propose the legacy mapping when the complete legacy validation succeeds.
+  # Inspection itself remains usable when those naming conventions do not apply.
+  suggested <- tryCatch({
+    prepared <- read_and_validate_workbook(input_path)
+    validate_selection(list(
+      items = lapply(prepared$item_columns, function(item) list(column = item, id = item, community = unname(prepared$communities[[item]]), reverse = FALSE)),
+      groupColumn = prepared$group_column
+    ))
+  }, error = function(error) NULL)
+  result <- list(
+    schemaVersion = "1.0",
+    inputFingerprint = paste0("sha256:", digest::digest(file = input_path, algo = "sha256")),
+    originalRows = nrow(raw),
+    columns = columns,
+    suggestedSelection = suggested
+  )
+  dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(result, output_path, auto_unbox = TRUE, dataframe = "rows", pretty = TRUE, null = "null", na = "null")
+  invisible(result)
+}
+
+read_and_validate_workbook <- function(input_path, sheet = NULL, gender_mapping = NULL, selection = NULL) {
+  workbook <- read_workbook(input_path, sheet)
+  raw <- workbook$raw
+  selected_sheet <- workbook$sheet
+  if (!is.null(selection)) selection <- validate_selection(selection, names(raw))
+  item_columns <- if (is.null(selection)) discover_item_columns(names(raw)) else vapply(selection$items, `[[`, character(1), "column")
+  item_ids <- if (is.null(selection)) item_columns else vapply(selection$items, `[[`, character(1), "id")
+  communities <- if (is.null(selection)) community_from_item(item_ids) else vapply(selection$items, `[[`, character(1), "community")
 
   numeric_items <- raw[, item_columns, drop = FALSE]
   conversion_failures <- vapply(seq_along(numeric_items), function(index) {
@@ -308,6 +401,12 @@ read_and_validate_workbook <- function(
     )
   }
 
+  if (!is.null(selection)) {
+    for (index in seq_along(selection$items)) {
+      if (selection$items[[index]]$reverse) numeric_items[[index]] <- 6 - numeric_items[[index]]
+    }
+  }
+  names(numeric_items) <- item_ids
   complete <- stats::complete.cases(numeric_items)
   analyzed <- numeric_items[complete, , drop = FALSE]
   minimum_rows <- max(30L, ncol(analyzed) + 5L)
@@ -336,7 +435,7 @@ read_and_validate_workbook <- function(
   }
 
   metadata <- raw[, setdiff(names(raw), item_columns), drop = FALSE]
-  group_selection <- select_group_column(metadata, complete)
+  group_selection <- select_group_column(metadata, complete, selected_column = if (is.null(selection)) NULL else selection$groupColumn)
   group_column <- group_selection$column
   group_values <- group_selection$values
   gender_mapping <- validate_gender_mapping(gender_mapping)
@@ -361,8 +460,9 @@ read_and_validate_workbook <- function(
     raw = raw,
     items = analyzed,
     complete = complete,
-    item_columns = item_columns,
-    communities = stats::setNames(community_from_item(item_columns), item_columns),
+    item_columns = item_ids,
+    selection = selection,
+    communities = stats::setNames(communities, item_ids),
     group_column = group_column,
     group_values = group_values,
     group_levels = group_levels,
@@ -728,7 +828,8 @@ subgroup_comparison <- function(prepared, gamma, permutations, seed) {
     globalStrengthPValue = round_metric(nct_result$glstrinv.pval),
     networkStructureDifference = round_metric(nct_result$nwinv.real),
     networkStructurePValue = round_metric(nct_result$nwinv.pval),
-    strongestEdgeDifferences = utils::head(edge_table, 8L)
+    strongestEdgeDifferences = utils::head(edge_table, 8L),
+    edgeDifferences = edge_table
   )
 }
 
@@ -848,8 +949,12 @@ stability_analysis <- function(items, communities, gamma, bootstraps, seed, weig
 top_node <- function(nodes, metric) {
   values <- nodes[[metric]]
   valid <- which(is.finite(values))
-  if (!length(valid)) return(NULL)
-  index <- valid[[which.max(values[valid])]]
+  if (!length(valid) || length(valid) != length(values)) return(NULL)
+  maximum <- max(values[valid])
+  # Serialized metrics use six decimal places: ties at that precision are ties.
+  winners <- valid[abs(values[valid] - maximum) <= 1e-6]
+  if (maximum <= 0 || length(winners) != 1L) return(NULL)
+  index <- winners[[1]]
   list(node = nodes$id[[index]], value = nodes[[metric]][[index]])
 }
 
@@ -857,6 +962,7 @@ build_interpretation <- function(overview, nodes, comparison, stability, runtime
   strength <- top_node(nodes, "strength")
   bridge_strength <- top_node(nodes, "bridgeStrength")
   predictability <- top_node(nodes, "predictability")
+  strength_cs <- stability$metrics$coefficient[stability$metrics$id == "strength"][1]
   bridge_cs <- stability$metrics$coefficient[
     stability$metrics$id == "bridgeStrength"
   ][1]
@@ -874,17 +980,23 @@ build_interpretation <- function(overview, nodes, comparison, stability, runtime
     ),
     list(
       id = "central-node",
-      title = "Highest node strength",
-      text = paste0(
+      title = "Node strength",
+      text = if (is.na(strength_cs) || strength_cs < 0.25) {
+        "Node-strength rankings should not be emphasized because stability is below the minimum interpretation threshold or unavailable."
+      } else if (is.null(strength)) {
+        "No single highest-strength node is identified: the maximum is tied, all values are zero, or estimates are unavailable."
+      } else paste0(
         strength$node, " has the highest strength in this estimated network (",
-        format(round(strength$value, 3), nsmall = 3), ")."
+        format(round(strength$value, 3), nsmall = 3), "); stability permits cautious interpretation."
       ),
-      evidence = "Centrality Analysis: strength"
+      evidence = "Centrality Analysis and Stability Analysis: strength"
     ),
     list(
       id = "predictability",
-      title = "Highest predictability",
-      text = paste0(
+      title = "Node predictability",
+      text = if (is.null(predictability)) {
+        "No single highest-predictability node is identified: the maximum is tied, all R-squared values are zero, or estimates are unavailable."
+      } else paste0(
         predictability$node, " has the highest node predictability R-squared (",
         format(round(predictability$value, 3), nsmall = 3), ")."
       ),
@@ -892,7 +1004,7 @@ build_interpretation <- function(overview, nodes, comparison, stability, runtime
     )
   )
 
-  if (!is.na(bridge_cs) && bridge_cs >= 0.25) {
+  if (!is.na(bridge_cs) && bridge_cs >= 0.25 && !is.null(bridge_strength)) {
     insights[[length(insights) + 1L]] <- list(
       id = "bridge-node",
       title = "Bridge node",
@@ -906,7 +1018,7 @@ build_interpretation <- function(overview, nodes, comparison, stability, runtime
     insights[[length(insights) + 1L]] <- list(
       id = "bridge-node-limited",
       title = "Bridge interpretation is limited",
-      text = "Bridge rankings should not be emphasized because the corresponding stability evidence is below the minimum interpretation threshold or unavailable.",
+      text = "No single bridge node is highlighted because stability is below the interpretation threshold or unavailable, the maximum is tied, or bridge-strength values are zero or unavailable.",
       evidence = "Stability Analysis: bridge strength CS coefficient"
     )
   }
@@ -954,7 +1066,8 @@ analyze_workbook <- function(
     data_source = "uploaded-workbook",
     sheet = NULL,
     gender_mapping = NULL,
-    availability = package_available) {
+    availability = package_available,
+    selection = NULL) {
   assert_packages(full_analysis_required_packages, availability = availability)
   if (is.null(grDevices::dev.list())) {
     grDevices::pdf(NULL)
@@ -971,7 +1084,7 @@ analyze_workbook <- function(
   if (permutations != 1000L) {
     stop("Permutation count must be exactly 1000.", call. = FALSE)
   }
-  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
+  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping, selection = selection)
   gamma <- 0.5
   layout_name <- "spring"
   analysis_warnings <- character()
@@ -1023,7 +1136,8 @@ analyze_workbook <- function(
   )
 
   result <- list(
-    schemaVersion = "1.1",
+    schemaVersion = "1.2",
+    inputFingerprint = paste0("sha256:", digest::digest(file = input_path, algo = "sha256")),
     analysisProfile = "npn-ebicglasso-v1",
     dataSource = data_source,
     generatedAt = format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ"),
@@ -1050,7 +1164,7 @@ analyze_workbook <- function(
       correlationMethod = NPN_EBICGLASSO_CORRELATION_METHOD_V1,
       gamma = gamma,
       missingData = "Listwise deletion across selected network items",
-      communityRule = "Item-name prefix before the trailing number",
+      communityRule = if (is.null(selection)) "Item-name prefix before the trailing number" else "Researcher-confirmed item-to-community mapping; selected reverse items use 6 minus response",
       layout = layout_name,
       seed = seed,
       bootstrapReplicates = bootstraps,
@@ -1090,6 +1204,8 @@ analyze_workbook <- function(
     )
   )
 
+  if (!is.null(prepared$selection)) result$source$selection <- prepared$selection
+
   dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(
     result,
@@ -1104,12 +1220,13 @@ analyze_workbook <- function(
   invisible(result)
 }
 
-validated_workbook <- function(input_path, sheet = NULL, gender_mapping = NULL) {
+validated_workbook <- function(input_path, sheet = NULL, gender_mapping = NULL, selection = NULL) {
   tryCatch(
     read_and_validate_workbook(
       input_path,
       sheet = sheet,
-      gender_mapping = gender_mapping
+      gender_mapping = gender_mapping,
+      selection = selection
     ),
     error = function(error) {
       if (inherits(error, "open_sna_error")) stop(error)
@@ -1119,8 +1236,8 @@ validated_workbook <- function(input_path, sheet = NULL, gender_mapping = NULL) 
 }
 
 workbook_validation_result <- function(prepared, input_path) {
-  list(
-    schemaVersion = "1.0",
+  result <- list(
+    schemaVersion = if (is.null(prepared$selection)) "1.0" else "1.1",
     valid = TRUE,
     inputFingerprint = paste0("sha256:", digest::digest(file = input_path, algo = "sha256")),
     summary = list(
@@ -1133,6 +1250,8 @@ workbook_validation_result <- function(prepared, input_path) {
       groupCounts = prepared$group_counts
     )
   )
+  if (!is.null(prepared$selection)) result$selection <- prepared$selection
+  result
 }
 
 validate_workbook <- function(
@@ -1140,9 +1259,10 @@ validate_workbook <- function(
     output_path,
     sheet = NULL,
     gender_mapping = NULL,
-    availability = package_available) {
+    availability = package_available,
+    selection = NULL) {
   assert_packages(validation_required_packages, availability = availability)
-  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping)
+  prepared <- validated_workbook(input_path, sheet = sheet, gender_mapping = gender_mapping, selection = selection)
   result <- workbook_validation_result(prepared, input_path)
   dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(
@@ -1161,9 +1281,16 @@ validate_workbook <- function(
 main <- function(
     args = commandArgs(trailingOnly = TRUE),
     validate_runner = validate_workbook,
-    analyze_runner = analyze_workbook) {
+    analyze_runner = analyze_workbook,
+    inspect_runner = inspect_workbook) {
   options <- validated_cli_options(args)
   mode <- options$mode
+  if (identical(mode, "inspect")) {
+    inspect_runner(input_path = options$input, output_path = options$output)
+    cat("Open SNA workbook inspection completed.\n")
+    return(invisible(NULL))
+  }
+  selection <- if (is.null(options$selection)) NULL else read_selection(options$selection)
   gender_mapping <- NULL
   gender_one_label <- options[["gender-1-label"]]
   gender_two_label <- options[["gender-2-label"]]
@@ -1178,7 +1305,8 @@ main <- function(
       input_path = options$input,
       output_path = options$output,
       sheet = options$sheet,
-      gender_mapping = gender_mapping
+      gender_mapping = gender_mapping,
+      selection = selection
     )
     cat("Open SNA workbook validation completed.\n")
     return(invisible(NULL))
@@ -1216,7 +1344,8 @@ main <- function(
       options[["data-source"]]
     },
     sheet = options$sheet,
-    gender_mapping = gender_mapping
+    gender_mapping = gender_mapping,
+    selection = selection
   )
   cat("Open SNA analysis completed.\n")
 }

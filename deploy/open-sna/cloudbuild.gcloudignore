@@ -1,0 +1,26 @@
+# Build source must not include local credentials or uploaded research workbooks.
+.git
+.next
+.env*
+.vercel
+node_modules
+coverage
+playwright-report
+test-results
+.playwright-cli
+.DS_Store
+.idea
+.vscode
+*.tsbuildinfo
+tmp
+output
+outputs
+New Programming Resilience
+*.docx
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.pem
+*.key
+*.log

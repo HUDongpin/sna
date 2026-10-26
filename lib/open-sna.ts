@@ -1,3 +1,5 @@
+import { isOpenSnaColumnHeader, isOpenSnaSelection, type OpenSnaSelection } from "./open-sna-workbook-selection";
+
 const OPEN_SNA_TABS = [
   { id: "overview", label: "Data Overview" },
   { id: "network", label: "Network Visualization" },
@@ -45,7 +47,7 @@ type OpenSnaStabilityMetric = {
 };
 
 export type OpenSnaResult = {
-  schemaVersion: "1.1";
+  schemaVersion: "1.1" | "1.2";
   analysisProfile: "npn-ebicglasso-v1";
   dataSource: "aggregate-demo" | "uploaded-workbook";
   generatedAt: string;
@@ -59,6 +61,7 @@ export type OpenSnaResult = {
     groupColumn: string;
     groupCounts: [{ group: string; n: number }, { group: string; n: number }];
     itemColumns: string[];
+    selection?: OpenSnaSelection;
   };
   settings: {
     estimator: string;
@@ -110,6 +113,12 @@ export type OpenSnaResult = {
     globalStrengthPValue: number;
     networkStructureDifference: number;
     networkStructurePValue: number;
+    edgeDifferences?: Array<{
+      source: string;
+      target: string;
+      absoluteDifference: number;
+      pValueHolm: number;
+    }>;
     strongestEdgeDifferences: Array<{
       source: string;
       target: string;
@@ -181,11 +190,11 @@ function hasExactKeys(value: Record<string, unknown>, required: string[], option
 export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
   if (!isRecord(value)) return false;
   if (!hasExactKeys(value, ["schemaVersion", "analysisProfile", "dataSource", "generatedAt", "source", "settings", "models", "runtime", "overview", "nodes", "edges", "subgroupComparison", "stability", "warnings", "interpretation", "privacy"], ["inputFingerprint"])) return false;
-  if (value.schemaVersion !== "1.1" || value.analysisProfile !== "npn-ebicglasso-v1") return false;
+  if (!["1.1", "1.2"].includes(String(value.schemaVersion)) || value.analysisProfile !== "npn-ebicglasso-v1") return false;
   if (value.dataSource !== "aggregate-demo" && value.dataSource !== "uploaded-workbook") return false;
   if (!isRecord(value.source) || !isRecord(value.settings) || !isRecord(value.overview)) return false;
   if (!isRecord(value.models) || !isRecord(value.runtime) || !isRecord(value.privacy)) return false;
-  if (!Array.isArray(value.nodes) || !Array.isArray(value.edges)) return false;
+  if (!Array.isArray(value.nodes) || value.nodes.length < 6 || value.nodes.length > 40 || !Array.isArray(value.edges)) return false;
   if (!isRecord(value.stability) || !Array.isArray(value.stability.metrics)) return false;
   if (!Array.isArray(value.warnings) || !value.warnings.every((warning) => typeof warning === "string")) return false;
   if (!isRecord(value.subgroupComparison) || value.subgroupComparison.available !== true) return false;
@@ -198,19 +207,20 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
   ) return false;
 
   const source = value.source;
-  if (!hasExactKeys(source, ["fileName", "sheet", "originalRows", "analyzedRows", "droppedRows", "groupColumn", "groupCounts", "itemColumns"])) return false;
+  if (!hasExactKeys(source, ["fileName", "sheet", "originalRows", "analyzedRows", "droppedRows", "groupColumn", "groupCounts", "itemColumns"], value.schemaVersion === "1.2" ? ["selection"] : [])) return false;
+  if (source.selection !== undefined && !isOpenSnaSelection(source.selection)) return false;
   if (
     !hasStringFields(source, ["fileName", "sheet"]) ||
     !isStringArray(source.itemColumns) ||
     new Set(source.itemColumns).size !== source.itemColumns.length
   ) return false;
   if (
-    !isNonNegativeInteger(source.originalRows) ||
+    !isNonNegativeInteger(source.originalRows) || source.originalRows > 5000 ||
     !isNonNegativeInteger(source.analyzedRows) ||
     !isNonNegativeInteger(source.droppedRows) ||
     source.originalRows !== source.analyzedRows + source.droppedRows ||
     !isNonEmptyString(source.groupColumn) ||
-    !/^[A-Za-z][A-Za-z0-9 _-]{0,39}$/.test(source.groupColumn) ||
+    !(source.selection !== undefined ? isOpenSnaColumnHeader(source.groupColumn) : /^[A-Za-z][A-Za-z0-9 _-]{0,39}$/.test(source.groupColumn)) ||
     !Array.isArray(source.groupCounts) ||
     source.groupCounts.length !== 2
   ) return false;
@@ -281,7 +291,7 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
 
   const nodeIds = new Set<string>();
   for (const node of value.nodes) {
-    if (!isRecord(node) || !hasExactKeys(node, ["id", "label", "community", "x", "y", "strength", "expectedInfluence", "betweenness", "closeness", "bridgeStrength", "bridgeExpectedInfluence", "bridgeBetweenness", "bridgeCloseness", "predictability"]) || !isNonEmptyString(node.id) || !isNonEmptyString(node.label) || !isNonEmptyString(node.community)) return false;
+    if (!isRecord(node) || !hasExactKeys(node, ["id", "label", "community", "x", "y", "strength", "expectedInfluence", "betweenness", "closeness", "bridgeStrength", "bridgeExpectedInfluence", "bridgeBetweenness", "bridgeCloseness", "predictability"]) || !isNonEmptyString(node.id) || !/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(node.id) || !isOpenSnaColumnHeader(node.label) || !isNonEmptyString(node.community) || !/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(node.community)) return false;
     if (!isFiniteNumber(node.x) || node.x < 0 || node.x > 1 || !isFiniteNumber(node.y) || node.y < 0 || node.y > 1 || nodeIds.has(node.id)) return false;
     const nullableMetrics = ["strength", "expectedInfluence", "betweenness", "closeness", "bridgeStrength", "bridgeExpectedInfluence", "bridgeBetweenness", "bridgeCloseness", "predictability"];
     if (!nullableMetrics.every((metric) => isNullableFiniteNumber(node[metric]))) return false;
@@ -289,6 +299,16 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
     nodeIds.add(node.id);
   }
   if (!source.itemColumns.every((item) => nodeIds.has(item))) return false;
+  if (value.schemaVersion === "1.2" && (value.nodes.length < 6 || value.nodes.length > 40 || source.originalRows > 5000)) return false;
+  if (source.selection !== undefined) {
+    const selection = source.selection as OpenSnaSelection;
+    if (selection.groupColumn !== source.groupColumn || selection.items.length !== value.nodes.length) return false;
+    for (let index = 0; index < selection.items.length; index++) {
+      const item = selection.items[index];
+      const node = value.nodes[index] as OpenSnaNode;
+      if (item.id !== source.itemColumns[index] || item.id !== node.id || item.community !== node.community) return false;
+    }
+  }
   if (
     strongestSource !== null &&
     strongestTarget !== null &&
@@ -308,7 +328,7 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
   }
 
   const comparison = value.subgroupComparison;
-  if (!hasExactKeys(comparison, ["available", "method", "packageVersion", "groupColumn", "groupA", "groupB", "nA", "nB", "permutations", "globalStrengthA", "globalStrengthB", "globalStrengthDifference", "globalStrengthPValue", "networkStructureDifference", "networkStructurePValue", "strongestEdgeDifferences"]) || !hasStringFields(comparison, ["method", "packageVersion", "groupColumn", "groupA", "groupB"])) return false;
+  if (!hasExactKeys(comparison, ["available", "method", "packageVersion", "groupColumn", "groupA", "groupB", "nA", "nB", "permutations", "globalStrengthA", "globalStrengthB", "globalStrengthDifference", "globalStrengthPValue", "networkStructureDifference", "networkStructurePValue", "strongestEdgeDifferences"], value.schemaVersion === "1.2" ? ["edgeDifferences"] : []) || !hasStringFields(comparison, ["method", "packageVersion", "groupColumn", "groupA", "groupB"])) return false;
   if (
     comparison.groupColumn !== source.groupColumn ||
     comparison.groupA === comparison.groupB ||
@@ -348,6 +368,25 @@ export function isOpenSnaResult(value: unknown): value is OpenSnaResult {
     const comparisonEdgeId = [String(edge.source), String(edge.target)].sort().join("::");
     if (comparisonEdgeIds.has(comparisonEdgeId)) return false;
     comparisonEdgeIds.add(comparisonEdgeId);
+  }
+
+
+  if (value.schemaVersion === "1.2") {
+    if (!Array.isArray(comparison.edgeDifferences) || comparison.edgeDifferences.length !== overview.possibleEdges
+      || comparison.strongestEdgeDifferences.length !== Math.min(8, overview.possibleEdges)) return false;
+    const completeEdges = new Map<string, { absoluteDifference: number; pValueHolm: number }>();
+    for (const edge of comparison.edgeDifferences) {
+      if (!isRecord(edge) || !hasExactKeys(edge, ["source", "target", "absoluteDifference", "pValueHolm"])
+        || !hasStringFields(edge, ["source", "target"]) || !nodeIds.has(String(edge.source)) || !nodeIds.has(String(edge.target))
+        || edge.source === edge.target || !isFiniteNumber(edge.absoluteDifference) || edge.absoluteDifference < 0 || !isProbability(edge.pValueHolm)) return false;
+      const pair = [String(edge.source), String(edge.target)].sort().join("::");
+      if (completeEdges.has(pair)) return false;
+      completeEdges.set(pair, { absoluteDifference: edge.absoluteDifference, pValueHolm: edge.pValueHolm });
+    }
+    for (const edge of comparison.strongestEdgeDifferences) {
+      const entry = completeEdges.get([String(edge.source), String(edge.target)].sort().join("::"));
+      if (!entry || entry.absoluteDifference !== edge.absoluteDifference || entry.pValueHolm !== edge.pValueHolm) return false;
+    }
   }
 
   if (

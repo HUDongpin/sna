@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import type { OpenSnaResult } from "../lib/open-sna";
 import { isOpenSnaResult } from "../lib/open-sna";
+import { getOpenSnaCopy, presentOpenSnaInsight } from "../lib/open-sna-copy";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const aiModulePath = "../lib/open-sna-ai";
@@ -18,6 +19,7 @@ type AiModule = {
       fetchImpl?: typeof fetch;
       timeoutMs?: number;
       siteUrl?: string;
+      locale?: "en" | "zh-hant" | "zh-hans";
     },
   ) => Promise<{
     result: OpenSnaResult;
@@ -179,6 +181,54 @@ test("a missing or invalid LUNA response keeps the deterministic R interpretatio
   assert.equal(invalid.result.privacy.thirdPartyAiUsed, false);
   assert.ok(invalid.result.warnings.some((warning) => /LUNA.*unavailable/i.test(warning)));
   assert.ok(isOpenSnaResult(invalid.result));
+});
+
+test("optional LUNA interpretation requests the job locale without changing statistical input", async () => {
+  const ai = await loadAiModule();
+  assert.ok(ai);
+  for (const [locale, language] of [["en", "English"], ["zh-hant", "Traditional Chinese"], ["zh-hans", "Simplified Chinese"]] as const) {
+    let prompt = "";
+    const original = demoResult();
+    const outcome = await ai.withLunaInterpretation(original, {
+      locale,
+      apiKey: "test-openrouter-key",
+      fetchImpl: async (_url, init) => {
+        const body = JSON.parse(String(init?.body));
+        prompt = body.messages[0].content;
+        return Response.json({ choices: [{ message: { content: JSON.stringify(structuredInterpretation()) } }] });
+      },
+    });
+    assert.ok(prompt.includes(language));
+    assert.deepEqual(outcome.result.nodes, original.nodes);
+    assert.deepEqual(outcome.result.settings, original.settings);
+  }
+});
+
+test("AI rankings are bounded by the same tie, missingness and CS evidence as deterministic results", async () => {
+  const ai = await loadAiModule();
+  assert.ok(ai);
+  const result = demoResult();
+  result.nodes.forEach(node => { node.strength = 0; node.bridgeStrength = 0; node.predictability = 0; });
+  result.stability.metrics.forEach(metric => { metric.coefficient = 0.1; metric.interpretation = "Do not interpret"; });
+  const misleading = structuredInterpretation();
+  for (const insight of misleading.insights) {
+    if (["centrality", "bridge", "predictability"].includes(insight.id)) insight.text = "Cmt1 is the uniquely highest node.";
+  }
+  const outcome = await ai.withLunaInterpretation(result, {
+    locale: "zh-hans",
+    apiKey: "test-openrouter-key",
+    fetchImpl: async () => Response.json({ choices: [{ message: { content: JSON.stringify(misleading) } }] }),
+  });
+  assert.equal(outcome.status, "generated");
+  for (const insight of outcome.result.interpretation.insights.filter(insight => ["centrality", "bridge", "predictability"].includes(insight.id))) {
+    assert.doesNotMatch(insight.text, /Cmt1|uniquely highest/);
+    assert.match(insight.text, /[\u4e00-\u9fff]/u);
+  }
+  // Reopened older AI results receive the same protection in the UI/report.
+  const imported = { ...result, interpretation: { ...result.interpretation, thirdPartyAiUsed: true } };
+  for (const insight of misleading.insights.filter(insight => ["centrality", "bridge", "predictability"].includes(insight.id))) {
+    assert.doesNotMatch(presentOpenSnaInsight(getOpenSnaCopy("en"), imported, insight).text, /Cmt1|uniquely highest/);
+  }
 });
 
 test("the Open SNA upload route and interface are wired to the server-only LUNA integration", () => {

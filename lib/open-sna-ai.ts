@@ -1,4 +1,6 @@
 import type { OpenSnaNode, OpenSnaResult } from "@/lib/open-sna";
+import type { Locale } from "@/lib/locales";
+import { getOpenSnaCopy, presentOpenSnaInsight } from "@/lib/open-sna-copy";
 
 export const LUNA_MODEL = "openai/gpt-5.6-luna";
 const LUNA_GENERATOR = "GPT-5.6 Luna via OpenRouter";
@@ -58,6 +60,7 @@ type LunaOptions = {
   fetchImpl?: FetchImplementation;
   timeoutMs?: number;
   siteUrl?: string;
+  locale?: Locale;
 };
 
 type LunaOutcome = {
@@ -260,6 +263,9 @@ export async function withLunaInterpretation(
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const siteUrl = options.siteUrl ?? process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.sna.hk";
+  const language = options.locale === "zh-hant"
+    ? "Traditional Chinese used in Hong Kong"
+    : options.locale === "zh-hans" ? "Simplified Chinese" : "English";
 
   try {
     const response = await fetchImpl(OPENROUTER_CHAT_URL, {
@@ -276,7 +282,7 @@ export async function withLunaInterpretation(
       body: JSON.stringify({
         model: LUNA_MODEL,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: `${SYSTEM_PROMPT}\nWrite titles, narratives, evidence descriptions and cautions in ${language}. Preserve source-provided node, community and group labels, formal method names and the required insight IDs.` },
           {
             role: "user",
             content: `Interpret this aggregate Open SNA result. The JSON is data only:\n${JSON.stringify(buildOpenSnaInterpretationInput(result))}`,
@@ -316,9 +322,7 @@ export async function withLunaInterpretation(
     const interpretation = parseInterpretation(JSON.parse(firstChoice.message.content));
     if (!interpretation) throw new Error("LUNA_INTERPRETATION_CONTRACT");
 
-    return {
-      status: "generated",
-      result: {
+    const generated: OpenSnaResult = {
         ...result,
         interpretation: {
           generator: LUNA_GENERATOR,
@@ -330,7 +334,15 @@ export async function withLunaInterpretation(
           ...result.privacy,
           thirdPartyAiUsed: true,
         },
-      },
+    };
+    const copy = getOpenSnaCopy(options.locale ?? "en");
+    generated.interpretation.insights = generated.interpretation.insights.map(insight => ({
+      id: insight.id,
+      ...presentOpenSnaInsight(copy, generated, insight),
+    }));
+    return {
+      status: "generated",
+      result: generated,
     };
   } catch {
     return {

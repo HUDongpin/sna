@@ -34,7 +34,7 @@ test("Open SNA is a localized route placed between Mission and News", () => {
 });
 
 test("the English Open SNA workbench exposes the eight requested analysis areas", () => {
-  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx") + read("components/open-sna/QuestionnaireWorkflow.tsx");
   const page = read("app/[locale]/open-sna/page.tsx");
   const english = getOpenSnaCopy("en");
   const expectedLabels = [
@@ -55,13 +55,13 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
   assert.match(workbench, /accept="\.xlsx"/);
   assert.match(workbench, /lang=\{htmlLang\}/);
   assert.equal(getLocaleMeta("en").htmlLang, "en-HK");
-  assert.match(english.setup.help, /required valid two-level Gender or metadata column with at least 20 analyzed rows per group/i);
+  assert.match(english.setup.help, /two-level group column with at least 20 analyzed rows per group/i);
   assert.match(workbench, /copy\.setup\.help/);
   assert.equal(english.setup.sampleDownload, "Download a synthetic sample workbook");
-  assert.match(workbench, /useState\("500"\)/);
-  assert.match(workbench, /<option value="100">/);
-  assert.match(workbench, /<option value="500">/);
-  assert.match(workbench, /<option value="1000">/);
+  assert.match(workbench, /useState\(500\)/);
+  assert.match(workbench, /<option value=\{100\}>/);
+  assert.match(workbench, /<option value=\{500\}>/);
+  assert.match(workbench, /<option value=\{1000\}>/);
   assert.equal(english.setup.bootstrap100, "100 ≈ 45 s for the sample");
   assert.equal(english.setup.bootstrap500, "500 ≈ 1.5 min for the sample");
   assert.equal(english.setup.bootstrap1000, "1,000 ≈ 2+ min for the sample");
@@ -74,7 +74,7 @@ test("the English Open SNA workbench exposes the eight requested analysis areas"
 });
 
 test("the Open SNA upload UI shows the complete English Public Beta notice", () => {
-  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx") + read("components/open-sna/QuestionnaireWorkflow.tsx");
   const english = getOpenSnaCopy("en");
   assert.ok(
     workbench.indexOf("copy.beta.title") < workbench.indexOf('id="open-sna-setup-controls"'),
@@ -82,9 +82,9 @@ test("the Open SNA upload UI shows the complete English Public Beta notice", () 
   );
   assert.equal(english.beta.title, "Public Beta");
   assert.match(english.beta.items[0], /one analysis at a time/i);
-  assert.match(english.beta.items[1], /second concurrent request may return WORKER_BUSY/i);
+  assert.match(english.beta.items[1], /tasks may queue[^.]*busy/i);
   assert.match(english.beta.items[2], /large[^.]*1,000[^.]*bootstrap[^.]*may time out/i);
-  assert.match(english.beta.items[3], /uploaded workbooks and row-level data are not retained/i);
+  assert.match(english.beta.items[3], /workbooks[^.]*temporarily[^.]*removed/i);
   assert.match(english.beta.items[4], /no high-availability or availability commitment/i);
   assert.match(workbench, /analysisDisabled \? <p[^>]*role="status"/);
 });
@@ -92,7 +92,7 @@ test("the Open SNA upload UI shows the complete English Public Beta notice", () 
 test("disabled public workbook analysis closes the hero invitation and the run affordance", async () => {
   const page = read("app/[locale]/open-sna/page.tsx");
   const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
-  const { openSnaWorkbookRunDisabled } = await import("../components/open-sna/OpenSnaWorkbench");
+  const workflow = read("components/open-sna/QuestionnaireWorkflow.tsx");
 
   for (const locale of ["en", "zh-hant", "zh-hans"] as const) {
     const copy = getOpenSnaCopy(locale);
@@ -120,33 +120,28 @@ test("disabled public workbook analysis closes the hero invitation and the run a
   assert.match(page, /page\.analyzeWorkbook/);
   assert.match(page, /analysisDisabled=\{analysisDisabled\}/);
 
-  assert.match(workbench, /id="open-sna-workbook"[\s\S]{0,120}disabled=\{analysisDisabled\}/);
-  assert.match(workbench, /openSnaWorkbookRunDisabled\(analysisDisabled, workbook !== null, busy\)/);
-  assert.match(workbench, /copy\.setup\.uploadClosed/);
-  assert.match(workbench, /copy\.setup\.runUnavailable/);
-  const formData = workbench.slice(workbench.indexOf("const formData = new FormData()"), workbench.indexOf("const response = await fetch"));
-  assert.doesNotMatch(formData, /locale|htmlLang|analysisDisabled/);
-
-  assert.equal(openSnaWorkbookRunDisabled(true, true, false), true);
-  assert.equal(openSnaWorkbookRunDisabled(false, true, false), false);
-  assert.equal(openSnaWorkbookRunDisabled(false, false, false), true);
-  assert.equal(openSnaWorkbookRunDisabled(false, true, true), true);
+  assert.match(workflow, /disabled=\{analysisDisabled\|\|locked\}/);
+  const uploadGuard = workflow.slice(workflow.indexOf("async function acceptWorkbook"), workflow.indexOf("function handleWorkbookDrop"));
+  assert.ok(uploadGuard.indexOf("if(analysisDisabled)") >= 0);
+  assert.ok(uploadGuard.indexOf("if(analysisDisabled)") < uploadGuard.indexOf("await fetch"));
+  assert.match(workflow, /aria-disabled=\{analysisDisabled\|\|locked\}/);
+  assert.match(workflow, /copy\.setup\.uploadClosed/);
+  assert.match(workflow, /copy\.setup\.runUnavailable/);
+  assert.match(workflow, /canRun=[^;]+!analysisDisabled/);
+  assert.match(workbench, /<QuestionnaireWorkflow[^>]+analysisDisabled=\{analysisDisabled\}/);
 });
 
 test("the Open SNA workbench uses bounded response decoding and never displays caught exception text", () => {
-  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
-  const analysisPath = workbench.slice(
-    workbench.indexOf("async function analyzeWorkbook"),
-    workbench.indexOf("function handleTabKeyboard"),
-  );
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx") + read("components/open-sna/QuestionnaireWorkflow.tsx");
+  const analysisPath = read("components/open-sna/QuestionnaireWorkflow.tsx");
   assert.match(analysisPath, /decodeOpenSnaAnalysisResponse/);
   assert.doesNotMatch(analysisPath, /await response\.json\(\)/);
   assert.doesNotMatch(analysisPath, /caught instanceof Error\s*\?\s*caught\.message/);
-  assert.match(analysisPath, /catch\s*\{[\s\S]*setError\(copy\.errors\.generic\)/);
+  assert.match(analysisPath, /setError\(copy\.errors\.generic\)/);
 });
 
 test("reference load failures do not pass untrusted response errors to the UI", async () => {
-  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx") + read("components/open-sna/QuestionnaireWorkflow.tsx");
   const referencePath = workbench.slice(
     workbench.indexOf("async function loadReference"),
     workbench.indexOf("useEffect", workbench.indexOf("async function loadReference")),
@@ -177,7 +172,7 @@ test("reference load failures do not pass untrusted response errors to the UI", 
 });
 
 test("the Open SNA interface provides accessible interactive exploration", () => {
-  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx");
+  const workbench = read("components/open-sna/OpenSnaWorkbench.tsx") + read("components/open-sna/QuestionnaireWorkflow.tsx");
   const graph = read("components/open-sna/NetworkGraph.tsx");
   assert.match(workbench, /onDrop={handleWorkbookDrop}/);
   assert.match(workbench, /type="search"/);
@@ -212,7 +207,7 @@ test("the Open SNA R engine uses one reproducible NPN EBICglasso profile", () =>
   assert.match(engine, /discover_item_columns/);
   assert.match(engine, /6 to 40 item columns/);
   assert.match(engine, /gender-1-label/);
-  assert.match(engine, /schemaVersion\s*=\s*"1\.1"/);
+  assert.match(engine, /schemaVersion\s*=\s*"1\.2"/);
   assert.match(engine, /groupCounts\s*=\s*prepared\$group_counts/);
   assert.match(engine, /empty_network_metrics\s*<-\s*function/);
   assert.match(engine, /deterministic_circle_layout\s*<-\s*function/);
@@ -279,10 +274,11 @@ test("the Cloud Run release contract fixes worker capacity, concurrency, timeout
   assert.match(deployScript, /asia-east2/);
   assert.match(deployScript, /--cpu 8/);
   assert.match(deployScript, /--memory 16Gi/);
-  assert.match(deployScript, /--concurrency 1/);
+  assert.match(deployScript, /--concurrency 8/);
+  assert.match(deployScript, /--max-concurrent-dispatches 1/);
   assert.match(deployScript, /--max-instances 1/);
-  assert.match(deployScript, /--timeout 300/);
-  assert.match(deployScript, /--update-secrets OPEN_SNA_R_WORKER_TOKEN=/);
+  assert.match(deployScript, /--timeout 900/);
+  assert.match(deployScript, /--set-secrets "OPEN_SNA_R_WORKER_TOKEN=/);
   assert.doesNotMatch(deployScript, /OPEN_SNA_R_WORKER_TOKEN=[A-Za-z0-9+/]{32,}/);
 });
 

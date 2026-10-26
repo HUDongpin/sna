@@ -1,7 +1,12 @@
+import { isOpenSnaColumnHeader, isOpenSnaSelection, type OpenSnaSelection } from "./open-sna-workbook-selection";
+export { isOpenSnaSelection, isOpenSnaInspectionResult } from "./open-sna-workbook-selection";
+export type { OpenSnaSelection, OpenSnaInspectionResult } from "./open-sna-workbook-selection";
+
 export type OpenSnaValidationFingerprint = `sha256:${string}`;
 
 export type OpenSnaValidationResult = {
-  schemaVersion: "1.0";
+  schemaVersion: "1.0" | "1.1";
+  selection?: OpenSnaSelection;
   valid: true;
   inputFingerprint: OpenSnaValidationFingerprint;
   summary: {
@@ -76,8 +81,11 @@ function validGroupCount(value: unknown): { group: string; n: number } | null {
 
 export function isOpenSnaValidationResult(value: unknown): value is OpenSnaValidationResult {
   try {
-    const result = ownEnumerableDataValues(value, ["schemaVersion", "valid", "inputFingerprint", "summary"]);
-    if (!result || result.schemaVersion !== "1.0" || result.valid !== true) return false;
+    const result = ownEnumerableDataValues(value, ["schemaVersion", "valid", "inputFingerprint", "summary"])
+      ?? ownEnumerableDataValues(value, ["schemaVersion", "valid", "inputFingerprint", "summary", "selection"]);
+    if (!result || result.valid !== true) return false;
+    const mapped = result.schemaVersion === "1.1";
+    if (mapped ? !isOpenSnaSelection(result.selection) : result.schemaVersion !== "1.0" || "selection" in result) return false;
     if (typeof result.inputFingerprint !== "string" || !/^sha256:[a-f0-9]{64}$/.test(result.inputFingerprint)) return false;
 
     const summary = ownEnumerableDataValues(result.summary, [
@@ -99,8 +107,14 @@ export function isOpenSnaValidationResult(value: unknown): value is OpenSnaValid
       || summary.communityCount > 8
       || summary.itemCount < summary.communityCount * 3
       || summary.itemCount > summary.communityCount * 12
-      || !isSafeColumnLabel(summary.groupColumn)
+      || !(mapped ? isOpenSnaColumnHeader(summary.groupColumn) : isSafeColumnLabel(summary.groupColumn))
     ) return false;
+
+    if (mapped) {
+      const selection = result.selection as OpenSnaSelection;
+      if (selection.groupColumn !== summary.groupColumn || selection.items.length !== summary.itemCount
+        || new Set(selection.items.map((item) => item.community)).size !== summary.communityCount) return false;
+    }
 
     const groupEntries = tupleElements(summary.groupCounts);
     if (!groupEntries) return false;

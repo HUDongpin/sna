@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -28,7 +28,7 @@ function analysisRequest(authorization?: string) {
   return new Request("http://localhost/api/open-sna/analyze", { method: "POST", body: formData, headers });
 }
 
-function workerResult(schemaVersion: "1.0" | "1.1") {
+function workerResult(schemaVersion: "1.0" | "1.1" | "1.2") {
   const result = JSON.parse(
     readFileSync(path.join(repositoryRoot, "public", "open-sna", "programming-resilience-demo.json"), "utf8"),
   ) as Record<string, unknown>;
@@ -38,6 +38,12 @@ function workerResult(schemaVersion: "1.0" | "1.1") {
   result.dataSource = "uploaded-workbook";
   settings.bootstrapReplicates = 100;
   stability.bootstraps = 100;
+  if (schemaVersion === "1.2") {
+    const nodes = result.nodes as Array<{ id: string }>;
+    const comparison = result.subgroupComparison as { strongestEdgeDifferences: Array<{ source: string; target: string; absoluteDifference: number; pValueHolm: number }>; edgeDifferences?: unknown };
+    const preview = new Map(comparison.strongestEdgeDifferences.map(edge => [[edge.source, edge.target].sort().join("::"), edge]));
+    comparison.edgeDifferences = nodes.flatMap((node, index) => nodes.slice(index + 1).map(target => preview.get([node.id, target.id].sort().join("::")) ?? { source: node.id, target: target.id, absoluteDifference: 0, pValueHolm: 1 }));
+  }
   return result;
 }
 
@@ -117,6 +123,76 @@ function restoreEnvironment(originalEnvironment: Record<string, string | undefin
     else process.env[key] = value;
   }
 }
+
+test("local analysis uses the current project's temporary directory after relocation", async () => {
+  const originalEnvironment = isolateRouteEnvironment([
+    "OPEN_SNA_RSCRIPT_BIN", "OPEN_SNA_TMP_ROOT", "OPEN_SNA_R_API_URL",
+    "OPEN_SNA_R_WORKER_MODE", "OPEN_SNA_TEST_DELAY_MS", "VERCEL",
+  ]);
+  const defaultRoot = path.join(process.cwd(), "tmp", "open-sna-jobs");
+  mkdirSync(defaultRoot, { recursive: true });
+  const originalEntries = readdirSync(defaultRoot).sort();
+  const customRoot = mkdtempSync(path.join(process.cwd(), "tmp", "open-sna-relocation-test-"));
+  (process.env as Record<string, string | undefined>).NODE_ENV = "development";
+  process.env.OPEN_SNA_RSCRIPT_BIN = fakeRscript;
+  process.env.OPEN_SNA_TEST_OUTPUT_JSON = JSON.stringify(workerResult("1.1"));
+  delete process.env.OPEN_SNA_R_DISABLED;
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.OPEN_SNA_R_WORKER_MODE;
+  delete process.env.OPEN_SNA_TEST_DELAY_MS;
+  delete process.env.VERCEL;
+
+  try {
+    for (const configuredRoot of [undefined, customRoot]) {
+      if (configuredRoot) process.env.OPEN_SNA_TMP_ROOT = configuredRoot;
+      else delete process.env.OPEN_SNA_TMP_ROOT;
+      const response = await POST(analysisRequest());
+      const payload = await response.json();
+      assert.equal(response.status, 200, JSON.stringify(payload));
+      assert.equal(payload.schemaVersion, "1.1");
+      assert.equal(payload.dataSource, "uploaded-workbook");
+      assert.deepEqual(readdirSync(defaultRoot).sort(), originalEntries);
+      assert.deepEqual(readdirSync(customRoot), []);
+    }
+
+    for (const invalidRoot of [
+      path.join(process.cwd(), "tmp-other", "open-sna-jobs"),
+      path.join(process.cwd(), "tmp", "..", "outside-tmp"),
+    ]) {
+      process.env.OPEN_SNA_TMP_ROOT = invalidRoot;
+      const response = await POST(analysisRequest());
+      assert.equal(response.status, 503);
+      const payload = await response.json() as { error?: string };
+      assert.match(payload.error || "", /temporary directory/i);
+    }
+  } finally {
+    restoreEnvironment(originalEnvironment);
+    rmSync(customRoot, { recursive: true, force: true });
+  }
+});
+
+test("worker mode does not accept a local project temporary directory", async () => {
+  const originalEnvironment = isolateRouteEnvironment([
+    "OPEN_SNA_R_API_URL", "OPEN_SNA_R_WORKER_MODE", "OPEN_SNA_R_WORKER_TOKEN",
+    "OPEN_SNA_R_WORKER_TMP_ROOT", "VERCEL",
+  ]);
+  const token = "test-worker-token-with-32-characters";
+  (process.env as Record<string, string | undefined>).NODE_ENV = "development";
+  process.env.OPEN_SNA_R_WORKER_MODE = "1";
+  process.env.OPEN_SNA_R_WORKER_TOKEN = token;
+  process.env.OPEN_SNA_R_WORKER_TMP_ROOT = path.join(process.cwd(), "tmp", "open-sna-jobs");
+  delete process.env.OPEN_SNA_R_DISABLED;
+  delete process.env.OPEN_SNA_R_API_URL;
+  delete process.env.VERCEL;
+  try {
+    const response = await POST(analysisRequest(`Bearer ${token}`));
+    assert.equal(response.status, 503);
+    const payload = await response.json() as { code?: string };
+    assert.equal(payload.code, "WORKER_CONFIGURATION_INVALID");
+  } finally {
+    restoreEnvironment(originalEnvironment);
+  }
+});
 
 test("the upload route distinguishes R runtime, workbook, and analysis failures", async () => {
   const environmentKeys = [
@@ -344,7 +420,7 @@ test("the web adapter preserves the bounded remote timeout response", async () =
   }
 });
 
-test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes only canonical 1.1", async () => {
+test("the legacy remote boundary reads 1.0/1.1 and preserves complete native 1.2 results", async () => {
   let responsePayload: unknown = workerResult("1.1");
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => Response.json(responsePayload, { status: 200 })) as typeof fetch;
@@ -364,7 +440,7 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
   delete process.env.VERCEL;
 
   try {
-    for (const version of ["1.0", "1.1"] as const) {
+    for (const version of ["1.0", "1.1", "1.2"] as const) {
       responsePayload = workerResult(version);
       const response = await POST(analysisRequest());
       const payload = await response.json() as {
@@ -375,7 +451,7 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
         source?: { fileName?: string; sheet?: string };
       };
       assert.equal(response.status, 200, version);
-      assert.equal(payload.schemaVersion, "1.1", version);
+      assert.equal(payload.schemaVersion, version === "1.2" ? "1.2" : "1.1", version);
       assert.equal(payload.dataSource, "uploaded-workbook", version);
       assert.match(payload.inputFingerprint || "", /^sha256:[a-f0-9]{64}$/, version);
       assert.equal(payload.overview?.nodeCount, 16, version);
@@ -407,7 +483,8 @@ test("the remote worker boundary dual-reads strict 1.0 and 1.1 but publishes onl
       { name: "legacy unavailable NCT", payload: unavailable },
       { name: "legacy null grouping column", payload: nullGroupColumn },
       { name: "legacy mismatched group counts", payload: mismatchedCounts },
-      { name: "unknown version", payload: { ...workerResult("1.1"), schemaVersion: "1.2" } },
+      { name: "unknown version", payload: { ...workerResult("1.1"), schemaVersion: "2.0" } },
+      { name: "1.2 missing complete NCT", payload: { ...workerResult("1.1"), schemaVersion: "1.2" } },
       { name: "missing version", payload: missingVersion },
       { name: "legacy top-level raw data", payload: legacyWithRawData },
       { name: "native top-level records", payload: nativeWithRecords },

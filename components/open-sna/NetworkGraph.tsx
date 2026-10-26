@@ -211,6 +211,8 @@ export default function NetworkGraph({ result, copy }: { result: OpenSnaResult; 
                   const related = !activeNodeId || connectedNodeIds.has(node.id);
                   const selected = selectedNodeId === node.id;
                   const highlighted = activeNodeId === node.id;
+                  const labelCharacters = Array.from(node.label);
+                  const visibleLabel = labelCharacters.length > 16 ? `${labelCharacters.slice(0, 14).join("")}…` : node.label;
                   return (
                     <g key={node.id} transform={`translate(${node.x * width} ${node.y * height})`} role="button" tabIndex={communityActive ? 0 : -1} aria-hidden={!communityActive} aria-label={fillOpenSna(graph.nodeAria, { label: node.label, community: node.community, strength: nodeMetric(node.strength, copy.common.notAvailable), predictability: nodeMetric(node.predictability, copy.common.notAvailable), selected: selected ? graph.selectedSuffix : "" })} aria-pressed={selected} onClick={() => selectNode(node)} onKeyDown={(event) => handleNodeKeyboard(event, node)} onMouseEnter={() => communityActive && setHoveredNodeId(node.id)} onMouseLeave={() => setHoveredNodeId(null)} onFocus={() => communityActive && setHoveredNodeId(node.id)} onBlur={() => setHoveredNodeId(null)} className={cn("open-sna-graph-node", communityActive ? "cursor-pointer" : "pointer-events-none")} opacity={communityActive ? (related ? 1 : 0.28) : 0.1}>
                       <circle r={Math.max(22, radius + 8)} fill="transparent" stroke="none" />
@@ -218,7 +220,7 @@ export default function NetworkGraph({ result, copy }: { result: OpenSnaResult; 
                       <circle r={radius} fill={communityStyle.fill} stroke="var(--surface)" strokeWidth="2">
                         <title>{fillOpenSna(graph.nodeTitle, { id: node.id, community: node.community, strength: nodeMetric(node.strength, copy.common.notAvailable), predictability: nodeMetric(node.predictability, copy.common.notAvailable) })}</title>
                       </circle>
-                      <text className="open-sna-node-label" y="4" textAnchor="middle" fill={communityStyle.label} fontSize={denseLayout ? "10" : "12"} fontWeight="800" pointerEvents="none">{node.label}</text>
+                      <text className="open-sna-node-label" y={-radius - 10} textAnchor="middle" fill="var(--ink)" stroke="var(--surface)" strokeWidth="3" paintOrder="stroke" fontSize={denseLayout ? "10" : "12"} fontWeight="800" pointerEvents="none">{visibleLabel}<title>{node.label}</title></text>
                     </g>
                   );
                 })}
