@@ -56,7 +56,7 @@ second_run <- run_analysis()
 first <- first_run$result
 second <- second_run$result
 
-stopifnot(identical(first$schemaVersion, "1.1"))
+stopifnot(identical(first$schemaVersion, "1.2"))
 stopifnot(identical(first$analysisProfile, "npn-ebicglasso-v1"))
 stopifnot(identical(first$settings$correlationMethod, NPN_EBICGLASSO_CORRELATION_METHOD_V1))
 stopifnot(identical(first$models$network$method, NPN_EBICGLASSO_NETWORK_METHOD_V1))
@@ -124,6 +124,7 @@ expect_number(first$subgroupComparison$networkStructureDifference, 0)
 expect_number(first$subgroupComparison$globalStrengthPValue, 1)
 expect_number(first$subgroupComparison$networkStructurePValue, 1)
 expect_number(length(first$subgroupComparison$strongestEdgeDifferences), 8)
+expect_number(length(first$subgroupComparison$edgeDifferences), 780)
 expected_edge_difference_anchors <- list(
   list(source = "AA1", target = "AA10"),
   list(source = "AA1", target = "AA2"),

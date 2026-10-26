@@ -1,5 +1,7 @@
 import { formatOpenSnaNumber, type OpenSnaResult } from "@/lib/open-sna";
 import { isLocale, type Locale } from "@/lib/locales";
+import { uniquePositiveLeader } from "@/lib/open-sna-workflow";
+import { getWorkflowCopy } from "@/lib/open-sna-workflow-copy";
 
 type PanelCopy = { label: string; shortLabel: string; summary: string };
 
@@ -346,7 +348,7 @@ type DeterministicInsightId = (typeof DETERMINISTIC_INSIGHT_IDS)[number];
 const en: OpenSnaCopy = {
   meta: {
     title: "Open SNA",
-    description: "Run a transparent social network analysis workflow for Programming Resilience questionnaire data, with network, centrality, bridge, predictability, subgroup, stability, and evidence-summary results.",
+    description: "Run a transparent social network analysis workflow for questionnaire and scale data, with network, centrality, bridge, predictability, subgroup, stability, and evidence-summary results.",
   },
   page: {
     skip: "Skip to workbench",
@@ -354,7 +356,7 @@ const en: OpenSnaCopy = {
     runsOnR: "Runs on R",
     titleLead: "See the network.",
     titleAccent: "Trust the method.",
-    intro: "Explore a reproducible Programming Resilience reference network, or bring a compatible XLSX workbook into one evidence-consistent workflow for visualization, centrality, bridge nodes, subgroup comparison, and stability.",
+    intro: "Bring a questionnaire or scale workbook, map items to communities, confirm the analyzed sample, and run a reproducible R workflow for networks, centrality, bridge nodes, subgroup comparison, and stability. A Programming Resilience reference is available to explore.",
     introDisabled: "Public workbook analysis is temporarily closed. The aggregate reference result remains available to inspect.",
     analysisClosed: "Workbook analysis closed",
     exploreReference: "Explore reference result",
@@ -394,9 +396,9 @@ const en: OpenSnaCopy = {
     replaceFile: "Replace file",
     chooseFile: "Choose file",
     remove: "Remove",
-    help: "Use one worksheet with 6 to 40 integer Likert items (1 to 5), repeated construct prefixes, and a required valid two-level Gender or metadata column with at least 20 analyzed rows per group after listwise deletion.",
+    help: "Use one worksheet with 6-40 integer 1-5 questionnaire items. Map 2-8 communities (3-12 items each) and choose a two-level group column with at least 20 analyzed rows per group after listwise deletion.",
     sampleDownload: "Download a synthetic sample workbook",
-    stabilityPrecision: "2. Stability precision",
+    stabilityPrecision: "Stability precision",
     bootstrap100: "100 ≈ 45 s for the sample",
     bootstrap500: "500 ≈ 1.5 min for the sample",
     bootstrap1000: "1,000 ≈ 2+ min for the sample",
@@ -408,7 +410,7 @@ const en: OpenSnaCopy = {
     nct: "NCT",
     nctValue: "1,000 permutations",
     seed: "Seed",
-    run: "Run R + LUNA analysis",
+    run: "Run R analysis",
     running: "Analysis running",
     chooseToEnable: "Choose a valid workbook to enable analysis.",
     uploadClosed: "Workbook upload is closed",
@@ -429,9 +431,9 @@ const en: OpenSnaCopy = {
     title: "Public Beta",
     items: [
       "The service processes one analysis at a time.",
-      "A second concurrent request may return WORKER_BUSY.",
+      "Tasks may queue while the worker is busy. Keep the task ID to recover after a refresh.",
       "Large workbooks or analyses with 1,000 bootstrap replicates may time out.",
-      "Uploaded workbooks and row-level data are not retained.",
+      "Uploaded workbooks are held temporarily while tasks are queued or running, then removed. Aggregate results are retained until task expiry.",
       "This Public Beta has no high-availability or availability commitment.",
     ],
   },
@@ -683,7 +685,7 @@ const en: OpenSnaCopy = {
 const zhHant: OpenSnaCopy = {
   meta: {
     title: "Open SNA",
-    description: "為 Programming Resilience 問卷資料運行透明的社會網絡分析流程，涵蓋網絡、中心性、橋接、可預測性、子群組、穩定性與證據摘要。",
+    description: "為問卷與量表資料執行透明的社會網絡分析流程，涵蓋網絡、中心性、橋接、可預測性、子群組、穩定性與證據摘要。",
   },
   page: {
     skip: "跳至工作台",
@@ -691,7 +693,7 @@ const zhHant: OpenSnaCopy = {
     runsOnR: "以 R 運行",
     titleLead: "看見網絡。",
     titleAccent: "信守方法。",
-    intro: "探索可重現的 Programming Resilience 參照網絡，或把相容的 XLSX 活頁簿放入同一套證據一致的流程，涵蓋視覺化、中心性、橋接節點、子群組比較與穩定性。",
+    intro: "上傳問卷或量表活頁簿、設定題項社群並確認分析樣本，再執行可重現的 R 流程，涵蓋網絡、中心性、橋接節點、子群組比較與穩定性。亦可探索 Programming Resilience 參照結果。",
     introDisabled: "公開活頁簿分析暫時關閉。匯總參照結果仍可查看。",
     analysisClosed: "活頁簿分析已關閉",
     exploreReference: "查看參照結果",
@@ -731,9 +733,9 @@ const zhHant: OpenSnaCopy = {
     replaceFile: "更換檔案",
     chooseFile: "選擇檔案",
     remove: "移除",
-    help: "請使用單一工作表，包含 6 至 40 個整數 Likert 題項（1 至 5）、重複的構念前綴，以及一個有效的兩水平 Gender 或後設資料欄；在整列刪除（listwise deletion）後，每個組別至少要有 20 列納入分析。",
+    help: "使用一個工作表，包含 6-40 個整數 1-5 問卷題項。設定 2-8 個社群（每組 3-12 題），並選取兩水平分組欄位；整列刪除後每組至少 20 行。",
     sampleDownload: "下載合成樣本活頁簿",
-    stabilityPrecision: "2. 穩定性精度",
+    stabilityPrecision: "穩定性精度",
     bootstrap100: "100 ≈ 樣本約 45 秒",
     bootstrap500: "500 ≈ 樣本約 1.5 分鐘",
     bootstrap1000: "1,000 ≈ 樣本約 2 分鐘以上",
@@ -745,7 +747,7 @@ const zhHant: OpenSnaCopy = {
     nct: "NCT",
     nctValue: "1,000 次置換",
     seed: "隨機種子",
-    run: "運行 R + LUNA 分析",
+    run: "執行 R 分析",
     running: "分析進行中",
     chooseToEnable: "請先選擇有效的活頁簿，才能開始分析。",
     uploadClosed: "活頁簿上傳已關閉",
@@ -766,9 +768,9 @@ const zhHant: OpenSnaCopy = {
     title: "公開測試版",
     items: [
       "服務每次只處理一項分析。",
-      "同時提出的第二個請求可能回傳 WORKER_BUSY。",
+      "工作程式忙碌時任務會排隊。請保留任務 ID，以便重新整理後復原。",
       "大型活頁簿或使用 1,000 次自助法重複的分析可能會逾時。",
-      "上傳的活頁簿與列層資料不會保留。",
+      "上傳活頁簿會在任務排隊或執行期間暫存，結束後刪除；匯總結果保留至任務期限屆滿。",
       "此公開測試版不提供高可用性或可用性承諾。",
     ],
   },
@@ -1020,7 +1022,7 @@ const zhHant: OpenSnaCopy = {
 const zhHans: OpenSnaCopy = {
   meta: {
     title: "Open SNA",
-    description: "为 Programming Resilience 问卷数据运行透明的社会网络分析流程，涵盖网络、中心性、桥接、可预测性、子群组、稳定性与证据摘要。",
+    description: "为问卷与量表数据运行透明的社会网络分析流程，涵盖网络、中心性、桥接、可预测性、子群组、稳定性与证据摘要。",
   },
   page: {
     skip: "跳至工作台",
@@ -1028,7 +1030,7 @@ const zhHans: OpenSnaCopy = {
     runsOnR: "以 R 运行",
     titleLead: "看见网络。",
     titleAccent: "信守方法。",
-    intro: "探索可重现的 Programming Resilience 参照网络，或把兼容的 XLSX 工作簿放入同一套证据一致的流程，涵盖可视化、中心性、桥接节点、子群组比较与稳定性。",
+    intro: "上传问卷或量表工作簿、设置题项社区并确认分析样本，再运行可重现的 R 流程，涵盖网络、中心性、桥接节点、子群组比较与稳定性。亦可探索 Programming Resilience 参照结果。",
     introDisabled: "公开工作簿分析暂时关闭。汇总参照结果仍可查看。",
     analysisClosed: "工作簿分析已关闭",
     exploreReference: "查看参照结果",
@@ -1068,9 +1070,9 @@ const zhHans: OpenSnaCopy = {
     replaceFile: "更换文件",
     chooseFile: "选择文件",
     remove: "移除",
-    help: "请使用单个工作表，包含 6 至 40 个整数 Likert 题项（1 至 5）、重复的构念前缀，以及一个有效的两水平 Gender 或元数据列；在整行删除（listwise deletion）后，每个组别至少要有 20 行纳入分析。",
+    help: "使用一个工作表，包含 6-40 个整数 1-5 问卷题项。设置 2-8 个社区（每组 3-12 题），并选取两水平分组列；整行删除后每组至少 20 行。",
     sampleDownload: "下载合成样本工作簿",
-    stabilityPrecision: "2. 稳定性精度",
+    stabilityPrecision: "稳定性精度",
     bootstrap100: "100 ≈ 样本约 45 秒",
     bootstrap500: "500 ≈ 样本约 1.5 分钟",
     bootstrap1000: "1,000 ≈ 样本约 2 分钟以上",
@@ -1082,7 +1084,7 @@ const zhHans: OpenSnaCopy = {
     nct: "NCT",
     nctValue: "1,000 次置换",
     seed: "随机种子",
-    run: "运行 R + LUNA 分析",
+    run: "运行 R 分析",
     running: "分析进行中",
     chooseToEnable: "请先选择有效的工作簿，才能开始分析。",
     uploadClosed: "工作簿上传已关闭",
@@ -1103,9 +1105,9 @@ const zhHans: OpenSnaCopy = {
     title: "公开测试版",
     items: [
       "服务每次只处理一项分析。",
-      "同时提出的第二个请求可能返回 WORKER_BUSY。",
+      "工作程序忙碌时任务会排队。请保留任务 ID，以便刷新后恢复。",
       "大型工作簿或使用 1,000 次自助法重复的分析可能会超时。",
-      "上传的工作簿与行级数据不会保留。",
+      "上传工作簿会在任务排队或运行期间暂存，结束后删除；汇总结果保留至任务期限届满。",
       "此公开测试版不提供高可用性或可用性承诺。",
     ],
   },
@@ -1427,21 +1429,30 @@ function isDeterministicInsightId(id: string): id is DeterministicInsightId {
   return (DETERMINISTIC_INSIGHT_IDS as readonly string[]).includes(id);
 }
 
-function topNode(nodes: OpenSnaResult["nodes"], key: "strength" | "bridgeStrength" | "predictability") {
-  let best: { id: string; value: number } | null = null;
-  for (const node of nodes) {
-    const value = node[key];
-    if (typeof value !== "number" || !Number.isFinite(value)) continue;
-    if (!best || value > best.value) best = { id: node.id, value };
-  }
-  return best;
-}
 
 export function presentOpenSnaInsight(
   copy: OpenSnaCopy,
   result: OpenSnaResult,
   insight: OpenSnaResult["interpretation"]["insights"][number],
 ) {
+  const workflow = getWorkflowCopy(copy === zhHant ? "zh-hant" : copy === zhHans ? "zh-hans" : "en");
+  // Imported and AI-authored prose obey the same evidence limits as fresh R prose.
+  // A prompt alone cannot guarantee that a provider respects these constraints.
+  if (["central-node", "centrality"].includes(insight.id)) {
+    const cs = result.stability.metrics.find(metric => metric.id === "strength")?.coefficient;
+    if (!uniquePositiveLeader(result.nodes, "strength") || cs === null || cs === undefined || cs < 0.25) {
+      return { title: copy.panels.centrality.label, evidence: copy.insights.evidence.centralNode, text: workflow.neutralStrength };
+    }
+  }
+  if (["bridge-node", "bridge"].includes(insight.id)) {
+    const cs = result.stability.metrics.find(metric => metric.id === "bridgeStrength")?.coefficient;
+    if (!uniquePositiveLeader(result.nodes, "bridgeStrength") || cs === null || cs === undefined || cs < 0.25) {
+      return { title: copy.insights.titles.bridgeLimited, evidence: copy.insights.evidence.bridgeLimited, text: workflow.neutralBridge };
+    }
+  }
+  if (insight.id === "predictability" && !uniquePositiveLeader(result.nodes, "predictability")) {
+    return { title: copy.panels.predictability.label, evidence: copy.insights.evidence.predictability, text: workflow.neutralPredictability };
+  }
   if (result.interpretation.thirdPartyAiUsed || !isDeterministicInsightId(insight.id)) return insight;
   const number = (value: number) => formatOpenSnaNumber(value, 3, copy.common.notAvailable);
   switch (insight.id) {
@@ -1456,26 +1467,28 @@ export function presentOpenSnaInsight(
         }),
       };
     case "central-node": {
-      const node = topNode(result.nodes, "strength");
-      if (!node) return insight;
+      const node = uniquePositiveLeader(result.nodes, "strength");
+      const cs = result.stability.metrics.find(metric => metric.id === "strength")?.coefficient;
+      if (!node || cs === null || cs === undefined || cs < 0.25) return { title: copy.insights.titles.centralNode, evidence: copy.insights.evidence.centralNode, text: workflow.neutralStrength };
       return {
         title: copy.insights.titles.centralNode,
         evidence: copy.insights.evidence.centralNode,
-        text: fillOpenSna(copy.insights.centralNode, { node: node.id, value: number(node.value) }),
+        text: fillOpenSna(copy.insights.centralNode, { node: node.id, value: number(node.strength!) }),
       };
     }
     case "predictability": {
-      const node = topNode(result.nodes, "predictability");
-      if (!node) return insight;
+      const node = uniquePositiveLeader(result.nodes, "predictability");
+      if (!node) return { title: copy.insights.titles.predictability, evidence: copy.insights.evidence.predictability, text: workflow.neutralPredictability };
       return {
         title: copy.insights.titles.predictability,
         evidence: copy.insights.evidence.predictability,
-        text: fillOpenSna(copy.insights.predictability, { node: node.id, value: number(node.value) }),
+        text: fillOpenSna(copy.insights.predictability, { node: node.id, value: number(node.predictability!) }),
       };
     }
     case "bridge-node": {
-      const node = topNode(result.nodes, "bridgeStrength");
-      if (!node) return insight;
+      const node = uniquePositiveLeader(result.nodes, "bridgeStrength");
+      const cs = result.stability.metrics.find(metric => metric.id === "bridgeStrength")?.coefficient;
+      if (!node || cs === null || cs === undefined || cs < 0.25) return { title: copy.insights.titles.bridgeLimited, evidence: copy.insights.evidence.bridgeLimited, text: workflow.neutralBridge };
       return {
         title: copy.insights.titles.bridgeNode,
         evidence: copy.insights.evidence.bridgeNode,
@@ -1486,7 +1499,7 @@ export function presentOpenSnaInsight(
       return {
         title: copy.insights.titles.bridgeLimited,
         evidence: copy.insights.evidence.bridgeLimited,
-        text: copy.insights.bridgeLimited,
+        text: workflow.neutralBridge,
       };
     case "subgroup-comparison": {
       const detected = result.subgroupComparison.networkStructurePValue < 0.05;

@@ -56,8 +56,8 @@ test("Chinese Open SNA analysis panels differ from English and use Han script", 
       assert.match(copy.panels[id].summary, /\p{Script=Han}/u);
     }
     assert.match(copy.errors.generic, /\p{Script=Han}/u);
-    assert.match(copy.setup.help, /Gender/);
-    assert.match(copy.setup.help, /listwise deletion/);
+    assert.match(copy.setup.help, /分組|分组/);
+    assert.match(copy.setup.help, /刪除|删除/);
     assert.notEqual(copy.errors.referenceLoad, english.errors.referenceLoad);
   }
   assert.notEqual(getOpenSnaCopy("zh-hant").panels.overview.label, getOpenSnaCopy("zh-hans").panels.overview.label);

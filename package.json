@@ -8,20 +8,27 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=2 tests/*.test.ts",
     "open-sna:r-preflight": "Rscript --vanilla analysis/open-sna/preflight.R",
     "open-sna:r-regression": "Rscript --vanilla analysis/open-sna/tests/empty-network-regression.R",
     "open-sna:r-group-regression": "Rscript --vanilla analysis/open-sna/tests/group-selection-regression.R",
     "open-sna:r-conditioning-regression": "Rscript --vanilla analysis/open-sna/tests/conditioning-regression.R",
     "open-sna:r-validation-runtime-isolation-regression": "Rscript --vanilla analysis/open-sna/tests/validation-runtime-isolation-regression.R",
     "open-sna:r-validation-cli-regression": "Rscript --vanilla analysis/open-sna/tests/validation-cli-regression.R",
-    "open-sna:r-statistical-release": "npm run open-sna:r-preflight && npm run open-sna:r-validation-runtime-isolation-regression && npm run open-sna:r-validation-cli-regression && npm run open-sna:r-group-regression && npm run open-sna:r-conditioning-regression && npm run open-sna:r-regression",
+    "open-sna:r-statistical-release": "npm run open-sna:r-preflight && npm run open-sna:r-validation-runtime-isolation-regression && npm run open-sna:r-validation-cli-regression && npm run open-sna:r-group-regression && npm run open-sna:r-conditioning-regression && npm run open-sna:r-regression && npm run open-sna:r-researcher-regression",
     "release:hygiene": "node scripts/check-release.mjs",
-    "release:verify": "npm run open-sna:r-statistical-release && npm run test && npm run build -- --webpack && npm run typecheck && npm run release:hygiene"
+    "release:verify": "npm run open-sna:r-statistical-release && npm run test && npm run build -- --webpack && npm run typecheck && npm run release:hygiene",
+    "open-sna:worker": "tsx scripts/open-sna-worker.ts",
+    "open-sna:worker:once": "tsx scripts/open-sna-worker.ts --once",
+    "open-sna:r-researcher-regression": "Rscript --vanilla analysis/open-sna/tests/researcher-workflow-regression.R"
   },
   "dependencies": {
+    "@google-cloud/storage": "8.4.0",
+    "@google-cloud/tasks": "7.3.1",
+    "@next/env": "16.3.8",
     "@vercel/analytics": "2.0.1",
-    "next": "16.3.5",
+    "google-auth-library": "11.3.1",
+    "next": "16.3.8",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "sharp": "0.35.4"
@@ -35,5 +42,8 @@
     "tailwindcss": "3.4.17",
     "tsx": "4.22.4",
     "typescript": "5.8.3"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

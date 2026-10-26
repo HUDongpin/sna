@@ -264,7 +264,7 @@ function runRAnalysis(options: {
 function normalizeRemoteResult(payload: unknown): OpenSnaResult | null {
   if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return null;
   const version = (payload as { schemaVersion?: unknown }).schemaVersion;
-  if (version === "1.1") return isOpenSnaResult(payload) ? payload : null;
+  if (version === "1.1" || version === "1.2") return isOpenSnaResult(payload) ? payload : null;
   if (version !== "1.0") return null;
 
   const candidate = { ...payload, schemaVersion: "1.1" };
@@ -425,12 +425,15 @@ export async function POST(request: Request) {
     );
     const validWorkerRoot = workerMode &&
       (temporaryRoot.startsWith("/tmp/open-sna-") || temporaryRoot.startsWith("/var/tmp/open-sna-"));
-    if (!validWorkerRoot && !temporaryRoot.startsWith("/Volumes/Starship/") && !isTestSystemTemporaryRoot(temporaryRoot)) {
+    const relativeLocalRoot = path.relative(path.join(process.cwd(), "tmp"), temporaryRoot);
+    const validLocalRoot = !workerMode && relativeLocalRoot !== ".." &&
+      !relativeLocalRoot.startsWith(`..${path.sep}`) && !path.isAbsolute(relativeLocalRoot);
+    if (!validWorkerRoot && !validLocalRoot && !isTestSystemTemporaryRoot(temporaryRoot)) {
       return noStoreJson(
         {
           error: workerMode
             ? "Open SNA worker jobs require an isolated /tmp/open-sna-* or /var/tmp/open-sna-* directory."
-            : "Local Open SNA jobs are restricted to a temporary directory on /Volumes/Starship/.",
+            : "Local Open SNA jobs require a temporary directory within the current project's tmp directory.",
           code: workerMode ? "WORKER_CONFIGURATION_INVALID" : undefined,
         },
         503

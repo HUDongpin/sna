@@ -17,14 +17,14 @@ The project is static-first and compact. Open SNA adds an explicitly bounded ana
 | News discovery | `lib/news-filter.ts`, `lib/news-types.ts` | Search, filters, pagination, and typed article contracts |
 | Reviewed Academy corpus | `lib/academy-reviewed-data.ts` | A growing sequence of static SNA tutorials with complete three-language content, method sources, and evidence and privacy boundaries |
 | Academy discovery | `lib/academy-filter.ts`, `lib/academy-types.ts` | Search, track and level filters, pagination, and typed tutorial contracts |
-| Open SNA workbench | `app/[locale]/open-sna`, `components/open-sna`, `lib/open-sna.ts` | English analysis interface, accessible visualizations, aggregate result contract, and downloads |
-| Open SNA R boundary | `analysis/open-sna`, `app/api/open-sna/analyze` | Reproducible R runner, bounded local adapter, and fail-closed production service integration |
+| Open SNA workbench | `app/[locale]/open-sna`, `components/open-sna`, `lib/open-sna.ts` | Localized questionnaire inspection, confirmed mapping, recoverable tasks, accessible visualizations, and research-package exports |
+| Open SNA R boundary | `analysis/open-sna`, `app/api/open-sna` | Pinned R inspection/validation, durable jobs, authenticated production worker, and a legacy synchronous adapter |
 | Site identity | `lib/site.ts` | Canonical URL and absolute URL construction |
 | Search semantics | `lib/structured-data.ts`, `app/robots.ts`, `app/sitemap.ts` | JSON-LD, robots policy, and localized sitemap entries |
 | Static assets | `public` | Logo, favicon, home hero image, public About-page identity assets, and reviewed News media |
 | Contract validation | `tests/site.test.ts` | Mechanical checks for routes, localization, branding, content boundaries, metadata, and redirects |
 
-There is no content database, scheduled publishing service, or mailing integration in the current architecture. The Open SNA production upload path requires an independently deployed R service; without it, the upload action fails closed while the bundled aggregate reference remains available.
+There is no content database, scheduled publishing service, or mailing integration. Analysis tasks use local SQLite storage with a separate worker process in development, and private Cloud Storage plus Cloud Tasks on the production R worker. A minute maintenance schedule repairs dispatch and cleans expired job data. The public adapter fails closed without the configured worker; the bundled aggregate reference remains separately available.
 
 ## Locales
 
@@ -42,11 +42,23 @@ The root route redirects to `/en`. Nonlocalized aliases such as `/news`, `/acade
 
 ## Open SNA analysis contract
 
-Open SNA is an English research workbench available within all three localized shells. Its canonical and sitemap entry is `/en/open-sna` because the workbench itself is not presented as a three-language translation. It exposes eight connected result areas: Data Overview, Network Visualization, Centrality Analysis, Bridge Node Analysis, Predictability Analysis, Subgroup Comparison (NCT), Stability Analysis, and AI Interpretation. Every successful result uses aggregate schema `1.1` and includes one valid binary `Gender` or metadata grouping column with at least 20 analyzed rows in each group after listwise deletion. For uploaded analyses, the final area uses GPT-5.6 Luna through OpenRouter when `OPENROUTER_API_KEY` is configured; only a bounded aggregate-statistics payload is sent, with zero-data-retention and no-data-collection routing required. If LUNA is unavailable, the result remains usable and clearly falls back to the deterministic, evidence-bound R summary.
+Open SNA is a questionnaire/scale research workbench with English, Traditional Chinese and Simplified Chinese interfaces. Its existing canonical and sitemap entry remains `/en/open-sna`. It exposes eight connected result areas: Data Overview, Network Visualization, Centrality Analysis, Bridge Node Analysis, Predictability Analysis, Subgroup Comparison (NCT), Stability Analysis, and AI Interpretation. New results use aggregate schema `1.2`; saved `1.1` results remain readable. Researchers select their grouping column explicitly, and both groups must have at least 20 analyzed rows after listwise deletion. The complete pairwise NCT edge table is preserved in new results; older top-edge subsets are labeled incomplete. For uploaded analyses, the final area uses GPT-5.6 Luna through OpenRouter when `OPENROUTER_API_KEY` is configured; only a bounded aggregate-statistics payload is sent, with zero-data-retention and no-data-collection routing required. If LUNA is unavailable, the result remains usable and clearly falls back to the deterministic, evidence-bound R summary.
 
 All network-based panels use the named `npn-ebicglasso-v1` profile. Predictability uses a separately identified MGM model with the same input and preprocessing provenance. NCT uses 1,000 independent-group permutations with Holm-adjusted edge tests, and the recommended stability result uses 1,000 case-dropping bootstrap samples. CS coefficients below 0.25 are marked "Do not interpret."
 
 The public Programming Resilience example contains aggregate results only. The original workbook, respondent rows, and ID values are not public assets. See `analysis/open-sna/README.md` for the method, workbook schema, runtime, local command, privacy boundary, and production-worker requirements.
+
+## Researcher workflow
+
+1. Select an XLSX workbook. Inspection uploads it temporarily and returns column-level aggregate diagnostics, not respondent rows.
+2. Select 6–40 integer 1–5 items, assign analysis IDs and 2–8 predefined construct communities (3–12 items each), select a binary group, and identify any reverse-scored items. Original headers may be Unicode; analysis IDs and community codes are bounded ASCII identifiers. The fixed model and scale remain unchanged.
+3. Run R validation and review original/analyzed/excluded row counts, item/community counts and both groups. Confirm the mapping before running. Editing the file or mapping invalidates the old validation.
+4. Submit a durable task. Its opaque ID can recover the same analysis after refresh or reconnection; keep it private. A separate process runs R, with a 600-second execution limit and one active task. Tasks and aggregate results expire after 24 hours. Inputs are removed on terminal outcomes, with maintenance and storage lifecycle cleanup as backups.
+5. Download the research ZIP: aggregate JSON, node and network-edge CSVs, complete NCT and stability CSVs, editable SVGs, a printable HTML methods/results report, mapping/settings/runtime provenance, and `reproduce.R`. Reopen the JSON directly in the workbench. The package contains no source workbook or respondent rows.
+
+Deterministic and optional AI rankings are restricted by ties, zero/unavailable estimates, and relevant centrality stability. Optional AI never changes the computed statistics. The fixed profile does not establish causal effects or the suitability of a research design.
+
+Deployment preparation and cloud gates are in [the worker runbook](analysis/open-sna/WORKER_DEPLOYMENT.md). The [researcher pilot protocol](docs/RESEARCHER_PILOT.md) separates machine verification from the proposed 3–5 researcher usability acceptance; that pilot has not been conducted by the implementation.
 
 ## Logo
 
@@ -105,14 +117,14 @@ The Academy index follows the News discovery pattern with URL-based search, trac
 
 ## Local development
 
-Prerequisites are a current Node.js LTS release and npm. Viewing the aggregate Open SNA reference requires only the web application. Running local workbook analysis also requires the exact verified R runtime documented in `analysis/open-sna/README.md`; a production container and transitive dependency lock remain a separate deployment gate.
+Prerequisites are Node.js 24.x and npm. The local durable worker uses the built-in SQLite API in Node 24. Viewing the aggregate Open SNA reference requires only the web application. Running local workbook analysis also requires the exact verified R runtime documented in `analysis/open-sna/README.md`; a production container and transitive dependency lock remain a separate deployment gate.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The root route will take you to the English home page.
+In a second terminal, run `npm run open-sna:worker` for uploaded analyses. Both processes load the same `.env.local`; an explicit `OPEN_SNA_JOB_ROOT` must be the same for both. Open [http://localhost:3000](http://localhost:3000). The root route takes you to the English home page.
 
 Useful commands:
 
@@ -125,7 +137,9 @@ npm run release:verify
 npm run open-sna:r-preflight
 ```
 
-`npm run release:verify` runs the contract tests, production build, TypeScript check, and repository hygiene check in sequence.
+`npm test` limits test-file concurrency to two because the suite includes independent worker processes and strict timeout checks.
+
+`npm run release:verify` runs the pinned R preflight and statistical regressions, contract tests, production build, TypeScript check, and repository hygiene check in sequence. Local checks do not establish a live cloud deployment or researcher acceptance.
 
 ## Validation contract
 
